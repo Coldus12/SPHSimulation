@@ -1,8 +1,4 @@
-//
-// Created by PCF112021 on 3/8/2022.
-//
-
-#include "Vertex.h"
+#include "Vertex.hpp"
 namespace Vltava {
     vk::VertexInputBindingDescription Vertex::getBindingDescription() {
         vk::VertexInputBindingDescription bindingDescription(0, sizeof(Vertex), vk::VertexInputRate::eVertex);

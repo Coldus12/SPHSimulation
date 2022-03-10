@@ -1,9 +1,5 @@
-//
-// Created by PCF112021 on 3/8/2022.
-//
-
-#ifndef SPHSIMULATION_VERTEX_H
-#define SPHSIMULATION_VERTEX_H
+#ifndef SPHSIMULATION_VERTEX_HPP
+#define SPHSIMULATION_VERTEX_HPP
 
 #include <glm/glm.hpp>
 #include "vulkan/vulkan.hpp"
@@ -20,4 +16,4 @@ namespace Vltava {
 }
 
 
-#endif //SPHSIMULATION_VERTEX_H
+#endif //SPHSIMULATION_VERTEX_HPP

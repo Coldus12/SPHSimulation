@@ -1,9 +1,5 @@
-//
-// Created by coldus on 3/8/22.
-//
-
-#include "Model.h"
-#include "VltavaFunctions.h"
+#include "Model.hpp"
+#include "VltavaFunctions.hpp"
 
 #define VMA_IMPLEMENTATION
 #include "vma/vk_mem_alloc.hpp"

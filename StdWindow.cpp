@@ -1,9 +1,5 @@
-//
-// Created by PCF112021 on 3/3/2022.
-//
-
-#include "StdWindow.h"
-#include "VltavaFunctions.h"
+#include "StdWindow.hpp"
+#include "VltavaFunctions.hpp"
 
 namespace Vltava {
     // Main loop

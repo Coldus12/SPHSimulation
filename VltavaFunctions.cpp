@@ -1,7 +1,4 @@
-//
-// Created by PCF112021 on 3/8/2022.
-//
-#include "VltavaFunctions.h"
+#include "VltavaFunctions.hpp"
 
 namespace Vltava {
     uint32_t findMemoryType(uint32_t typeFilter, const vk::PhysicalDeviceMemoryProperties &properties, vk::MemoryPropertyFlags flags) {

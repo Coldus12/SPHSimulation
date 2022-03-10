@@ -1,9 +1,5 @@
-//
-// Created by PCF112021 on 3/8/2022.
-//
-
-#ifndef SPHSIMULATION_VLTAVAFUNCTIONS_H
-#define SPHSIMULATION_VLTAVAFUNCTIONS_H
+#ifndef SPHSIMULATION_VLTAVAFUNCTIONS_HPP
+#define SPHSIMULATION_VLTAVAFUNCTIONS_HPP
 
 #include <iostream>
 #include <fstream>
@@ -16,4 +12,4 @@ namespace Vltava {
     void sanityCheck(const std::string &str);
 }
 
-#endif //SPHSIMULATION_VLTAVAFUNCTIONS_H
+#endif //SPHSIMULATION_VLTAVAFUNCTIONS_HPP

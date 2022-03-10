@@ -1,9 +1,5 @@
-//
-// Created by PCF112021 on 3/3/2022.
-//
-
-#ifndef SPHSIMULATION_STDWINDOW_H
-#define SPHSIMULATION_STDWINDOW_H
+#ifndef SPHSIMULATION_STDWINDOW_HPP
+#define SPHSIMULATION_STDWINDOW_HPP
 
 #define GLFW_INCLUDE_VULKAN
 #include "GLFW/glfw3.h"
@@ -11,7 +7,7 @@
 #include "vulkan/vulkan.hpp"
 #include "vulkan/vulkan_raii.hpp"
 
-#include "Model.h"
+#include "Model.hpp"
 
 #include <iostream>
 #include <limits>
@@ -134,4 +130,4 @@ namespace Vltava {
     };
 }
 
-#endif //SPHSIMULATION_STDWINDOW_H
+#endif //SPHSIMULATION_STDWINDOW_HPP

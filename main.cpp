@@ -1,4 +1,4 @@
-#include "StdWindow.h"
+#include "StdWindow.hpp"
 
 int main(int, char**) {
     try {

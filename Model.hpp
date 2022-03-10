@@ -1,9 +1,5 @@
-//
-// Created by coldus on 3/8/22.
-//
-
-#ifndef SPHSIMULATION_MODEL_H
-#define SPHSIMULATION_MODEL_H
+#ifndef SPHSIMULATION_MODEL_HPP
+#define SPHSIMULATION_MODEL_HPP
 
 #include <iostream>
 #include <fstream>
@@ -11,7 +7,7 @@
 #include "vulkan/vulkan.hpp"
 #include "vulkan/vulkan_raii.hpp"
 
-#include "Vertex.h"
+#include "Vertex.hpp"
 
 namespace Vltava {
 
@@ -51,4 +47,4 @@ namespace Vltava {
 }
 
 
-#endif //SPHSIMULATION_MODEL_H
+#endif //SPHSIMULATION_MODEL_HPP

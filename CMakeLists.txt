@@ -3,7 +3,7 @@ project(SPHSimulation)
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(SPHSimulation main.cpp StdWindow.cpp StdWindow.h Vertex.cpp Vertex.h Model.cpp Model.h VltavaFunctions.h VltavaFunctions.cpp)
+add_executable(SPHSimulation main.cpp StdWindow.cpp StdWindow.hpp Vertex.cpp Vertex.hpp Model.cpp Model.hpp VltavaFunctions.hpp VltavaFunctions.cpp)
 #add_subdirectory( imgui )
 add_subdirectory( vma )
 
