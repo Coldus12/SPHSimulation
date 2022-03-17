@@ -419,7 +419,16 @@ namespace Vltava {
         createRenderPass();
 
         // Updating / recreating the pipelines of the models
-        PipelineCreationResources updated{&*renderPass, &swapChainExtent, &*physicalDevice, &*device};
+        VulkanResources updated{
+            &*renderPass,
+            &swapChainExtent,
+            &*physicalDevice,
+            &*device,
+            &*instance,
+            &*commandPool,
+            &*graphicsQueue
+        };
+
         model->updateResources(updated);
 
         createFramebuffers();
@@ -545,7 +554,16 @@ namespace Vltava {
     // Load model
     //------------------------------------------------------------------------------------------------------------------
     void StdWindow::loadModel() {
-        PipelineCreationResources res{&*renderPass, &swapChainExtent, &*physicalDevice, &*device};
+        VulkanResources res{
+            &*renderPass,
+            &swapChainExtent,
+            &*physicalDevice,
+            &*device,
+            &*instance,
+            &*commandPool,
+            &*graphicsQueue
+        };
+
         model = std::make_unique<Model>(res);
     }
 

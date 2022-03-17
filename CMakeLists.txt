@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 add_executable(SPHSimulation main.cpp StdWindow.cpp StdWindow.hpp Vertex.cpp Vertex.hpp Model.cpp Model.hpp VltavaFunctions.hpp VltavaFunctions.cpp)
 #add_subdirectory( imgui )
-add_subdirectory( vma )
+#add_subdirectory( vma )
 
 if (WIN32)
     add_subdirectory( glfw )

@@ -1,7 +1,8 @@
 target_sources(
         ${PROJECT_NAME}
         PUBLIC
-            vk_mem_alloc.hpp
+            VmaUsage.hpp
+            VmaUsage.cpp
             vk_mem_alloc.h
 )
 

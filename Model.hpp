@@ -11,24 +11,31 @@
 
 namespace Vltava {
 
-    struct PipelineCreationResources {
+    struct VulkanResources {
         vk::raii::RenderPass* renderPass;
         vk::Extent2D* extent;
         vk::raii::PhysicalDevice* physDev;
         vk::raii::Device* dev;
+        vk::raii::Instance* instance;
+        vk::raii::CommandPool* commandPool;
+        vk::raii::Queue* graphicsQueue;
     };
 
     class Model {
     public:
         Model() = delete;
-        Model(PipelineCreationResources& resources);
+        Model(VulkanResources& resources);
 
         virtual void loadModel(const std::string& path);
         virtual void loadShaders(const std::string& vertShader, const std::string& fragShader);
         virtual void draw(const vk::raii::CommandBuffer& buffer);
-        virtual void updateResources(const PipelineCreationResources& res);
+        virtual void updateResources(const VulkanResources& res);
+
+        void copyBuffer(vk::Buffer src, vk::Buffer dst, vk::DeviceSize size);
+        //void test(); //vma test function
+
     private:
-        PipelineCreationResources& resources;
+        VulkanResources& resources;
 
         std::string vertShaderPath;
         std::string fragShaderPath;
@@ -36,8 +43,8 @@ namespace Vltava {
         std::vector<Vertex> vertices;
 
         std::unique_ptr<vk::raii::Pipeline> graphicsPipeline;
-        std::unique_ptr<vk::raii::Buffer> buffer;
-        std::unique_ptr<vk::raii::DeviceMemory> vertexBuffer;
+        std::unique_ptr<vk::raii::Buffer> vertexBuffer;
+        std::unique_ptr<vk::raii::DeviceMemory> vertexBufferMemory;
 
         std::pair<vk::raii::Buffer, vk::raii::DeviceMemory> createBuffer(vk::DeviceSize bufferSize,
                                                                          vk::BufferUsageFlags usage,

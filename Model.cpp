@@ -1,21 +1,52 @@
 #include "Model.hpp"
 #include "VltavaFunctions.hpp"
 
-#define VMA_IMPLEMENTATION
-#include "vma/vk_mem_alloc.hpp"
+// Causes program to crash with error code 0xC0000139 -> some configuration is wrong (?)
+//#include "VmaUsage.hpp"
 
-Vltava::Model::Model(PipelineCreationResources &resources) : resources(resources) {
+Vltava::Model::Model(VulkanResources &resources) : resources(resources) {
     loadModel("");
     loadShaders("shaders/vert.spv", "shaders/frag.spv");
     createPipeline();
+
+    //test();
 }
 
-void Vltava::Model::updateResources(const PipelineCreationResources &res) {
+// Supposed to test vma
+/*void Vltava::Model::test() {
+    VmaAllocatorCreateInfo allocatorCreateInfo = {};
+    allocatorCreateInfo.vulkanApiVersion = VK_API_VERSION_1_2;
+    allocatorCreateInfo.physicalDevice = **resources.physDev;
+    allocatorCreateInfo.device = **resources.dev;
+    allocatorCreateInfo.instance = **resources.instance;
+
+    VmaAllocator allocator;
+    vmaCreateAllocator(&allocatorCreateInfo, &allocator);
+
+    VkBufferCreateInfo bufferInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    bufferInfo.size = 65536;
+    bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+    VmaAllocationCreateInfo allocInfo = {};
+    allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+
+    VkBuffer buff;
+    VmaAllocation allocation;
+    vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buff, &allocation, nullptr);
+
+    vmaDestroyBuffer(allocator, buff, allocation);
+    vmaDestroyAllocator(allocator);
+}*/
+
+void Vltava::Model::updateResources(const VulkanResources &res) {
     // Updating the resources
     resources.dev = res.dev;
     resources.extent = res.extent;
     resources.renderPass = res.renderPass;
     resources.physDev = res.physDev;
+    resources.instance = res.instance;
+    resources.commandPool = res.commandPool;
+    resources.graphicsQueue = res.graphicsQueue;
 
     // Deleting the out of date pipeline
     graphicsPipeline.reset();
@@ -51,6 +82,30 @@ std::pair<vk::raii::Buffer, vk::raii::DeviceMemory> Vltava::Model::createBuffer(
     return std::pair<vk::raii::Buffer, vk::raii::DeviceMemory>(std::move(localBuffer), std::move(devMem));
 }
 
+void Vltava::Model::copyBuffer(vk::Buffer src, vk::Buffer dst, vk::DeviceSize size) {
+    vk::CommandBufferAllocateInfo allocateInfo(
+            **resources.commandPool,
+            vk::CommandBufferLevel::ePrimary,
+            1
+    );
+
+    std::vector<vk::raii::CommandBuffer> commandBuffers = resources.dev->allocateCommandBuffers(allocateInfo);
+
+    vk::CommandBufferBeginInfo beginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+    commandBuffers[0].begin(beginInfo);
+
+    vk::BufferCopy copyRegion(0,0, size);
+    commandBuffers[0].copyBuffer(src, dst, copyRegion);
+    commandBuffers[0].end();
+
+    vk::SubmitInfo submitInfo;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &*commandBuffers[0];
+
+    resources.graphicsQueue->submit(submitInfo);
+    resources.graphicsQueue->waitIdle();
+}
+
 void Vltava::Model::loadModel(const std::string &path) {
     vertices.reserve(3);
     vertices.push_back({{0.0f, -0.5f},{1.0f, 0.0f, 0.0f}});
@@ -59,33 +114,38 @@ void Vltava::Model::loadModel(const std::string &path) {
 
     vk::DeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
+    // Staging buffer creation
+    //---------------------------------
     auto hostlocal = createBuffer(
             bufferSize,
-            vk::BufferUsageFlagBits::eVertexBuffer,
+            vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferSrc,
             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
     );
 
-    //vk::raii::Buffer stagingBuffer = std::move(hostlocal.first);
-    //vk::raii::DeviceMemory stagingMemory = std::move(hostlocal.second);
+    vk::raii::Buffer stagingBuffer = std::move(hostlocal.first);
+    vk::raii::DeviceMemory stagingMemory = std::move(hostlocal.second);
 
-    buffer = std::make_unique<vk::raii::Buffer>(std::move(hostlocal.first));
-    vertexBuffer = std::make_unique<vk::raii::DeviceMemory>(std::move(hostlocal.second));
-
-    buffer->bindMemory(**vertexBuffer, 0);
-    void *data = vertexBuffer->mapMemory(0, VK_WHOLE_SIZE);
-    memcpy(data, vertices.data(), bufferSize);
-    vertexBuffer->unmapMemory();
-
-    /*stagingBuffer.bindMemory(*stagingMemory, 0);
-    void *data = stagingMemory.mapMemory(0, VK_WHOLE_SIZE);
+    stagingBuffer.bindMemory(*stagingMemory, 0);
+    void* data = stagingMemory.mapMemory(0, VK_WHOLE_SIZE);
     memcpy(data, vertices.data(), bufferSize);
     stagingMemory.unmapMemory();
 
+    // Device local buffer creation
+    //---------------------------------
     auto devicelocal = createBuffer(
             bufferSize,
             vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer,
             vk::MemoryPropertyFlagBits::eDeviceLocal
-    );*/
+    );
+
+    vertexBuffer = std::make_unique<vk::raii::Buffer>(std::move(devicelocal.first));
+    vertexBufferMemory = std::make_unique<vk::raii::DeviceMemory>(std::move(devicelocal.second));
+
+    vertexBuffer->bindMemory(**vertexBufferMemory,0);
+
+    // Copying data from staging buffer to local buffer
+    //---------------------------------
+    copyBuffer(*stagingBuffer,**vertexBuffer,bufferSize);
 }
 
 void Vltava::Model::loadShaders(const std::string &vertShaderPath, const std::string &fragShaderPath) {
@@ -203,6 +263,6 @@ void Vltava::Model::createPipeline() {
 
 void Vltava::Model::draw(const vk::raii::CommandBuffer& cmdBuffer) {
     cmdBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, **graphicsPipeline);
-    cmdBuffer.bindVertexBuffers(0, **buffer, {0});
+    cmdBuffer.bindVertexBuffers(0, **vertexBuffer, {0});
     cmdBuffer.draw(static_cast<uint32_t>(vertices.size()), 1, 0, 0);
 }
