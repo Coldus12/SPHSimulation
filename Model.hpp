@@ -32,7 +32,6 @@ namespace Vltava {
         virtual void updateResources(const VulkanResources& res);
 
         void copyBuffer(vk::Buffer src, vk::Buffer dst, vk::DeviceSize size);
-        //void test(); //vma test function
 
     private:
         VulkanResources& resources;
@@ -41,14 +40,22 @@ namespace Vltava {
         std::string fragShaderPath;
 
         std::vector<Vertex> vertices;
+        std::vector<uint16_t> indices;
 
         std::unique_ptr<vk::raii::Pipeline> graphicsPipeline;
+
+        // Vertex buffers
         std::unique_ptr<vk::raii::Buffer> vertexBuffer;
         std::unique_ptr<vk::raii::DeviceMemory> vertexBufferMemory;
+
+        // Index buffers
+        std::unique_ptr<vk::raii::Buffer> indexBuffer;
+        std::unique_ptr<vk::raii::DeviceMemory> indexBufferMemory;
 
         std::pair<vk::raii::Buffer, vk::raii::DeviceMemory> createBuffer(vk::DeviceSize bufferSize,
                                                                          vk::BufferUsageFlags usage,
                                                                          vk::MemoryPropertyFlags memFlags);
+        void createIndexBuffer();
         virtual void createPipeline();
     };
 }

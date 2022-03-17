@@ -1,42 +1,11 @@
 #include "Model.hpp"
 #include "VltavaFunctions.hpp"
 
-// Causes program to crash with error code 0xC0000139 -> some configuration is wrong (?)
-//#include "VmaUsage.hpp"
-
 Vltava::Model::Model(VulkanResources &resources) : resources(resources) {
     loadModel("");
     loadShaders("shaders/vert.spv", "shaders/frag.spv");
     createPipeline();
-
-    //test();
 }
-
-// Supposed to test vma
-/*void Vltava::Model::test() {
-    VmaAllocatorCreateInfo allocatorCreateInfo = {};
-    allocatorCreateInfo.vulkanApiVersion = VK_API_VERSION_1_2;
-    allocatorCreateInfo.physicalDevice = **resources.physDev;
-    allocatorCreateInfo.device = **resources.dev;
-    allocatorCreateInfo.instance = **resources.instance;
-
-    VmaAllocator allocator;
-    vmaCreateAllocator(&allocatorCreateInfo, &allocator);
-
-    VkBufferCreateInfo bufferInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-    bufferInfo.size = 65536;
-    bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-
-    VmaAllocationCreateInfo allocInfo = {};
-    allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
-
-    VkBuffer buff;
-    VmaAllocation allocation;
-    vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buff, &allocation, nullptr);
-
-    vmaDestroyBuffer(allocator, buff, allocation);
-    vmaDestroyAllocator(allocator);
-}*/
 
 void Vltava::Model::updateResources(const VulkanResources &res) {
     // Updating the resources
@@ -108,9 +77,16 @@ void Vltava::Model::copyBuffer(vk::Buffer src, vk::Buffer dst, vk::DeviceSize si
 
 void Vltava::Model::loadModel(const std::string &path) {
     vertices.reserve(3);
-    vertices.push_back({{0.0f, -0.5f},{1.0f, 0.0f, 0.0f}});
-    vertices.push_back({{0.5f, 0.5f},{0.0f, 1.0f, 0.0f}});
-    vertices.push_back({{-0.5f, 0.5f},{0.0f, 0.0f, 1.0f}});
+    vertices.push_back({{-0.5f, -0.5f},{0.0f, 0.0f, 1.0f}});
+    vertices.push_back({{0.5f, -0.5f},{0.0f, 1.0f, 0.0f}});
+    vertices.push_back({{0.5f, 0.5f},{0.0f, 0.0f, 1.0f}});
+    // For index buffer showcase
+    vertices.push_back({{-0.5f, 0.5f},{0.0f, 1.0f, 0.0f}});
+
+    indices = {
+            //0, 1, 2, 2, 3, 0
+            0, 1, 3, 3, 1, 2
+    };
 
     vk::DeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
@@ -146,6 +122,45 @@ void Vltava::Model::loadModel(const std::string &path) {
     // Copying data from staging buffer to local buffer
     //---------------------------------
     copyBuffer(*stagingBuffer,**vertexBuffer,bufferSize);
+
+    createIndexBuffer();
+}
+
+void Vltava::Model::createIndexBuffer() {
+    vk::DeviceSize bufferSize = sizeof(indices[0]) * indices.size();
+
+    // Staging buffer creation
+    //---------------------------------
+    auto hostlocal = createBuffer(
+            bufferSize,
+            vk::BufferUsageFlagBits::eTransferSrc,
+            vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
+    );
+
+    vk::raii::Buffer stagingBuffer = std::move(hostlocal.first);
+    vk::raii::DeviceMemory stagingMemory = std::move(hostlocal.second);
+
+    stagingBuffer.bindMemory(*stagingMemory, 0);
+    void* data = stagingMemory.mapMemory(0, VK_WHOLE_SIZE);
+    memcpy(data, indices.data(), bufferSize);
+    stagingMemory.unmapMemory();
+
+    // Device local buffer creation
+    //---------------------------------
+    auto devicelocal = createBuffer(
+            bufferSize,
+            vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer,
+            vk::MemoryPropertyFlagBits::eDeviceLocal
+    );
+
+    indexBuffer = std::make_unique<vk::raii::Buffer>(std::move(devicelocal.first));
+    indexBufferMemory = std::make_unique<vk::raii::DeviceMemory>(std::move(devicelocal.second));
+
+    indexBuffer->bindMemory(**indexBufferMemory,0);
+
+    // Copying data from staging buffer to local buffer
+    //---------------------------------
+    copyBuffer(*stagingBuffer,**indexBuffer,bufferSize);
 }
 
 void Vltava::Model::loadShaders(const std::string &vertShaderPath, const std::string &fragShaderPath) {
@@ -264,5 +279,7 @@ void Vltava::Model::createPipeline() {
 void Vltava::Model::draw(const vk::raii::CommandBuffer& cmdBuffer) {
     cmdBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, **graphicsPipeline);
     cmdBuffer.bindVertexBuffers(0, **vertexBuffer, {0});
-    cmdBuffer.draw(static_cast<uint32_t>(vertices.size()), 1, 0, 0);
+    cmdBuffer.bindIndexBuffer(**indexBuffer, 0, vk::IndexType::eUint16); // Extra
+    //cmdBuffer.draw(static_cast<uint32_t>(vertices.size()), 1, 0, 0); // --> changed to drawIndexed for indexed use-cases
+    cmdBuffer.drawIndexed(static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 }
