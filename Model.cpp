@@ -1,6 +1,9 @@
 #include "Model.hpp"
 #include "VltavaFunctions.hpp"
 
+#include <glm/gtc/matrix_transform.hpp>
+#include <chrono>
+
 Vltava::Model::Model(VulkanResources &resources) : resources(resources) {
     loadModel("");
     loadShaders("shaders/vert.spv", "shaders/frag.spv");
@@ -16,63 +19,14 @@ void Vltava::Model::updateResources(const VulkanResources &res) {
     resources.instance = res.instance;
     resources.commandPool = res.commandPool;
     resources.graphicsQueue = res.graphicsQueue;
+    //resources.swapChainExtent = res.extent;
+    //resources.FRAMES_IN_FLIGHT = res.FRAMES_IN_FLIGHT;
 
     // Deleting the out of date pipeline
     graphicsPipeline.reset();
 
     // Creating new pipeline with the updated resources
     createPipeline();
-}
-
-std::pair<vk::raii::Buffer, vk::raii::DeviceMemory> Vltava::Model::createBuffer(vk::DeviceSize bufferSize,
-                                                                                vk::BufferUsageFlags usage,
-                                                                                vk::MemoryPropertyFlags memFlags) {
-    vk::BufferCreateInfo bufferInfo(
-            {},
-            bufferSize,
-            usage,
-            vk::SharingMode::eExclusive
-    );
-
-    vk::raii::Buffer localBuffer(*resources.dev, bufferInfo);
-
-    vk::MemoryRequirements memReq = localBuffer.getMemoryRequirements();
-    vk::PhysicalDeviceMemoryProperties memProperties = resources.physDev->getMemoryProperties();
-
-    vk::MemoryAllocateInfo memAllocInfo(memReq.size, {});
-    memAllocInfo.memoryTypeIndex = findMemoryType(
-            memReq.memoryTypeBits,
-            memProperties,
-            memFlags
-    );
-
-    vk::raii::DeviceMemory devMem(*resources.dev, memAllocInfo);
-
-    return std::pair<vk::raii::Buffer, vk::raii::DeviceMemory>(std::move(localBuffer), std::move(devMem));
-}
-
-void Vltava::Model::copyBuffer(vk::Buffer src, vk::Buffer dst, vk::DeviceSize size) {
-    vk::CommandBufferAllocateInfo allocateInfo(
-            **resources.commandPool,
-            vk::CommandBufferLevel::ePrimary,
-            1
-    );
-
-    std::vector<vk::raii::CommandBuffer> commandBuffers = resources.dev->allocateCommandBuffers(allocateInfo);
-
-    vk::CommandBufferBeginInfo beginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
-    commandBuffers[0].begin(beginInfo);
-
-    vk::BufferCopy copyRegion(0,0, size);
-    commandBuffers[0].copyBuffer(src, dst, copyRegion);
-    commandBuffers[0].end();
-
-    vk::SubmitInfo submitInfo;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &*commandBuffers[0];
-
-    resources.graphicsQueue->submit(submitInfo);
-    resources.graphicsQueue->waitIdle();
 }
 
 void Vltava::Model::loadModel(const std::string &path) {
@@ -92,38 +46,34 @@ void Vltava::Model::loadModel(const std::string &path) {
 
     // Staging buffer creation
     //---------------------------------
-    auto hostlocal = createBuffer(
+    Buffer stagingBuffer(
+            resources,
             bufferSize,
             vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferSrc,
             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
     );
 
-    vk::raii::Buffer stagingBuffer = std::move(hostlocal.first);
-    vk::raii::DeviceMemory stagingMemory = std::move(hostlocal.second);
-
-    stagingBuffer.bindMemory(*stagingMemory, 0);
-    void* data = stagingMemory.mapMemory(0, VK_WHOLE_SIZE);
-    memcpy(data, vertices.data(), bufferSize);
-    stagingMemory.unmapMemory();
+    stagingBuffer.writeToBuffer(vertices.data(), bufferSize);
 
     // Device local buffer creation
     //---------------------------------
-    auto devicelocal = createBuffer(
+    vertexBuffer = std::make_unique<Buffer>(
+            resources,
             bufferSize,
             vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer,
             vk::MemoryPropertyFlagBits::eDeviceLocal
     );
 
-    vertexBuffer = std::make_unique<vk::raii::Buffer>(std::move(devicelocal.first));
-    vertexBufferMemory = std::make_unique<vk::raii::DeviceMemory>(std::move(devicelocal.second));
-
-    vertexBuffer->bindMemory(**vertexBufferMemory,0);
+    vertexBuffer->bind(0);
 
     // Copying data from staging buffer to local buffer
     //---------------------------------
-    copyBuffer(*stagingBuffer,**vertexBuffer,bufferSize);
+    Buffer::copyBuffer(stagingBuffer.getBufferHandle(),vertexBuffer->getBufferHandle(),bufferSize);
 
     createIndexBuffer();
+    //createUniformBuffers();
+    //createDescriptorPool();
+    //createDescriptorSets();
 }
 
 void Vltava::Model::createIndexBuffer() {
@@ -131,44 +81,124 @@ void Vltava::Model::createIndexBuffer() {
 
     // Staging buffer creation
     //---------------------------------
-    auto hostlocal = createBuffer(
+    Buffer stagingBuffer(
+            resources,
             bufferSize,
             vk::BufferUsageFlagBits::eTransferSrc,
             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
     );
 
-    vk::raii::Buffer stagingBuffer = std::move(hostlocal.first);
-    vk::raii::DeviceMemory stagingMemory = std::move(hostlocal.second);
-
-    stagingBuffer.bindMemory(*stagingMemory, 0);
-    void* data = stagingMemory.mapMemory(0, VK_WHOLE_SIZE);
-    memcpy(data, indices.data(), bufferSize);
-    stagingMemory.unmapMemory();
+    stagingBuffer.writeToBuffer(indices.data(), bufferSize);
 
     // Device local buffer creation
     //---------------------------------
-    auto devicelocal = createBuffer(
+    indexBuffer = std::make_unique<Buffer>(
+            resources,
             bufferSize,
             vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer,
             vk::MemoryPropertyFlagBits::eDeviceLocal
     );
 
-    indexBuffer = std::make_unique<vk::raii::Buffer>(std::move(devicelocal.first));
-    indexBufferMemory = std::make_unique<vk::raii::DeviceMemory>(std::move(devicelocal.second));
-
-    indexBuffer->bindMemory(**indexBufferMemory,0);
+    indexBuffer->bind(0);
 
     // Copying data from staging buffer to local buffer
     //---------------------------------
-    copyBuffer(*stagingBuffer,**indexBuffer,bufferSize);
+    Buffer::copyBuffer(stagingBuffer.getBufferHandle(),indexBuffer->getBufferHandle(),bufferSize);
 }
+
+/*
+//TODO Might cause crash when resizing
+void Vltava::Model::createUniformBuffers() {
+    vk::DeviceSize bufferSize = sizeof(MVP);
+
+    uniformBuffers.reserve(resources.FRAMES_IN_FLIGHT);
+    uniformBuffersMemory.reserve(resources.FRAMES_IN_FLIGHT);
+
+    for (size_t i = 0; i < resources.FRAMES_IN_FLIGHT; i++) {
+        auto ub = createBuffer(
+                bufferSize,
+                vk::BufferUsageFlagBits::eUniformBuffer,
+                vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
+        );
+
+        uniformBuffers.push_back(std::move(ub.first));
+        uniformBuffersMemory.push_back(std::move(ub.second));
+    }
+}
+
+//TODO the way the time measurement here is done is just dumb
+void Vltava::Model::updateUniformBuffer(uint32_t currentImage) {
+    static auto startTime = std::chrono::high_resolution_clock::now();
+
+    auto currentTime = std::chrono::high_resolution_clock::now();
+    float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
+    MVP mvp{};
+    mvp.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    mvp.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    mvp.proj = glm::perspective(glm::radians(45.0f), resources.extent->width / (float) resources.extent->height, 0.1f, 10.0f);
+    mvp.proj[1][1] *= -1;
+
+    void* data = uniformBuffersMemory[currentImage].mapMemory(0, sizeof(mvp));
+    memcpy(data, &mvp, sizeof(mvp));
+    uniformBuffersMemory[currentImage].unmapMemory();
+}
+
+void Vltava::Model::createDescriptorPool() {
+    vk::DescriptorPoolSize poolSize(vk::DescriptorType::eUniformBuffer, static_cast<uint32_t>(resources.FRAMES_IN_FLIGHT));
+    vk::DescriptorPoolCreateInfo poolInfo({}, static_cast<uint32_t>(resources.FRAMES_IN_FLIGHT), 1, &poolSize);
+
+    descriptorPool = std::make_unique<vk::raii::DescriptorPool>(*resources.dev, poolInfo);
+}
+
+void Vltava::Model::createDescriptorSets() {
+    vk::DescriptorSetAllocateInfo allocInfo(**descriptorPool, **descriptorSetLayout);
+    //descriptorSets.reserve(resources.FRAMES_IN_FLIGHT);
+    //descriptorSets = resources.dev->allocateDescriptorSets(allocInfo);
+    resources.dev->allocateDescriptorSets(allocInfo);
+
+    for (int i = 0; i < resources.FRAMES_IN_FLIGHT; i++) {
+        vk::DescriptorBufferInfo bufferInfo(
+                *uniformBuffers[i],
+                0,
+                sizeof(MVP)
+        );
+
+        vk::WriteDescriptorSet descriptorWrite(
+                *descriptorSets[i],
+                0,
+                0,
+                1,
+                vk::DescriptorType::eUniformBuffer
+        );
+
+        descriptorWrite.pBufferInfo = &bufferInfo;
+        resources.dev->updateDescriptorSets(descriptorWrite, nullptr);
+    }
+}*/
 
 void Vltava::Model::loadShaders(const std::string &vertShaderPath, const std::string &fragShaderPath) {
     this->vertShaderPath = vertShaderPath;
     this->fragShaderPath = fragShaderPath;
 }
 
+/*void Vltava::Model::createDescriptSetLayout() {
+    descriptorSetLayout.reset(); // Cleaning up
+
+    vk::DescriptorSetLayoutBinding uboLayoutBinding(
+            0,
+            vk::DescriptorType::eUniformBuffer,
+            0,
+            vk::ShaderStageFlagBits::eVertex
+    );
+
+    vk::DescriptorSetLayoutCreateInfo layoutInfo({},1, &uboLayoutBinding);
+    descriptorSetLayout = std::make_unique<vk::raii::DescriptorSetLayout>(*resources.dev, layoutInfo);
+}*/
+
 void Vltava::Model::createPipeline() {
+    //createDescriptSetLayout();
+
     auto vertCode = readFile(vertShaderPath);
     auto fragCode = readFile(fragShaderPath);
 
@@ -246,13 +276,13 @@ void Vltava::Model::createPipeline() {
 
     vk::PipelineLayoutCreateInfo pipelineLayoutInfo(
             {},
-            0,
-            nullptr,
+            0,//1,
+            nullptr,//&**descriptorSetLayout,
             0,
             nullptr
     );
 
-    //pipelineLayout = std::make_unique<vk::raii::PipelineLayout>(resources.dev, pipelineLayoutInfo);
+    //pipelineLayout = std::make_unique<vk::raii::PipelineLayout>(*resources.dev, pipelineLayoutInfo);
     vk::raii::PipelineLayout pipelineLayout(*resources.dev, pipelineLayoutInfo);
 
     vk::GraphicsPipelineCreateInfo pipelineInfo(
@@ -276,10 +306,21 @@ void Vltava::Model::createPipeline() {
     graphicsPipeline = std::make_unique<vk::raii::Pipeline>(*resources.dev, nullptr, pipelineInfo);
 }
 
+//void Vltava::Model::draw(const vk::raii::CommandBuffer& cmdBuffer, uint32_t currentFrame) {
 void Vltava::Model::draw(const vk::raii::CommandBuffer& cmdBuffer) {
+    //updateUniformBuffer(currentFrame);
     cmdBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, **graphicsPipeline);
-    cmdBuffer.bindVertexBuffers(0, **vertexBuffer, {0});
-    cmdBuffer.bindIndexBuffer(**indexBuffer, 0, vk::IndexType::eUint16); // Extra
+    cmdBuffer.bindVertexBuffers(0, vertexBuffer->getBufferHandle(), {0});
+    cmdBuffer.bindIndexBuffer(indexBuffer->getBufferHandle(), 0, vk::IndexType::eUint16); // Extra
+
+    /*cmdBuffer.bindDescriptorSets(
+            vk::PipelineBindPoint::eGraphics,
+            **pipelineLayout,
+            0,
+            **descriptorSets.data(),
+            nullptr
+    );*/
+
     //cmdBuffer.draw(static_cast<uint32_t>(vertices.size()), 1, 0, 0); // --> changed to drawIndexed for indexed use-cases
     cmdBuffer.drawIndexed(static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 }

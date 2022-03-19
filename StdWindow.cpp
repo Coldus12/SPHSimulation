@@ -426,7 +426,9 @@ namespace Vltava {
             &*device,
             &*instance,
             &*commandPool,
-            &*graphicsQueue
+            &*graphicsQueue,
+            //&swapChainExtent,
+            //MAX_FRAMES_IN_FLIGHT
         };
 
         model->updateResources(updated);
@@ -561,7 +563,9 @@ namespace Vltava {
             &*device,
             &*instance,
             &*commandPool,
-            &*graphicsQueue
+            &*graphicsQueue,
+            //&swapChainExtent,
+            //MAX_FRAMES_IN_FLIGHT
         };
 
         model = std::make_unique<Model>(res);
@@ -643,6 +647,7 @@ namespace Vltava {
         commandBuffers->at(currentFrame).beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
 
         // Drawing the models
+        //model->draw(commandBuffers->at(currentFrame), imageIndex);
         model->draw(commandBuffers->at(currentFrame));
 
         commandBuffers->at(currentFrame).endRenderPass();
