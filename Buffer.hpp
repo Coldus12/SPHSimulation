@@ -23,6 +23,7 @@ namespace Vltava {
         static void updateResources(const VulkanResources& vkResources);
 
     private:
+        bool bound = false;
         inline static VulkanResources res;
         std::unique_ptr<vk::raii::Buffer> vkBuffer;
         std::unique_ptr<vk::raii::DeviceMemory> vkBufferMemory;

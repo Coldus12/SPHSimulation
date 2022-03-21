@@ -25,24 +25,22 @@ namespace Vltava {
 
         virtual void loadModel(const std::string& path);
         virtual void loadShaders(const std::string& vertShader, const std::string& fragShader);
-        //virtual void draw(const vk::raii::CommandBuffer& buffer, uint32_t currentFrame);
-        virtual void draw(const vk::raii::CommandBuffer& buffer);
+        virtual void draw(const vk::raii::CommandBuffer& buffer, uint32_t currentFrame);
+        //virtual void draw(const vk::raii::CommandBuffer& buffer);
         virtual void updateResources(const VulkanResources& res);
 
-    private:
         VulkanResources& resources;
+    private:
+        float aspect;
 
         std::string vertShaderPath;
         std::string fragShaderPath;
 
         std::vector<Vertex> vertices;
         std::vector<uint16_t> indices;
-        //std::vector<vk::raii::DescriptorSet> descriptorSets;
 
-        //std::unique_ptr<vk::raii::PipelineLayout> pipelineLayout;
+        std::unique_ptr<vk::raii::PipelineLayout> pipelineLayout;
         std::unique_ptr<vk::raii::Pipeline> graphicsPipeline;
-        //std::unique_ptr<vk::raii::DescriptorSetLayout> descriptorSetLayout;
-        //std::unique_ptr<vk::raii::DescriptorPool> descriptorPool;
 
         // Vertex buffer
         std::unique_ptr<Buffer> vertexBuffer;
@@ -51,15 +49,16 @@ namespace Vltava {
         std::unique_ptr<Buffer> indexBuffer;
 
         // Uniform buffers
-        //std::vector<vk::raii::Buffer> uniformBuffers;
-        //std::vector<vk::raii::DeviceMemory> uniformBuffersMemory;
+        std::vector<Buffer> uniformBuffers;
+        std::unique_ptr<vk::raii::DescriptorPool> descriptorPool;
+        std::unique_ptr<vk::raii::DescriptorSetLayout> setLayout;
+        std::vector<vk::raii::DescriptorSet> descriptorSets;
+
+        void createDescriptors();
 
         void createIndexBuffer();
-        //void createUniformBuffers();
-        //void createDescriptSetLayout();
-        //void createDescriptorPool();
-        //void createDescriptorSets();
-        //void updateUniformBuffer(uint32_t currentImage);
+        void createUniformBuffers();
+        void updateUniformBuffer(uint32_t currentImage);
         virtual void createPipeline();
     };
 }

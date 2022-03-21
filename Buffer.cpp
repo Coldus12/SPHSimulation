@@ -45,7 +45,7 @@ namespace Vltava {
     }
 
     void Buffer::writeToBuffer(void *bufferData, size_t size) {
-        vkBuffer->bindMemory(**vkBufferMemory, 0);
+        bind(0);
         void* data = vkBufferMemory->mapMemory(0, VK_WHOLE_SIZE);
         memcpy(data, bufferData, size);
         vkBufferMemory->unmapMemory();
@@ -83,7 +83,10 @@ namespace Vltava {
     }
 
     void Buffer::bind(int offset) {
-        vkBuffer->bindMemory(**vkBufferMemory, offset);
+        if (!bound)
+            vkBuffer->bindMemory(**vkBufferMemory, offset);
+
+        bound = true;
     }
 
     void Buffer::updateResources(const VulkanResources &vkResources) {
@@ -94,7 +97,6 @@ namespace Vltava {
         res.instance = vkResources.instance;
         res.commandPool = vkResources.commandPool;
         res.graphicsQueue = vkResources.graphicsQueue;
-        //resources.swapChainExtent = res.extent;
-        //resources.FRAMES_IN_FLIGHT = res.FRAMES_IN_FLIGHT;
+        res.FRAMES_IN_FLIGHT = vkResources.FRAMES_IN_FLIGHT;
     }
 }

@@ -421,14 +421,13 @@ namespace Vltava {
         // Updating / recreating the pipelines of the models
         VulkanResources updated{
             &*renderPass,
-            &swapChainExtent,
             &*physicalDevice,
             &*device,
             &*instance,
             &*commandPool,
             &*graphicsQueue,
-            //&swapChainExtent,
-            //MAX_FRAMES_IN_FLIGHT
+            swapChainExtent,
+            MAX_FRAMES_IN_FLIGHT
         };
 
         model->updateResources(updated);
@@ -558,14 +557,13 @@ namespace Vltava {
     void StdWindow::loadModel() {
         VulkanResources res{
             &*renderPass,
-            &swapChainExtent,
             &*physicalDevice,
             &*device,
             &*instance,
             &*commandPool,
             &*graphicsQueue,
-            //&swapChainExtent,
-            //MAX_FRAMES_IN_FLIGHT
+            swapChainExtent,
+            MAX_FRAMES_IN_FLIGHT
         };
 
         model = std::make_unique<Model>(res);
@@ -647,8 +645,8 @@ namespace Vltava {
         commandBuffers->at(currentFrame).beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
 
         // Drawing the models
-        //model->draw(commandBuffers->at(currentFrame), imageIndex);
-        model->draw(commandBuffers->at(currentFrame));
+        model->draw(commandBuffers->at(currentFrame),currentFrame);
+        //model->draw(commandBuffers->at(currentFrame));
 
         commandBuffers->at(currentFrame).endRenderPass();
         commandBuffers->at(currentFrame).end();

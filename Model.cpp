@@ -5,6 +5,8 @@
 #include <chrono>
 
 Vltava::Model::Model(VulkanResources &resources) : resources(resources) {
+    aspect = resources.extent.width / (float) resources.extent.height;
+
     loadModel("");
     loadShaders("shaders/vert.spv", "shaders/frag.spv");
     createPipeline();
@@ -19,11 +21,12 @@ void Vltava::Model::updateResources(const VulkanResources &res) {
     resources.instance = res.instance;
     resources.commandPool = res.commandPool;
     resources.graphicsQueue = res.graphicsQueue;
-    //resources.swapChainExtent = res.extent;
-    //resources.FRAMES_IN_FLIGHT = res.FRAMES_IN_FLIGHT;
+    resources.FRAMES_IN_FLIGHT = res.FRAMES_IN_FLIGHT;
 
     // Deleting the out of date pipeline
     graphicsPipeline.reset();
+
+    aspect = resources.extent.width / (float) resources.extent.height;
 
     // Creating new pipeline with the updated resources
     createPipeline();
@@ -71,9 +74,8 @@ void Vltava::Model::loadModel(const std::string &path) {
     Buffer::copyBuffer(stagingBuffer.getBufferHandle(),vertexBuffer->getBufferHandle(),bufferSize);
 
     createIndexBuffer();
-    //createUniformBuffers();
-    //createDescriptorPool();
-    //createDescriptorSets();
+    createUniformBuffers();
+    createDescriptors();
 }
 
 void Vltava::Model::createIndexBuffer() {
@@ -106,23 +108,86 @@ void Vltava::Model::createIndexBuffer() {
     Buffer::copyBuffer(stagingBuffer.getBufferHandle(),indexBuffer->getBufferHandle(),bufferSize);
 }
 
-/*
-//TODO Might cause crash when resizing
+void Vltava::Model::createDescriptors() {
+    std::cout << "createDescriptors" << std::endl;
+
+    // Descriptor pool creation
+    //---------------------------------
+    std::vector<vk::DescriptorPoolSize> sizes = {
+            {vk::DescriptorType::eUniformBuffer, 10}
+    };
+
+    vk::DescriptorPoolCreateInfo poolInfo(
+            vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
+            10,
+            sizes
+    );
+
+    descriptorPool = std::make_unique<vk::raii::DescriptorPool>(*resources.dev, poolInfo);
+
+    // DescriptorSetLayout creation
+    //---------------------------------
+    vk::DescriptorSetLayoutBinding binding(
+            0,
+            vk::DescriptorType::eUniformBuffer,
+            1,
+            vk::ShaderStageFlagBits::eVertex
+    );
+
+    vk::DescriptorSetLayoutCreateInfo layoutInfo(
+            {},
+            binding
+    );
+
+    setLayout = std::make_unique<vk::raii::DescriptorSetLayout>(*resources.dev, layoutInfo);
+
+    // Creating descriptor sets
+    //---------------------------------
+    vk::DescriptorSetAllocateInfo allocInfo(
+            **descriptorPool,
+            1,
+            &**setLayout
+    );
+
+    for (int i = 0; i < resources.FRAMES_IN_FLIGHT; i++) {
+        descriptorSets.push_back(std::move(resources.dev->allocateDescriptorSets(allocInfo).front()));
+
+        vk::DescriptorBufferInfo binfo(
+                uniformBuffers[i].getBufferHandle(),
+                0,
+                sizeof(MVP)
+        );
+
+        vk::WriteDescriptorSet setWrite(
+                *descriptorSets[i],
+                0,
+                {},
+                1,
+                vk::DescriptorType::eUniformBuffer,
+                nullptr,
+                &binfo,
+                nullptr
+        );
+
+        resources.dev->updateDescriptorSets(setWrite, nullptr);
+    }
+
+}
+
 void Vltava::Model::createUniformBuffers() {
     vk::DeviceSize bufferSize = sizeof(MVP);
 
     uniformBuffers.reserve(resources.FRAMES_IN_FLIGHT);
-    uniformBuffersMemory.reserve(resources.FRAMES_IN_FLIGHT);
 
     for (size_t i = 0; i < resources.FRAMES_IN_FLIGHT; i++) {
-        auto ub = createBuffer(
+        uniformBuffers.emplace_back(
+                resources,
                 bufferSize,
                 vk::BufferUsageFlagBits::eUniformBuffer,
                 vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
         );
 
-        uniformBuffers.push_back(std::move(ub.first));
-        uniformBuffersMemory.push_back(std::move(ub.second));
+        uniformBuffers[i].bind(0);
     }
 }
 
@@ -136,69 +201,18 @@ void Vltava::Model::updateUniformBuffer(uint32_t currentImage) {
     MVP mvp{};
     mvp.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     mvp.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    mvp.proj = glm::perspective(glm::radians(45.0f), resources.extent->width / (float) resources.extent->height, 0.1f, 10.0f);
+    mvp.proj = glm::perspective(glm::radians(45.0f), aspect, 0.1f, 10.0f);
     mvp.proj[1][1] *= -1;
 
-    void* data = uniformBuffersMemory[currentImage].mapMemory(0, sizeof(mvp));
-    memcpy(data, &mvp, sizeof(mvp));
-    uniformBuffersMemory[currentImage].unmapMemory();
+    uniformBuffers[currentImage].writeToBuffer(&mvp, sizeof(mvp));
 }
-
-void Vltava::Model::createDescriptorPool() {
-    vk::DescriptorPoolSize poolSize(vk::DescriptorType::eUniformBuffer, static_cast<uint32_t>(resources.FRAMES_IN_FLIGHT));
-    vk::DescriptorPoolCreateInfo poolInfo({}, static_cast<uint32_t>(resources.FRAMES_IN_FLIGHT), 1, &poolSize);
-
-    descriptorPool = std::make_unique<vk::raii::DescriptorPool>(*resources.dev, poolInfo);
-}
-
-void Vltava::Model::createDescriptorSets() {
-    vk::DescriptorSetAllocateInfo allocInfo(**descriptorPool, **descriptorSetLayout);
-    //descriptorSets.reserve(resources.FRAMES_IN_FLIGHT);
-    //descriptorSets = resources.dev->allocateDescriptorSets(allocInfo);
-    resources.dev->allocateDescriptorSets(allocInfo);
-
-    for (int i = 0; i < resources.FRAMES_IN_FLIGHT; i++) {
-        vk::DescriptorBufferInfo bufferInfo(
-                *uniformBuffers[i],
-                0,
-                sizeof(MVP)
-        );
-
-        vk::WriteDescriptorSet descriptorWrite(
-                *descriptorSets[i],
-                0,
-                0,
-                1,
-                vk::DescriptorType::eUniformBuffer
-        );
-
-        descriptorWrite.pBufferInfo = &bufferInfo;
-        resources.dev->updateDescriptorSets(descriptorWrite, nullptr);
-    }
-}*/
 
 void Vltava::Model::loadShaders(const std::string &vertShaderPath, const std::string &fragShaderPath) {
     this->vertShaderPath = vertShaderPath;
     this->fragShaderPath = fragShaderPath;
 }
 
-/*void Vltava::Model::createDescriptSetLayout() {
-    descriptorSetLayout.reset(); // Cleaning up
-
-    vk::DescriptorSetLayoutBinding uboLayoutBinding(
-            0,
-            vk::DescriptorType::eUniformBuffer,
-            0,
-            vk::ShaderStageFlagBits::eVertex
-    );
-
-    vk::DescriptorSetLayoutCreateInfo layoutInfo({},1, &uboLayoutBinding);
-    descriptorSetLayout = std::make_unique<vk::raii::DescriptorSetLayout>(*resources.dev, layoutInfo);
-}*/
-
 void Vltava::Model::createPipeline() {
-    //createDescriptSetLayout();
-
     auto vertCode = readFile(vertShaderPath);
     auto fragCode = readFile(fragShaderPath);
 
@@ -226,8 +240,8 @@ void Vltava::Model::createPipeline() {
 
     vk::PipelineInputAssemblyStateCreateInfo inputAssembly({}, vk::PrimitiveTopology::eTriangleList, false);
 
-    vk::Viewport viewport(0.0f, 0.0f, (float) resources.extent->width, (float) resources.extent->height, 0.0f, 1.0f);
-    vk::Rect2D scissor({0, 0}, *resources.extent);
+    vk::Viewport viewport(0.0f, 0.0f, (float) resources.extent.width, (float) resources.extent.height, 0.0f, 1.0f);
+    vk::Rect2D scissor({0, 0}, resources.extent);
     vk::PipelineViewportStateCreateInfo viewportState({}, 1, &viewport, 1, &scissor);
 
     vk::PipelineRasterizationStateCreateInfo rasterizer(
@@ -235,8 +249,13 @@ void Vltava::Model::createPipeline() {
             false,
             false,
             vk::PolygonMode::eFill,
-            vk::CullModeFlagBits::eBack, vk::FrontFace::eClockwise,
-            false, 0.0f, 0.0f, 0.0f, 1.0f
+            vk::CullModeFlagBits::eBack,
+            vk::FrontFace::eCounterClockwise,
+            false,
+            0.0f,
+            0.0f,
+            0.0f,
+            1.0f
     );
 
     vk::PipelineMultisampleStateCreateInfo multisampling(
@@ -276,14 +295,14 @@ void Vltava::Model::createPipeline() {
 
     vk::PipelineLayoutCreateInfo pipelineLayoutInfo(
             {},
-            0,//1,
-            nullptr,//&**descriptorSetLayout,
+            1,
+            &**setLayout,
             0,
             nullptr
     );
 
-    //pipelineLayout = std::make_unique<vk::raii::PipelineLayout>(*resources.dev, pipelineLayoutInfo);
-    vk::raii::PipelineLayout pipelineLayout(*resources.dev, pipelineLayoutInfo);
+    pipelineLayout = std::make_unique<vk::raii::PipelineLayout>(*resources.dev, pipelineLayoutInfo);
+    //vk::raii::PipelineLayout pipelineLayout(*resources.dev, pipelineLayoutInfo);
 
     vk::GraphicsPipelineCreateInfo pipelineInfo(
             {},
@@ -298,7 +317,7 @@ void Vltava::Model::createPipeline() {
             nullptr,
             &colorBlending,
             nullptr,
-            *pipelineLayout,
+            **pipelineLayout,
             **resources.renderPass,
             0
     );
@@ -306,20 +325,21 @@ void Vltava::Model::createPipeline() {
     graphicsPipeline = std::make_unique<vk::raii::Pipeline>(*resources.dev, nullptr, pipelineInfo);
 }
 
-//void Vltava::Model::draw(const vk::raii::CommandBuffer& cmdBuffer, uint32_t currentFrame) {
-void Vltava::Model::draw(const vk::raii::CommandBuffer& cmdBuffer) {
-    //updateUniformBuffer(currentFrame);
+void Vltava::Model::draw(const vk::raii::CommandBuffer& cmdBuffer, uint32_t currentFrame) {
+//void Vltava::Model::draw(const vk::raii::CommandBuffer& cmdBuffer) {
+    updateUniformBuffer(currentFrame);
     cmdBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, **graphicsPipeline);
-    cmdBuffer.bindVertexBuffers(0, vertexBuffer->getBufferHandle(), {0});
-    cmdBuffer.bindIndexBuffer(indexBuffer->getBufferHandle(), 0, vk::IndexType::eUint16); // Extra
 
-    /*cmdBuffer.bindDescriptorSets(
+    cmdBuffer.bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics,
             **pipelineLayout,
             0,
-            **descriptorSets.data(),
+            {*descriptorSets[currentFrame]},
             nullptr
-    );*/
+    );
+
+    cmdBuffer.bindVertexBuffers(0, vertexBuffer->getBufferHandle(), {0});
+    cmdBuffer.bindIndexBuffer(indexBuffer->getBufferHandle(), 0, vk::IndexType::eUint16); // Extra
 
     //cmdBuffer.draw(static_cast<uint32_t>(vertices.size()), 1, 0, 0); // --> changed to drawIndexed for indexed use-cases
     cmdBuffer.drawIndexed(static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
