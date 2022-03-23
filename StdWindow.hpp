@@ -44,12 +44,15 @@ namespace Vltava {
         std::unique_ptr<vk::raii::CommandBuffers> commandBuffers;
         std::unique_ptr<vk::raii::Queue> graphicsQueue;
         std::unique_ptr<vk::raii::Queue> presentQueue;
+        std::unique_ptr<vk::raii::Queue> computeQueue;
 
         std::unique_ptr<Model> model;
 
         uint32_t currentFrame = 0;
         uint32_t graphicsQueueFamily = (uint32_t) -1;
         uint32_t presentQueueFamily = (uint32_t) -1;
+        uint32_t computeQueueFamily = (uint32_t) -1;
+
         vk::Format swapChainImageFormat;
         vk::Extent2D swapChainExtent;
 
@@ -95,6 +98,8 @@ namespace Vltava {
         virtual void recordCommandBuffer(uint32_t imageIndex);
         void loadModel();
         void cleanup();
+
+        void computeStuff();
 
         void mainloop();
 

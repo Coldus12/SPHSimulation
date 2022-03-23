@@ -14,6 +14,7 @@ namespace Vltava {
         vk::raii::Instance* instance;
         vk::raii::CommandPool* commandPool;
         vk::raii::Queue* graphicsQueue;
+        vk::raii::Queue* computeQueue;
 
         vk::Extent2D extent;
         int FRAMES_IN_FLIGHT = 0;

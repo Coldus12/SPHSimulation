@@ -21,6 +21,7 @@ void Vltava::Model::updateResources(const VulkanResources &res) {
     resources.instance = res.instance;
     resources.commandPool = res.commandPool;
     resources.graphicsQueue = res.graphicsQueue;
+    resources.computeQueue = res.computeQueue;
     resources.FRAMES_IN_FLIGHT = res.FRAMES_IN_FLIGHT;
 
     // Deleting the out of date pipeline

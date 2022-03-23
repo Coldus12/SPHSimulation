@@ -1,5 +1,6 @@
 #include "StdWindow.hpp"
 #include "VltavaFunctions.hpp"
+#include "ComputeShader.h"
 
 namespace Vltava {
     // Main loop
@@ -11,6 +12,156 @@ namespace Vltava {
         }
 
         device->waitIdle();
+    }
+
+    void StdWindow::computeStuff() {
+        VulkanResources updated{
+                &*renderPass,
+                &*physicalDevice,
+                &*device,
+                &*instance,
+                &*commandPool,
+                &*graphicsQueue,
+                &*computeQueue,
+                swapChainExtent,
+                MAX_FRAMES_IN_FLIGHT
+        };
+
+        ComputeShader comp(updated, "shaders/comp.spv");
+
+        vk::DeviceSize size = sizeof(int32_t) * 512;
+        auto* data = new int32_t[512];
+        for (int i = 0; i < 512; i++) {
+            data[i] = i;
+        }
+
+        Buffer inBuffer(
+                updated,
+                size,
+                vk::BufferUsageFlagBits::eStorageBuffer,
+                vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
+        );
+        inBuffer.bind(0);
+
+        Buffer outBuffer(
+                updated,
+                size,
+                vk::BufferUsageFlagBits::eStorageBuffer,
+                vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
+        );
+        outBuffer.bind(0);
+
+        inBuffer.writeToBuffer(data, size);
+        //delete[] data;
+
+        std::vector<vk::DescriptorSetLayoutBinding> bindings = {
+                {0,
+                        vk::DescriptorType::eStorageBuffer,
+                        1,
+                        vk::ShaderStageFlagBits::eCompute},
+                {1,
+                        vk::DescriptorType::eStorageBuffer,
+                        1,
+                        vk::ShaderStageFlagBits::eCompute}
+        };
+
+        vk::DescriptorSetLayoutCreateInfo layoutInfo({}, bindings);
+        vk::raii::DescriptorSetLayout layout(*device, layoutInfo);
+        comp.createPipeline(1, const_cast<vk::DescriptorSetLayout *>(&*layout));
+
+        // Descriptor pool creation
+        //---------------------------------
+        std::vector<vk::DescriptorPoolSize> sizes = {
+                {vk::DescriptorType::eStorageBuffer, 10}
+        };
+
+        vk::DescriptorPoolCreateInfo poolInfo(
+                vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
+                10,
+                sizes
+        );
+
+        vk::raii::DescriptorPool pool(*device, poolInfo);
+        //--------------------------------
+
+        vk::DescriptorSetAllocateInfo allocInfo(*pool, 1, &*layout);
+
+        vk::raii::DescriptorSet set = std::move(device->allocateDescriptorSets(allocInfo).front());
+
+        vk::DescriptorBufferInfo inBufferInfo(
+                inBuffer.getBufferHandle(),
+                0,
+                sizeof(int32_t) * 512
+        );
+
+        vk::DescriptorBufferInfo outBufferInfo(
+                outBuffer.getBufferHandle(),
+                0,
+                sizeof(int32_t) * 512
+        );
+
+        std::vector<vk::WriteDescriptorSet> writeSets;
+        writeSets.reserve(2);
+        writeSets.emplace_back(
+                *set,
+                0,
+                0,
+                1,
+                vk::DescriptorType::eStorageBuffer,
+                nullptr,
+                &inBufferInfo,
+                nullptr
+        );
+
+        writeSets.emplace_back(
+                *set,
+                1,
+                0,
+                1,
+                vk::DescriptorType::eStorageBuffer,
+                nullptr,
+                &outBufferInfo,
+                nullptr
+        );
+
+        device->updateDescriptorSets(writeSets, nullptr);
+
+        vk::CommandPoolCreateInfo cmdPoolInfo(vk::CommandPoolCreateFlagBits::eResetCommandBuffer, computeQueueFamily);
+        vk::raii::CommandPool computeCmdPool(*device, cmdPoolInfo);
+
+        vk::CommandBufferAllocateInfo cmdBufferInfo(*computeCmdPool, vk::CommandBufferLevel::ePrimary, 1);
+        vk::raii::CommandBuffers cmdBuffers(*device, cmdBufferInfo);
+
+        vk::CommandBufferBeginInfo beginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+        cmdBuffers.at(0).begin(beginInfo);
+        cmdBuffers.at(0).bindPipeline(vk::PipelineBindPoint::eCompute, comp.getPipelineHandle());
+        cmdBuffers.at(0).bindDescriptorSets(
+                vk::PipelineBindPoint::eCompute,
+                comp.getPipelineLayoutHandle(),
+                0,
+                *set,
+                nullptr
+        );
+        cmdBuffers.at(0).dispatch(size / sizeof(int32_t) + 1, 1, 1);
+        cmdBuffers.at(0).end();
+
+        vk::SubmitInfo submitInfo(
+                {},
+                {},
+                *cmdBuffers.at(0),
+                {}
+        );
+        computeQueue->submit(submitInfo, nullptr);
+        computeQueue->waitIdle();
+
+        //int32_t* payload = nullptr;
+        outBuffer.writeData(data, size);
+        for (int i = 0; i < 512; i++) {
+            std::cout << data[i] << " ";
+        }
+        std::cout << std::endl;
+        std::cout << "Done" << std::endl;
+        delete[] data;
     }
 
     // Constructor
@@ -25,6 +176,7 @@ namespace Vltava {
         glfwSetFramebufferSizeCallback(window, frameBufferResizeCallback);
 
         initVulkan();
+        computeStuff();
         mainloop();
     }
 
@@ -266,6 +418,10 @@ namespace Vltava {
             if (queueFamily.queueFlags & vk::QueueFlagBits::eGraphics) {
                 graphicsQueueFamily = i;
             }
+
+            if (queueFamily.queueFlags & vk::QueueFlagBits::eCompute) {
+                computeQueueFamily = i;
+            }
             i++;
         }
     }
@@ -273,7 +429,7 @@ namespace Vltava {
     // Creating a logical device
     //------------------------------------------------------------------------------------------------------------------
     void StdWindow::createLogicalDevice() {
-        std::set<uint32_t> uniqueQueueFamilies({graphicsQueueFamily, presentQueueFamily});
+        std::set<uint32_t> uniqueQueueFamilies({graphicsQueueFamily, presentQueueFamily, computeQueueFamily});
         std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos;
         float queuePriority = 1.0f;
 
@@ -304,6 +460,7 @@ namespace Vltava {
         device = std::make_unique<vk::raii::Device>(*physicalDevice, createInfo);
         graphicsQueue = std::make_unique<vk::raii::Queue>(device->getQueue(graphicsQueueFamily, 0));
         presentQueue = std::make_unique<vk::raii::Queue>(device->getQueue(presentQueueFamily, 0));
+        computeQueue = std::make_unique<vk::raii::Queue>(device->getQueue(computeQueueFamily, 0));
     }
 
     // Cleaning up
@@ -426,6 +583,7 @@ namespace Vltava {
             &*instance,
             &*commandPool,
             &*graphicsQueue,
+            &*computeQueue,
             swapChainExtent,
             MAX_FRAMES_IN_FLIGHT
         };
@@ -562,6 +720,7 @@ namespace Vltava {
             &*instance,
             &*commandPool,
             &*graphicsQueue,
+            &*computeQueue,
             swapChainExtent,
             MAX_FRAMES_IN_FLIGHT
         };

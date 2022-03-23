@@ -51,6 +51,13 @@ namespace Vltava {
         vkBufferMemory->unmapMemory();
     }
 
+    void Buffer::writeData(void *data, size_t size) {
+        bind(0);
+        void* bufferData = vkBufferMemory->mapMemory(0, size);
+        memcpy(data, bufferData, size);
+        vkBufferMemory->unmapMemory();
+    }
+
     void Buffer::copyBuffer(vk::Buffer src, vk::Buffer dst, vk::DeviceSize size) {
         if (res.dev == nullptr)
             throw std::runtime_error("Buffer's static VulkanResources is null!");

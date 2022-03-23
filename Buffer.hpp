@@ -17,6 +17,7 @@ namespace Vltava {
 
         void bind(int offset);
         void writeToBuffer(void* bufferData, size_t size);
+        void writeData(void* data, size_t size);
         vk::Buffer getBufferHandle();
 
         static void copyBuffer(vk::Buffer src, vk::Buffer dst, vk::DeviceSize size);
