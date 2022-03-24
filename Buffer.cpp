@@ -18,8 +18,8 @@ namespace Vltava {
     }
 
     std::pair<vk::raii::Buffer, vk::raii::DeviceMemory> Buffer::createBuffer(vk::DeviceSize bufferSize,
-                                                                                    vk::BufferUsageFlags usage,
-                                                                                    vk::MemoryPropertyFlags memFlags) {
+                                                                             vk::BufferUsageFlags usage,
+                                                                             vk::MemoryPropertyFlags memFlags) {
         vk::BufferCreateInfo bufferInfo(
                 {},
                 bufferSize,
@@ -49,13 +49,8 @@ namespace Vltava {
         void* data = vkBufferMemory->mapMemory(0, VK_WHOLE_SIZE);
         memcpy(data, bufferData, size);
         vkBufferMemory->unmapMemory();
-    }
 
-    void Buffer::writeData(void *data, size_t size) {
-        bind(0);
-        void* bufferData = vkBufferMemory->mapMemory(0, size);
-        memcpy(data, bufferData, size);
-        vkBufferMemory->unmapMemory();
+        dataSize = size;
     }
 
     void Buffer::copyBuffer(vk::Buffer src, vk::Buffer dst, vk::DeviceSize size) {
@@ -85,8 +80,16 @@ namespace Vltava {
         res.graphicsQueue->waitIdle();
     }
 
-    vk::Buffer Buffer::getBufferHandle() {
+    vk::Buffer Buffer::getBufferHandle() const {
         return **vkBuffer;
+    }
+
+    size_t Buffer::getSize() const {
+        return dataSize;
+    }
+
+    void Buffer::setSize(size_t size) {
+        dataSize = size;
     }
 
     void Buffer::bind(int offset) {

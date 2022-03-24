@@ -1,6 +1,6 @@
 #include "StdWindow.hpp"
 #include "VltavaFunctions.hpp"
-#include "ComputeShader.h"
+#include "ComputeShader.hpp"
 
 namespace Vltava {
     // Main loop
@@ -13,6 +13,11 @@ namespace Vltava {
 
         device->waitIdle();
     }
+
+    struct Stuff {
+        glm::vec3 pos;
+        float rad;
+    };
 
     void StdWindow::computeStuff() {
         VulkanResources updated{
@@ -27,12 +32,11 @@ namespace Vltava {
                 MAX_FRAMES_IN_FLIGHT
         };
 
-        ComputeShader comp(updated, "shaders/comp.spv");
-
-        vk::DeviceSize size = sizeof(int32_t) * 512;
-        auto* data = new int32_t[512];
+        vk::DeviceSize size = sizeof(Stuff) * 512;
+        auto* data = new Stuff[512];
         for (int i = 0; i < 512; i++) {
-            data[i] = i;
+            data[i].pos = glm::vec3(-i,i,-i);
+            data[i].rad = sin(i);
         }
 
         Buffer inBuffer(
@@ -49,119 +53,30 @@ namespace Vltava {
                 vk::BufferUsageFlagBits::eStorageBuffer,
                 vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
         );
+        outBuffer.setSize(512 * sizeof(Stuff));
         outBuffer.bind(0);
 
         inBuffer.writeToBuffer(data, size);
-        //delete[] data;
+        delete[] data;
 
-        std::vector<vk::DescriptorSetLayoutBinding> bindings = {
-                {0,
-                        vk::DescriptorType::eStorageBuffer,
-                        1,
-                        vk::ShaderStageFlagBits::eCompute},
-                {1,
-                        vk::DescriptorType::eStorageBuffer,
-                        1,
-                        vk::ShaderStageFlagBits::eCompute}
-        };
+        std::vector<Buffer> buffers;
+        buffers.push_back(std::move(inBuffer));
+        buffers.push_back(std::move(outBuffer));
 
-        vk::DescriptorSetLayoutCreateInfo layoutInfo({}, bindings);
-        vk::raii::DescriptorSetLayout layout(*device, layoutInfo);
-        comp.createPipeline(1, const_cast<vk::DescriptorSetLayout *>(&*layout));
+        ComputeShader comp(updated, "shaders/comp.spv");
+        comp.setStorageBuffers(buffers);
+        comp.createPipeline();
+        comp.createCommandBuffer(computeQueueFamily);
+        comp.dispatch(size / sizeof(Stuff) + 1, 1, 1);
 
-        // Descriptor pool creation
-        //---------------------------------
-        std::vector<vk::DescriptorPoolSize> sizes = {
-                {vk::DescriptorType::eStorageBuffer, 10}
-        };
+        auto spheres = buffers[1].getData<Stuff>();
+        std::cout << spheres.size() << std::endl;
 
-        vk::DescriptorPoolCreateInfo poolInfo(
-                vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
-                10,
-                sizes
-        );
-
-        vk::raii::DescriptorPool pool(*device, poolInfo);
-        //--------------------------------
-
-        vk::DescriptorSetAllocateInfo allocInfo(*pool, 1, &*layout);
-
-        vk::raii::DescriptorSet set = std::move(device->allocateDescriptorSets(allocInfo).front());
-
-        vk::DescriptorBufferInfo inBufferInfo(
-                inBuffer.getBufferHandle(),
-                0,
-                sizeof(int32_t) * 512
-        );
-
-        vk::DescriptorBufferInfo outBufferInfo(
-                outBuffer.getBufferHandle(),
-                0,
-                sizeof(int32_t) * 512
-        );
-
-        std::vector<vk::WriteDescriptorSet> writeSets;
-        writeSets.reserve(2);
-        writeSets.emplace_back(
-                *set,
-                0,
-                0,
-                1,
-                vk::DescriptorType::eStorageBuffer,
-                nullptr,
-                &inBufferInfo,
-                nullptr
-        );
-
-        writeSets.emplace_back(
-                *set,
-                1,
-                0,
-                1,
-                vk::DescriptorType::eStorageBuffer,
-                nullptr,
-                &outBufferInfo,
-                nullptr
-        );
-
-        device->updateDescriptorSets(writeSets, nullptr);
-
-        vk::CommandPoolCreateInfo cmdPoolInfo(vk::CommandPoolCreateFlagBits::eResetCommandBuffer, computeQueueFamily);
-        vk::raii::CommandPool computeCmdPool(*device, cmdPoolInfo);
-
-        vk::CommandBufferAllocateInfo cmdBufferInfo(*computeCmdPool, vk::CommandBufferLevel::ePrimary, 1);
-        vk::raii::CommandBuffers cmdBuffers(*device, cmdBufferInfo);
-
-        vk::CommandBufferBeginInfo beginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
-        cmdBuffers.at(0).begin(beginInfo);
-        cmdBuffers.at(0).bindPipeline(vk::PipelineBindPoint::eCompute, comp.getPipelineHandle());
-        cmdBuffers.at(0).bindDescriptorSets(
-                vk::PipelineBindPoint::eCompute,
-                comp.getPipelineLayoutHandle(),
-                0,
-                *set,
-                nullptr
-        );
-        cmdBuffers.at(0).dispatch(size / sizeof(int32_t) + 1, 1, 1);
-        cmdBuffers.at(0).end();
-
-        vk::SubmitInfo submitInfo(
-                {},
-                {},
-                *cmdBuffers.at(0),
-                {}
-        );
-        computeQueue->submit(submitInfo, nullptr);
-        computeQueue->waitIdle();
-
-        //int32_t* payload = nullptr;
-        outBuffer.writeData(data, size);
         for (int i = 0; i < 512; i++) {
-            std::cout << data[i] << " ";
+            std::cout << spheres[i].rad << " ";
         }
         std::cout << std::endl;
         std::cout << "Done" << std::endl;
-        delete[] data;
     }
 
     // Constructor

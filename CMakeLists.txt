@@ -3,7 +3,7 @@ project(SPHSimulation)
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(SPHSimulation main.cpp StdWindow.cpp StdWindow.hpp Vertex.cpp Vertex.hpp Model.cpp Model.hpp VltavaFunctions.hpp VltavaFunctions.cpp Buffer.cpp Buffer.hpp ComputeShader.cpp ComputeShader.h)
+add_executable(SPHSimulation main.cpp StdWindow.cpp StdWindow.hpp Vertex.cpp Vertex.hpp Model.cpp Model.hpp VltavaFunctions.hpp VltavaFunctions.cpp Buffer.cpp Buffer.hpp ComputeShader.cpp ComputeShader.hpp)
 #add_subdirectory( imgui )
 #add_subdirectory( vma )
 
@@ -19,7 +19,7 @@ target_include_directories(
 )
 
 if (WIN32)
-    target_link_libraries(${PROJECT_NAME} Vulkan::Vulkan glfw glm)
+    target_link_libraries(${PROJECT_NAME} Vulkan::Vulkan glfw glm -static-libgcc -static-libstdc++ -static -lpthread)
 endif(WIN32)
 
 if (UNIX)

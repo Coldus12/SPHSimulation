@@ -1,24 +1,24 @@
 #version 450
-layout (local_size_x = 256) in;
+layout (local_size_x = 1024) in;
 
-/*layout (set = 0, binding = 0) readonly buffer InputBuffer {
-    vec3 pos[];
-    vec3 velocity[];
-    float mass[];
-} particle;*/
+struct Sphere {
+    vec3 pos;
+    float rad;
+};
 
-layout(set = 0, binding = 0) readonly buffer inBuffer {
-    int data[];
+layout(set = 0, binding = 0, std140) readonly buffer inBuffer {
+    Sphere sphs[];
 } in_data;
 
-layout(set = 0, binding = 1) buffer outBuffer {
-    int data[];
+layout(set = 0, binding = 1, std140) buffer outBuffer {
+    Sphere sphs[];
 } out_data;
 
 void main()
 {
     //grab global ID
     uint gID = gl_GlobalInvocationID.x;
-    //make sure we don't access past the buffer size
-    out_data.data[gID] = in_data.data[gID] * 2;
+
+    out_data.sphs[gID].pos = in_data.sphs[gID].pos;
+    out_data.sphs[gID].rad = dot(in_data.sphs[gID].pos,in_data.sphs[gID].pos) + in_data.sphs[gID].rad;
 }

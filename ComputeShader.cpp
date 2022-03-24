@@ -1,8 +1,4 @@
-//
-// Created by PCF112021 on 3/22/2022.
-//
-
-#include "ComputeShader.h"
+#include "ComputeShader.hpp"
 
 namespace Vltava {
 
@@ -26,7 +22,7 @@ namespace Vltava {
         computePipeline.reset();
 
         // Creating new pipeline with the updated resources
-        createPipeline(layoutCount, pLayouts);
+        createPipeline();
     }
 
     vk::Pipeline ComputeShader::getPipelineHandle() {
@@ -37,10 +33,7 @@ namespace Vltava {
         return **pipelineLayout;
     }
 
-    void ComputeShader::createPipeline(uint32_t layoutCount, vk::DescriptorSetLayout* pLayouts) {
-        this->layoutCount = layoutCount;
-        this->pLayouts = pLayouts;
-
+    void ComputeShader::createPipeline() {
         auto code = readFile(computeShaderPath);
         vk::ShaderModuleCreateInfo compInfo({}, code.size(), reinterpret_cast<uint32_t*>(code.data()));
         vk::raii::ShaderModule compModule(*resources.dev, compInfo);
@@ -49,8 +42,8 @@ namespace Vltava {
 
         vk::PipelineLayoutCreateInfo layoutInfo(
                 {},
-                layoutCount,
-                pLayouts,
+                1,
+                &**setLayout,
                 0,
                 nullptr
         );
@@ -67,5 +60,100 @@ namespace Vltava {
         );
 
         computePipeline = std::make_unique<vk::raii::Pipeline>(*resources.dev, nullptr, computeInfo);
+    }
+
+    void ComputeShader::setStorageBuffers(const std::vector<Buffer>& buffers) {
+        // Descriptor set layout creation
+        //---------------------------------
+        std::vector<vk::DescriptorSetLayoutBinding> bindings;
+        bindings.reserve(buffers.size());
+
+        for (int i = 0; i < buffers.size(); i++) {
+            bindings.emplace_back(i, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eCompute);
+        }
+
+        vk::DescriptorSetLayoutCreateInfo layoutInfo({}, bindings);
+        setLayout = std::make_unique<vk::raii::DescriptorSetLayout>(*resources.dev, layoutInfo);
+
+        // Descriptor pool creation
+        //---------------------------------
+        std::vector<vk::DescriptorPoolSize> sizes = {
+                {vk::DescriptorType::eStorageBuffer, 10}
+        };
+
+        vk::DescriptorPoolCreateInfo poolInfo(
+                vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
+                10,
+                sizes
+        );
+
+        setPool = std::make_unique<vk::raii::DescriptorPool>(*resources.dev, poolInfo);
+
+        // Descriptor set creation
+        //---------------------------------
+        vk::DescriptorSetAllocateInfo allocInfo(**setPool, 1, &**setLayout);
+        set = std::make_unique<vk::raii::DescriptorSet>(
+                std::move(resources.dev->allocateDescriptorSets(allocInfo).front())
+        );
+
+        std::vector<vk::DescriptorBufferInfo> bufferInfos;
+        std::vector<vk::WriteDescriptorSet> writeSets;
+        bufferInfos.reserve(buffers.size());
+        writeSets.reserve(buffers.size());
+
+        for (int i = 0; i < buffers.size(); i++) {
+            bufferInfos.emplace_back(
+                    buffers[i].getBufferHandle(),
+                    0,
+                    buffers[i].getSize()
+            );
+
+            writeSets.emplace_back(
+                    **set,
+                    i,
+                    0,
+                    1,
+                    vk::DescriptorType::eStorageBuffer,
+                    nullptr,
+                    &bufferInfos[i],
+                    nullptr
+            );
+        }
+
+        resources.dev->updateDescriptorSets(writeSets, nullptr);
+    }
+
+    void ComputeShader::createCommandBuffer(uint32_t computeQueueFamily) {
+        vk::CommandPoolCreateInfo cmdPoolInfo(vk::CommandPoolCreateFlagBits::eResetCommandBuffer, computeQueueFamily);
+        cmdPool = std::make_unique<vk::raii::CommandPool>(*resources.dev, cmdPoolInfo);
+
+        vk::CommandBufferAllocateInfo cmdBufferInfo(**cmdPool, vk::CommandBufferLevel::ePrimary, 1);
+        vk::raii::CommandBuffers cmdBuffers(*resources.dev, cmdBufferInfo);
+
+        cmdBuffer = std::make_unique<vk::raii::CommandBuffer>(std::move(cmdBuffers.front()));
+    }
+
+    void ComputeShader::dispatch(uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) {
+        vk::CommandBufferBeginInfo beginInfo({}, nullptr);
+        cmdBuffer->begin(beginInfo);
+        cmdBuffer->bindPipeline(vk::PipelineBindPoint::eCompute, **computePipeline);
+        cmdBuffer->bindDescriptorSets(
+                vk::PipelineBindPoint::eCompute,
+                **pipelineLayout,
+                0,
+                **set,
+                nullptr
+        );
+        cmdBuffer->dispatch(groupCountX, groupCountY, groupCountZ);
+        cmdBuffer->end();
+
+        vk::SubmitInfo submitInfo(
+                {},
+                {},
+                **cmdBuffer,
+                {}
+        );
+        resources.computeQueue->submit(submitInfo);
+        resources.computeQueue->waitIdle();
     }
 };
