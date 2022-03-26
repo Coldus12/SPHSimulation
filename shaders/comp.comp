@@ -1,24 +1,84 @@
 #version 450
 layout (local_size_x = 1024) in;
 
-struct Sphere {
-    vec3 pos;
-    float rad;
+#define PI 3.1415926538
+
+struct Particle {
+    vec3 x;                     // position
+    float h;                    // radius
+    vec3 v;                     // velocity
+    float m;                    // mass
+
+    float rho;                  // density
+    float p;                    // pressure
 };
 
+layout(set = 0, binding = 0) uniform UBO {
+    float desired_density;
+    float k;                    // normalization constant / stiffness constant
+    float nr_of_particles;
+    float kernelh;
+} ubo;
+
 layout(set = 0, binding = 0, std140) readonly buffer inBuffer {
-    Sphere sphs[];
+    Particle p[];
 } in_data;
 
 layout(set = 0, binding = 1, std140) buffer outBuffer {
-    Sphere sphs[];
+    Particle p[];
 } out_data;
+
+// Kernel function from https://interactivecomputergraphics.github.io/SPH-Tutorial/pdf/SPH_Tutorial.pdf
+float kernel(Particle i, Particle j, float h) {
+    float q = length(i.x - j.x)/h;
+    float ret = 0;
+
+    if (0 <= q && q < 1) {
+        ret = 6 * (pow(q, 3.0) - (pow(q, 2.0)) + 1);
+    } else if (1 <= q && q < 2) {
+        ret = 2 * pow(1 - q, 3.0);
+    } else {
+        ret = 0;
+    }
+
+    ret *= 8.0/(PI * pow(h, 3.0));
+    return ret;
+}
+
+float calculate_density(uint id) {
+    float density = 0.0;
+    Particle pi = in_data.p[id];
+
+    for (int j = 0; j < ubo.nr_of_particles; j++) {
+        if (j != id) {
+            // density += mj * kernel(i,j)
+            Particle pj = in_data.p[j];
+            density += pj.m * kernel(pi, pj, ubo.kernelh);
+        }
+    }
+
+    return density;
+}
+
+float calculate_pressure(uint id, float rho) {
+    float ratio = rho/ubo.desired_density;
+    float p = ubo.k * (pow(ratio, 7.0) - 1.0);
+
+    return p;
+}
 
 void main()
 {
     //grab global ID
     uint gID = gl_GlobalInvocationID.x;
 
-    out_data.sphs[gID].pos = in_data.sphs[gID].pos;
-    out_data.sphs[gID].rad = dot(in_data.sphs[gID].pos,in_data.sphs[gID].pos) + in_data.sphs[gID].rad;
+    float rho = calculate_density(gID);
+    float p = calculate_pressure(gID, rho);
+
+    out_data.p[gID].x = in_data.p[gID].x;
+    out_data.p[gID].h = in_data.p[gID].h;
+    out_data.p[gID].v = in_data.p[gID].v;
+    out_data.p[gID].m = in_data.p[gID].m;
+    out_data.p[gID].rho = in_data.p[gID].rho;
+    out_data.p[gID].p = in_data.p[gID].p;
 }

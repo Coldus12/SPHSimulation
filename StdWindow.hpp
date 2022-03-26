@@ -69,8 +69,7 @@ namespace Vltava {
         bool enableValidationLayers = true;
 
         const std::vector<const char *> deviceExtensions = {
-                VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-                "VK_KHR_push_descriptor"
+                VK_KHR_SWAPCHAIN_EXTENSION_NAME
         };
 
         const std::vector<const char *> validationLayers = {

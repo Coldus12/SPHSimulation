@@ -19,7 +19,6 @@ namespace Vltava {
         void writeToBuffer(void* bufferData, size_t size);
 
         template<typename T>
-        //std::vector<T> getData(size_t nrOfObjects) {
         std::vector<T> getData() {
             std::vector<T> retVector;
             size_t objectSize = sizeof(T);

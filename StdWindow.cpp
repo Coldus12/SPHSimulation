@@ -14,9 +14,19 @@ namespace Vltava {
         device->waitIdle();
     }
 
-    struct Stuff {
+    /*struct Stuff {
         glm::vec3 pos;
         float rad;
+    };*/
+
+    struct Particle {
+        glm::vec3 x;
+        float h;
+        glm::vec3 v;
+        float m;
+
+        float rho;
+        float p;
     };
 
     void StdWindow::computeStuff() {
@@ -32,11 +42,17 @@ namespace Vltava {
                 MAX_FRAMES_IN_FLIGHT
         };
 
-        vk::DeviceSize size = sizeof(Stuff) * 512;
-        auto* data = new Stuff[512];
-        for (int i = 0; i < 512; i++) {
-            data[i].pos = glm::vec3(-i,i,-i);
-            data[i].rad = sin(i);
+        int nrOfP = 128;
+        vk::DeviceSize size = sizeof(Particle) * nrOfP;
+        auto* data = new Particle[nrOfP];
+        for (int i = 0; i < nrOfP; i++) {
+            data[i].x = glm::vec3(i,i,i);
+            data[i].h = sin(i);
+            data[i].v = glm::vec3(i,i,i);
+            data[i].m = i;
+
+            data[i].rho = i*2;
+            data[i].p = i-2;
         }
 
         Buffer inBuffer(
@@ -53,7 +69,7 @@ namespace Vltava {
                 vk::BufferUsageFlagBits::eStorageBuffer,
                 vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
         );
-        outBuffer.setSize(512 * sizeof(Stuff));
+        outBuffer.setSize(nrOfP * sizeof(Particle));
         outBuffer.bind(0);
 
         inBuffer.writeToBuffer(data, size);
@@ -67,13 +83,13 @@ namespace Vltava {
         comp.setStorageBuffers(buffers);
         comp.createPipeline();
         comp.createCommandBuffer(computeQueueFamily);
-        comp.dispatch(size / sizeof(Stuff) + 1, 1, 1);
+        comp.dispatch(size / sizeof(Particle) + 1, 1, 1);
 
-        auto spheres = buffers[1].getData<Stuff>();
+        auto spheres = buffers[1].getData<Particle>();
         std::cout << spheres.size() << std::endl;
 
-        for (int i = 0; i < 512; i++) {
-            std::cout << spheres[i].rad << " ";
+        for (int i = 0; i < nrOfP; i++) {
+            std::cout << spheres[i].h << " ";
         }
         std::cout << std::endl;
         std::cout << "Done" << std::endl;
