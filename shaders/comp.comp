@@ -11,6 +11,9 @@ struct Particle {
 
     float rho;                  // density
     float p;                    // pressure
+
+    float padding1;
+    float padding2;
 };
 
 layout(set = 0, binding = 0) uniform UBO {
@@ -20,11 +23,11 @@ layout(set = 0, binding = 0) uniform UBO {
     float kernelh;
 } ubo;
 
-layout(set = 0, binding = 0, std140) readonly buffer inBuffer {
+layout(set = 0, binding = 1, std430) readonly buffer inBuffer {
     Particle p[];
 } in_data;
 
-layout(set = 0, binding = 1, std140) buffer outBuffer {
+layout(set = 0, binding = 2, std430) buffer outBuffer {
     Particle p[];
 } out_data;
 
@@ -79,6 +82,6 @@ void main()
     out_data.p[gID].h = in_data.p[gID].h;
     out_data.p[gID].v = in_data.p[gID].v;
     out_data.p[gID].m = in_data.p[gID].m;
-    out_data.p[gID].rho = in_data.p[gID].rho;
-    out_data.p[gID].p = in_data.p[gID].p;
+    out_data.p[gID].rho = rho;
+    out_data.p[gID].p = p;
 }

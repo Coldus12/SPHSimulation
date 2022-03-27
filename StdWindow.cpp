@@ -27,6 +27,16 @@ namespace Vltava {
 
         float rho;
         float p;
+
+        float padding1 = 0;
+        float padding2 = 0;
+    };
+
+    struct SimProps {
+        float desired_density;
+        float k;                    // normalization constant / stiffness constant
+        float nr_of_particles;
+        float kernelh;
     };
 
     void StdWindow::computeStuff() {
@@ -42,17 +52,50 @@ namespace Vltava {
                 MAX_FRAMES_IN_FLIGHT
         };
 
-        int nrOfP = 128;
+        // density / pressure calculation
+        SimProps props{
+            1.0f,
+            1.0f,
+            64,
+            3.0f
+        };
+
+        Buffer UBO(
+                updated,
+                sizeof(SimProps),
+                vk::BufferUsageFlagBits::eUniformBuffer,
+                vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible
+         );
+        UBO.writeToBuffer(&props, sizeof(SimProps));
+
+        std::vector<Buffer> uBuffers;
+        uBuffers.push_back(std::move(UBO));
+
+        int nrOfP = 64;
         vk::DeviceSize size = sizeof(Particle) * nrOfP;
         auto* data = new Particle[nrOfP];
-        for (int i = 0; i < nrOfP; i++) {
-            data[i].x = glm::vec3(i,i,i);
-            data[i].h = sin(i);
-            data[i].v = glm::vec3(i,i,i);
-            data[i].m = i;
 
-            data[i].rho = i*2;
-            data[i].p = i-2;
+        int r = 0;
+        int c = -1;
+        int z = -1;
+
+        float mass = (2.0f/3.0f * 1) * (2.0f/3.0f * 1) * (2.0f/3.0f * 1);
+
+        for (int i = 0; i < nrOfP; i++) {
+            if (i%4 == 0)
+                r++;
+
+            if (i%16 == 0)
+                z++;
+
+            data[i].x = glm::vec3(i%4,r, z);
+
+            data[i].h = 1;
+            data[i].v = glm::vec3(0,0,0);
+            data[i].m = mass;
+
+            data[i].rho = 0;
+            data[i].p = 0;
         }
 
         Buffer inBuffer(
@@ -75,21 +118,21 @@ namespace Vltava {
         inBuffer.writeToBuffer(data, size);
         delete[] data;
 
-        std::vector<Buffer> buffers;
-        buffers.push_back(std::move(inBuffer));
-        buffers.push_back(std::move(outBuffer));
+        std::vector<Buffer> sBuffers;
+        sBuffers.push_back(std::move(inBuffer));
+        sBuffers.push_back(std::move(outBuffer));
 
         ComputeShader comp(updated, "shaders/comp.spv");
-        comp.setStorageBuffers(buffers);
+        comp.setBuffers(sBuffers, uBuffers);
         comp.createPipeline();
         comp.createCommandBuffer(computeQueueFamily);
         comp.dispatch(size / sizeof(Particle) + 1, 1, 1);
 
-        auto spheres = buffers[1].getData<Particle>();
+        auto spheres = sBuffers[1].getData<Particle>();
         std::cout << spheres.size() << std::endl;
 
         for (int i = 0; i < nrOfP; i++) {
-            std::cout << spheres[i].h << " ";
+            std::cout << "Density: " << spheres[i].rho << "; Pressure: " << spheres[i].p << ";\n";
         }
         std::cout << std::endl;
         std::cout << "Done" << std::endl;

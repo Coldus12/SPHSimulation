@@ -14,7 +14,7 @@ namespace Vltava {
         vk::Pipeline getPipelineHandle();
         vk::PipelineLayout getPipelineLayoutHandle();
 
-        void setStorageBuffers(const std::vector<Buffer>& buffers);
+        void setBuffers(const std::vector<Buffer>& storageBuffers, const std::vector<Buffer>& uniformBuffers);
         void createCommandBuffer(uint32_t computeQueueFamily);
         void dispatch(uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ);
 
