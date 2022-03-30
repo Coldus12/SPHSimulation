@@ -62,17 +62,17 @@ namespace Vltava {
         computePipeline = std::make_unique<vk::raii::Pipeline>(*resources.dev, nullptr, computeInfo);
     }
 
-    void ComputeShader::setBuffers(const std::vector<Buffer>& storageBuffers, const std::vector<Buffer>& uniformBuffers) {
+    void ComputeShader::setBuffers(const std::vector<Buffer>* uniformBuffers, const std::vector<Buffer>* storageBuffers) {
         // Descriptor set layout creation
         //---------------------------------
         std::vector<vk::DescriptorSetLayoutBinding> bindings;
-        bindings.reserve(storageBuffers.size() + uniformBuffers.size());
+        bindings.reserve(storageBuffers->size() + uniformBuffers->size());
 
-        for (int i = 0; i < uniformBuffers.size(); i++) {
+        for (int i = 0; i < uniformBuffers->size(); i++) {
             bindings.emplace_back(i, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eCompute);
         }
 
-        for (int i = uniformBuffers.size(); i < uniformBuffers.size() + storageBuffers.size(); i++) {
+        for (int i = uniformBuffers->size(); i < uniformBuffers->size() + storageBuffers->size(); i++) {
             bindings.emplace_back(i, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eCompute);
         }
 
@@ -82,8 +82,8 @@ namespace Vltava {
         // Descriptor pool creation
         //---------------------------------
         std::vector<vk::DescriptorPoolSize> sizes = {
-                {vk::DescriptorType::eUniformBuffer, static_cast<uint32_t>(uniformBuffers.size())},
-                {vk::DescriptorType::eStorageBuffer, static_cast<uint32_t>(storageBuffers.size())}
+                {vk::DescriptorType::eUniformBuffer, static_cast<uint32_t>(uniformBuffers->size())},
+                {vk::DescriptorType::eStorageBuffer, static_cast<uint32_t>(storageBuffers->size())}
         };
 
         vk::DescriptorPoolCreateInfo poolInfo(
@@ -103,14 +103,14 @@ namespace Vltava {
 
         std::vector<vk::DescriptorBufferInfo> bufferInfos;
         std::vector<vk::WriteDescriptorSet> writeSets;
-        bufferInfos.reserve(storageBuffers.size() + uniformBuffers.size());
-        writeSets.reserve(storageBuffers.size() + uniformBuffers.size());
+        bufferInfos.reserve(storageBuffers->size() + uniformBuffers->size());
+        writeSets.reserve(storageBuffers->size() + uniformBuffers->size());
 
-        for (int i = 0; i < uniformBuffers.size(); i++) {
+        for (int i = 0; i < uniformBuffers->size(); i++) {
             bufferInfos.emplace_back(
-                    uniformBuffers[i].getBufferHandle(),
+                    uniformBuffers->at(i).getBufferHandle(),
                     0,
-                    uniformBuffers[i].getSize()
+                    uniformBuffers->at(i).getSize()
             );
 
             writeSets.emplace_back(
@@ -125,21 +125,21 @@ namespace Vltava {
             );
         }
 
-        for (int i = 0; i < storageBuffers.size(); i++) {
+        for (int i = 0; i < storageBuffers->size(); i++) {
             bufferInfos.emplace_back(
-                    storageBuffers[i].getBufferHandle(),
+                    storageBuffers->at(i).getBufferHandle(),
                     0,
-                    storageBuffers[i].getSize()
+                    storageBuffers->at(i).getSize()
             );
 
             writeSets.emplace_back(
                     **set,
-                    i + uniformBuffers.size(),
+                    i + uniformBuffers->size(),
                     0,
                     1,
                     vk::DescriptorType::eStorageBuffer,
                     nullptr,
-                    &bufferInfos[i + uniformBuffers.size()],
+                    &bufferInfos[i + uniformBuffers->size()],
                     nullptr
             );
         }

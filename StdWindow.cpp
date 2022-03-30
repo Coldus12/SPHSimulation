@@ -123,7 +123,7 @@ namespace Vltava {
         sBuffers.push_back(std::move(outBuffer));
 
         ComputeShader comp(updated, "shaders/comp.spv");
-        comp.setBuffers(sBuffers, uBuffers);
+        comp.setBuffers(&uBuffers, &sBuffers);
         comp.createPipeline();
         comp.createCommandBuffer(computeQueueFamily);
         comp.dispatch(size / sizeof(Particle) + 1, 1, 1);
