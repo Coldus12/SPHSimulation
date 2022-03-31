@@ -1,6 +1,7 @@
 #include "StdWindow.hpp"
 #include "VltavaFunctions.hpp"
 #include "ComputeShader.hpp"
+#include "ParticleModel.hpp"
 
 namespace Vltava {
     // Main loop
@@ -13,31 +14,6 @@ namespace Vltava {
 
         device->waitIdle();
     }
-
-    /*struct Stuff {
-        glm::vec3 pos;
-        float rad;
-    };*/
-
-    struct Particle {
-        glm::vec3 x;
-        float h;
-        glm::vec3 v;
-        float m;
-
-        float rho;
-        float p;
-
-        float padding1 = 0;
-        float padding2 = 0;
-    };
-
-    struct SimProps {
-        float desired_density;
-        float k;                    // normalization constant / stiffness constant
-        float nr_of_particles;
-        float kernelh;
-    };
 
     void StdWindow::computeStuff() {
         VulkanResources updated{
@@ -700,6 +676,7 @@ namespace Vltava {
         };
 
         model = std::make_unique<Model>(res);
+        model->loadModel(""); // Actual load
     }
 
     // Draw frame

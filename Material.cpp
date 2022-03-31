@@ -59,6 +59,114 @@ namespace Vltava {
         Buffer::copyBuffer(stagingBuffer.getBufferHandle(),indexBuffer->getBufferHandle(),bufferSize);
     }
 
+    /**
+     * Vector of pointers version.
+     * ---------------------------
+     * This version stores the pointers to the buffers and as a result it is now easier "scissor" the needed /
+     * required vectors together.
+     *
+     * @uniformBuffers This vector should contain FRAMES_IN_FLIGHT * (UBO(s) in the shader) nr of buffers.
+     * For example if the shader has 3 UBOs and 2 FRAMES_IN_FLIGHT, then this vector should contain
+     * 6 (UBO * FRAMES_IN_FLIGHT) buffers. Each bufferNr%FRAMES_IN_FLIGHT has the same binding.
+     * In the case of our example buffer nr 0 and buffer nr 3 has the same binding, and so do nr 1 - nr 4,
+     * and nr 2 - nr 5.
+     * */
+    void Material::setBuffers(const std::vector<Buffer*>* uniformBuffers, const std::vector<Buffer*>* storageBuffers) {
+        std::vector<Buffer*> placeHolder;
+        if (uniformBuffers == nullptr)
+            uniformBuffers = &placeHolder;
+
+        if (storageBuffers == nullptr)
+            storageBuffers = &placeHolder;
+
+        // Descriptor set layout creation
+        //---------------------------------
+        std::vector<vk::DescriptorSetLayoutBinding> bindings;
+        bindings.reserve(storageBuffers->size() + uniformBuffers->size());
+
+        int bufferNrPerFrame = (uniformBuffers->size() / res.FRAMES_IN_FLIGHT);
+
+        for (int i = 0; i < bufferNrPerFrame; i++) {
+            bindings.emplace_back(i, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex);
+        }
+
+        for (int i = bufferNrPerFrame; i < bufferNrPerFrame + storageBuffers->size(); i++) {
+            bindings.emplace_back(i, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eVertex);
+        }
+
+        vk::DescriptorSetLayoutCreateInfo layoutInfo({}, bindings);
+        setLayout = std::make_unique<vk::raii::DescriptorSetLayout>(*res.dev, layoutInfo);
+
+        // Descriptor pool creation
+        //---------------------------------
+        std::vector<vk::DescriptorPoolSize> sizes;
+        if (!uniformBuffers->empty())
+            sizes.emplace_back(vk::DescriptorType::eUniformBuffer, static_cast<uint32_t>(uniformBuffers->size()) * res.FRAMES_IN_FLIGHT);
+
+        if (!storageBuffers->empty())
+            sizes.emplace_back(vk::DescriptorType::eStorageBuffer, static_cast<uint32_t>(storageBuffers->size()) * res.FRAMES_IN_FLIGHT);
+
+        vk::DescriptorPoolCreateInfo poolInfo(
+                vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
+                20,
+                sizes
+        );
+
+        setPool = std::make_unique<vk::raii::DescriptorPool>(*res.dev, poolInfo);
+
+        // Descriptor set creation
+        //---------------------------------
+        vk::DescriptorSetAllocateInfo allocInfo(**setPool, 1, &**setLayout);
+        for (int j = 0; j < res.FRAMES_IN_FLIGHT; j++) {
+            sets.push_back(std::move(res.dev->allocateDescriptorSets(allocInfo).front()));
+
+            std::vector<vk::DescriptorBufferInfo> bufferInfos;
+            std::vector<vk::WriteDescriptorSet> writeSets;
+            bufferInfos.reserve(storageBuffers->size() + bufferNrPerFrame);
+            writeSets.reserve(storageBuffers->size() + bufferNrPerFrame);
+
+            for (int i = j * bufferNrPerFrame; i < (j+1) * bufferNrPerFrame; i++) {
+                bufferInfos.emplace_back(
+                        uniformBuffers->at(i)->getBufferHandle(),
+                        0,
+                        uniformBuffers->at(i)->getSize()
+                );
+
+                writeSets.emplace_back(
+                        *sets[j],
+                        i % bufferNrPerFrame,
+                        0,
+                        1,
+                        vk::DescriptorType::eUniformBuffer,
+                        nullptr,
+                        &bufferInfos[i % bufferNrPerFrame],
+                        nullptr
+                );
+            }
+
+            for (int i = 0; i < storageBuffers->size(); i++) {
+                bufferInfos.emplace_back(
+                        storageBuffers->at(i)->getBufferHandle(),
+                        0,
+                        storageBuffers->at(i)->getSize()
+                );
+
+                writeSets.emplace_back(
+                        *sets[j],
+                        i + bufferNrPerFrame,
+                        0,
+                        1,
+                        vk::DescriptorType::eStorageBuffer,
+                        nullptr,
+                        &bufferInfos[i + bufferNrPerFrame],
+                        nullptr
+                );
+            }
+
+            res.dev->updateDescriptorSets(writeSets, nullptr);
+        }
+    }
+
     /** @uniformBuffers This vector should contain FRAMES_IN_FLIGHT * (UBO(s) in the shader) nr of buffers.
      * For example if the shader has 3 UBOs and 2 FRAMES_IN_FLIGHT, then this vector should contain
      * 6 (UBO * FRAMES_IN_FLIGHT) buffers. Each bufferNr%FRAMES_IN_FLIGHT has the same binding.

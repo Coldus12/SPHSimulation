@@ -25,11 +25,11 @@ namespace Vltava {
         Model(VulkanResources& resources);
 
         virtual void loadModel(const std::string& path);
+        void updateResources(const VulkanResources& res);
         virtual void draw(const vk::raii::CommandBuffer& buffer, uint32_t currentFrame);
-        virtual void updateResources(const VulkanResources& res);
 
         VulkanResources& resources;
-    private:
+    protected:
         std::unique_ptr<Material> mat;
         float aspect;
 

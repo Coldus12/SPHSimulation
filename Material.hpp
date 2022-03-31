@@ -48,6 +48,7 @@ namespace Vltava {
 
         void uploadIndexData(std::vector<uint16_t> indices);
         void setBuffers(const std::vector<Buffer>* uniformBuffers, const std::vector<Buffer>* storageBuffers);
+        void setBuffers(const std::vector<Buffer*>* uniformBuffers, const std::vector<Buffer*>* storageBuffers);
         void createPipeline(std::vector<vk::VertexInputBindingDescription> bindingDescriptions,
                             std::vector<vk::VertexInputAttributeDescription> attributeDescriptions);
         void draw(const vk::raii::CommandBuffer& buffer, uint32_t currentFrame);

@@ -6,8 +6,6 @@
 
 Vltava::Model::Model(VulkanResources &resources) : resources(resources) {
     aspect = resources.extent.width / (float) resources.extent.height;
-
-    loadModel("");
 }
 
 void Vltava::Model::updateResources(const VulkanResources &res) {
