@@ -17,6 +17,8 @@ namespace Vltava {
         glm::mat4 model;
         glm::mat4 view;
         glm::mat4 proj;
+        //alignas(16) glm::vec2 res;
+        alignas(16) float aspect;
     };
 
     class Model {

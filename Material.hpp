@@ -47,10 +47,17 @@ namespace Vltava {
         }
 
         void uploadIndexData(std::vector<uint16_t> indices);
-        void setBuffers(const std::vector<Buffer>* uniformBuffers, const std::vector<Buffer>* storageBuffers);
-        void setBuffers(const std::vector<Buffer*>* uniformBuffers, const std::vector<Buffer*>* storageBuffers);
+        void setBuffers(const std::vector<Buffer>* uniformBuffers,
+                        const std::vector<Buffer>* storageBuffers,
+                        vk::ShaderStageFlags shaderStages = vk::ShaderStageFlagBits::eVertex);
+
+        void setBuffers(const std::vector<Buffer*>* uniformBuffers,
+                        const std::vector<Buffer*>* storageBuffers,
+                        vk::ShaderStageFlags shaderStages = vk::ShaderStageFlagBits::eVertex);
+
         void createPipeline(std::vector<vk::VertexInputBindingDescription> bindingDescriptions,
-                            std::vector<vk::VertexInputAttributeDescription> attributeDescriptions);
+                            std::vector<vk::VertexInputAttributeDescription> attributeDescriptions,
+                            vk::PrimitiveTopology topology = vk::PrimitiveTopology::eTriangleList);
         void draw(const vk::raii::CommandBuffer& buffer, uint32_t currentFrame);
 
         void recreatePipeline();

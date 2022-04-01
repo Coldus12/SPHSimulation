@@ -71,7 +71,10 @@ namespace Vltava {
      * In the case of our example buffer nr 0 and buffer nr 3 has the same binding, and so do nr 1 - nr 4,
      * and nr 2 - nr 5.
      * */
-    void Material::setBuffers(const std::vector<Buffer*>* uniformBuffers, const std::vector<Buffer*>* storageBuffers) {
+    void Material::setBuffers(const std::vector<Buffer*>* uniformBuffers,
+                              const std::vector<Buffer*>* storageBuffers,
+                              vk::ShaderStageFlags shaderStages) {
+
         std::vector<Buffer*> placeHolder;
         if (uniformBuffers == nullptr)
             uniformBuffers = &placeHolder;
@@ -87,11 +90,11 @@ namespace Vltava {
         int bufferNrPerFrame = (uniformBuffers->size() / res.FRAMES_IN_FLIGHT);
 
         for (int i = 0; i < bufferNrPerFrame; i++) {
-            bindings.emplace_back(i, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex);
+            bindings.emplace_back(i, vk::DescriptorType::eUniformBuffer, 1, shaderStages);
         }
 
         for (int i = bufferNrPerFrame; i < bufferNrPerFrame + storageBuffers->size(); i++) {
-            bindings.emplace_back(i, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eVertex);
+            bindings.emplace_back(i, vk::DescriptorType::eStorageBuffer, 1, shaderStages);
         }
 
         vk::DescriptorSetLayoutCreateInfo layoutInfo({}, bindings);
@@ -173,7 +176,10 @@ namespace Vltava {
      * In the case of our example buffer nr 0 and buffer nr 3 has the same binding, and so do nr 1 - nr 4,
      * and nr 2 - nr 5.
      * */
-    void Material::setBuffers(const std::vector<Buffer>* uniformBuffers, const std::vector<Buffer>* storageBuffers) {
+    void Material::setBuffers(const std::vector<Buffer>* uniformBuffers,
+                              const std::vector<Buffer>* storageBuffers,
+                              vk::ShaderStageFlags shaderStages) {
+
         std::vector<Buffer> placeHolder;
         if (uniformBuffers == nullptr)
             uniformBuffers = &placeHolder;
@@ -189,11 +195,11 @@ namespace Vltava {
         int bufferNrPerFrame = (uniformBuffers->size() / res.FRAMES_IN_FLIGHT);
 
         for (int i = 0; i < bufferNrPerFrame; i++) {
-            bindings.emplace_back(i, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex);
+            bindings.emplace_back(i, vk::DescriptorType::eUniformBuffer, 1, shaderStages);
         }
 
         for (int i = bufferNrPerFrame; i < bufferNrPerFrame + storageBuffers->size(); i++) {
-            bindings.emplace_back(i, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eVertex);
+            bindings.emplace_back(i, vk::DescriptorType::eStorageBuffer, 1, shaderStages);
         }
 
         vk::DescriptorSetLayoutCreateInfo layoutInfo({}, bindings);
@@ -270,7 +276,8 @@ namespace Vltava {
     }
 
     void Material::createPipeline(std::vector<vk::VertexInputBindingDescription> bindingDescriptions,
-                                  std::vector<vk::VertexInputAttributeDescription> attributeDescriptions) {
+                                  std::vector<vk::VertexInputAttributeDescription> attributeDescriptions,
+                                  vk::PrimitiveTopology topology) {
         bindings = bindingDescriptions;
         attribs = attributeDescriptions;
 
@@ -296,7 +303,7 @@ namespace Vltava {
                 attributeDescriptions.data()
         );
 
-        vk::PipelineInputAssemblyStateCreateInfo inputAssembly({}, vk::PrimitiveTopology::eTriangleList, false);
+        vk::PipelineInputAssemblyStateCreateInfo inputAssembly({}, topology, false);
 
         vk::Viewport viewport(0.0f, 0.0f, (float) res.extent.width, (float) res.extent.height, 0.0f, 1.0f);
         vk::Rect2D scissor({0, 0}, res.extent);

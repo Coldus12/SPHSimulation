@@ -30,11 +30,17 @@ void Vltava::Model::loadModel(const std::string &path) {
         uniformBuffers[i].setSize(sizeof(MVP));
 
     vertices.reserve(3);
-    vertices.push_back({{-0.5f, -0.5f},{0.0f, 0.0f, 1.0f}});
+    /*vertices.push_back({{-0.5f, -0.5f},{0.0f, 0.0f, 1.0f}});
     vertices.push_back({{0.5f, -0.5f},{0.0f, 1.0f, 0.0f}});
     vertices.push_back({{0.5f, 0.5f},{0.0f, 0.0f, 1.0f}});
     // For index buffer showcase
-    vertices.push_back({{-0.5f, 0.5f},{0.0f, 1.0f, 0.0f}});
+    vertices.push_back({{-0.5f, 0.5f},{0.0f, 1.0f, 0.0f}});*/
+
+    vertices.push_back({{-1.0f, -1.0f},{0.0f, 0.0f, 1.0f}});
+    vertices.push_back({{1.0f, -1.0f},{0.0f, 1.0f, 0.0f}});
+    vertices.push_back({{1.0f, 1.0f},{0.0f, 0.0f, 1.0f}});
+    // For index buffer showcase
+    vertices.push_back({{-1.0f, 1.0f},{0.0f, 1.0f, 0.0f}});
 
     indices = {
             //0, 1, 2, 2, 3, 0
@@ -44,7 +50,7 @@ void Vltava::Model::loadModel(const std::string &path) {
     mat = std::make_unique<Material>(resources, "shaders/vert.spv", "shaders/frag.spv");
     mat->uploadVertexData<Vertex>(vertices);
     mat->uploadIndexData(indices);
-    mat->setBuffers(&uniformBuffers, nullptr);
+    mat->setBuffers(&uniformBuffers, nullptr, vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment);
 
     std::vector<vk::VertexInputBindingDescription> bindings = {
             vertices[0].getBindingDescription()
@@ -83,10 +89,18 @@ void Vltava::Model::updateUniformBuffer(uint32_t currentImage) {
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
     MVP mvp{};
-    mvp.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    /*mvp.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     mvp.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     mvp.proj = glm::perspective(glm::radians(45.0f), aspect, 0.1f, 10.0f);
+    mvp.proj[1][1] *= -1;*/
+
+    mvp.view = glm::mat4(1.0f);
+    mvp.proj = glm::mat4(1.0f);
+    mvp.model = glm::mat4(1.0f);
     mvp.proj[1][1] *= -1;
+
+    mvp.aspect = aspect;
+    //mvp.res = glm::vec2(resources.extent.width, resources.extent.height);
 
     uniformBuffers[currentImage].writeToBuffer(&mvp, sizeof(mvp));
 }

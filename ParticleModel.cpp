@@ -65,7 +65,11 @@ namespace Vltava {
         }
 
         mat->setBuffers(&uniformBuffersU, &storageBuffersU);
-        mat->createPipeline(Particle::getBindingDescription(), Particle::getAttributeDescription());
+        mat->createPipeline(
+                Particle::getBindingDescription(),
+                Particle::getAttributeDescription(),
+                vk::PrimitiveTopology::ePointList
+        );
     }
 
     void ParticleModel::updateUniformBuffer(uint32_t currentImage) {
