@@ -33,15 +33,18 @@ namespace Vltava {
         float kernelh;
     };
 
-    class ParticleModel : Model {
+    class ParticleModel : public Model {
     public:
-        ParticleModel(VulkanResources& resources, Buffer* simPropsBuffer, std::vector<Buffer>* storageBuffers);
+        ParticleModel(VulkanResources& resources, std::vector<Buffer>* simPropsBuffer, std::vector<Buffer>* storageBuffers);
 
         void loadModel(const std::string& path) override;
         void draw(const vk::raii::CommandBuffer& buffer, uint32_t currentFrame) override;
     private:
-        Buffer* simProps = nullptr;
+        std::vector<glm::vec2> vertexBufferData;
+
+        //Buffer* simProps = nullptr;
         std::vector<Buffer>* storageBuffers = nullptr;
+        std::vector<Buffer>* simPropsBuffers = nullptr;
         std::vector<Buffer*> uniformBuffersU/*pdated*/;
         std::vector<Buffer*> storageBuffersU/*pdated*/;
 

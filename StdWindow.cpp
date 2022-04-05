@@ -44,15 +44,14 @@ namespace Vltava {
          );
         UBO.writeToBuffer(&props, sizeof(SimProps));
 
-        std::vector<Buffer> uBuffers;
+        //std::vector<Buffer> uBuffers;
         uBuffers.push_back(std::move(UBO));
 
         int nrOfP = 64;
         vk::DeviceSize size = sizeof(Particle) * nrOfP;
         auto* data = new Particle[nrOfP];
 
-        int r = 0;
-        int c = -1;
+        int r = -1;
         int z = -1;
 
         float mass = (2.0f/3.0f * 1) * (2.0f/3.0f * 1) * (2.0f/3.0f * 1);
@@ -64,7 +63,7 @@ namespace Vltava {
             if (i%16 == 0)
                 z++;
 
-            data[i].x = glm::vec3(i%4,r, z);
+            data[i].x = glm::vec3(i%4,r%4, z);
 
             data[i].h = 1;
             data[i].v = glm::vec3(0,0,0);
@@ -94,7 +93,7 @@ namespace Vltava {
         inBuffer.writeToBuffer(data, size);
         delete[] data;
 
-        std::vector<Buffer> sBuffers;
+        //std::vector<Buffer> sBuffers;
         sBuffers.push_back(std::move(inBuffer));
         sBuffers.push_back(std::move(outBuffer));
 
@@ -126,7 +125,6 @@ namespace Vltava {
         glfwSetFramebufferSizeCallback(window, frameBufferResizeCallback);
 
         initVulkan();
-        computeStuff();
         mainloop();
     }
 
@@ -144,6 +142,8 @@ namespace Vltava {
         createCommandPool();
         createCommandBuffers();
         createSyncObjects();
+
+        computeStuff();
 
         loadModel();
     }
@@ -675,8 +675,10 @@ namespace Vltava {
             MAX_FRAMES_IN_FLIGHT
         };
 
-        model = std::make_unique<Model>(res);
-        model->loadModel(""); // Actual load
+        //model = std::make_unique<Model>(res);
+        //model->loadModel(""); // Actual load
+
+        model = std::make_unique<ParticleModel>(res, &uBuffers, &sBuffers);
     }
 
     // Draw frame

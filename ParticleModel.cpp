@@ -36,26 +36,41 @@ namespace Vltava {
 
     // ParticleModel
     //------------------------------------------------------------------------------------------------------------------
-    ParticleModel::ParticleModel(VulkanResources& resources, Buffer* simPropsBuffer, std::vector<Buffer>* storageBuffers)
-    : Model(resources), simProps(simPropsBuffer), storageBuffers(storageBuffers) {
+    ParticleModel::ParticleModel(VulkanResources& resources, std::vector<Buffer>* simPropsBuffers, std::vector<Buffer>* storageBuffers)
+    : Model(resources), simPropsBuffers(simPropsBuffers), storageBuffers(storageBuffers) {
         loadModel("");
     }
 
     void ParticleModel::loadModel(const std::string &path) {
         createUniformBuffers();
+        for (int i = 0; i < uniformBuffers.size(); i++)
+            uniformBuffers[i].setSize(sizeof(MVP));
+
         mat = std::make_unique<Material>(resources, "shaders/vert_p.spv", "shaders/frag_p.spv");
 
-        std::vector<Particle> vertexBufferData;
-        vertexBufferData.resize(64 * sizeof(Particle));
-        mat->uploadVertexData<Particle>(vertexBufferData);
+        int nr = 64;
+        vertexBufferData.reserve(nr * 4);
+        indices.clear();
+        for (uint16_t i = 0; i < nr; i++) {
+            vertexBufferData.emplace_back(-0.2f, -0.2f);
+            vertexBufferData.emplace_back(0.2f, -0.2f);
+            vertexBufferData.emplace_back(0.2f, 0.2f);
+            vertexBufferData.emplace_back(-0.2f, 0.2f);
+
+            uint16_t increment = 4 * i;
+            indices.push_back(0 + increment); indices.push_back(1 + increment); indices.push_back(3 + increment);
+            indices.push_back(1 + increment); indices.push_back(2 + increment); indices.push_back(3 + increment);
+        }
+        mat->uploadVertexData<glm::vec2>(vertexBufferData);
+        mat->uploadIndexData(indices);
 
         // Uniform buffers scissored together
-        uniformBuffersU.reserve(uniformBuffers.size() + resources.FRAMES_IN_FLIGHT /* times provided buffers (1)*/);
-        for (auto & uniformBuffer : uniformBuffers) {
-            uniformBuffersU.push_back(&uniformBuffer);
-        }
-        for (int i = 0; i < resources.FRAMES_IN_FLIGHT; i++) {
-            uniformBuffersU.push_back(simProps);
+        uniformBuffersU.reserve(uniformBuffers.size() + resources.FRAMES_IN_FLIGHT * simPropsBuffers->size());
+
+        for (int f = 0; f < resources.FRAMES_IN_FLIGHT; f++) {
+            uniformBuffersU.push_back(&uniformBuffers[f]);
+            for (auto & simPropsBuffer : *simPropsBuffers)
+                uniformBuffersU.push_back(&simPropsBuffer);
         }
 
         // Updating storageBuffers (vector<Buffer> to vector<Buffer*>)
@@ -65,10 +80,18 @@ namespace Vltava {
         }
 
         mat->setBuffers(&uniformBuffersU, &storageBuffersU);
+
+        std::vector<vk::VertexInputBindingDescription> bindings = {
+                {0, sizeof(glm::vec2), vk::VertexInputRate::eVertex}
+        };
+
+        std::vector<vk::VertexInputAttributeDescription> attribs = {
+                {0, 0, vk::Format::eR32G32Sfloat, 0}
+        };
+
         mat->createPipeline(
-                Particle::getBindingDescription(),
-                Particle::getAttributeDescription(),
-                vk::PrimitiveTopology::ePointList
+                bindings,
+                attribs
         );
     }
 
@@ -79,10 +102,16 @@ namespace Vltava {
         float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
         MVP mvp{};
-        mvp.model = glm::mat4(1.0f);
-        mvp.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-        mvp.proj = glm::perspective(glm::radians(45.0f), aspect, 0.1f, 10.0f);
+        //mvp.model = glm::mat4(1.0f);
+        mvp.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        mvp.view = glm::lookAt(glm::vec3(0.0f, 10.0f, 10.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        mvp.proj = glm::perspective(glm::radians(45.0f), aspect, 0.1f, 40.0f);
         mvp.proj[1][1] *= -1;
+
+        mvp.localPos1 = vertexBufferData[0];
+        mvp.localPos2 = vertexBufferData[1];
+        mvp.localPos3 = vertexBufferData[2];
+        mvp.localPos4 = vertexBufferData[3];
 
         uniformBuffers[currentImage].writeToBuffer(&mvp, sizeof(mvp));
     }

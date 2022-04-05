@@ -36,15 +36,23 @@ void Vltava::Model::loadModel(const std::string &path) {
     // For index buffer showcase
     vertices.push_back({{-0.5f, 0.5f},{0.0f, 1.0f, 0.0f}});*/
 
-    vertices.push_back({{-1.0f, -1.0f},{0.0f, 0.0f, 1.0f}});
-    vertices.push_back({{1.0f, -1.0f},{0.0f, 1.0f, 0.0f}});
-    vertices.push_back({{1.0f, 1.0f},{0.0f, 0.0f, 1.0f}});
+    vertices.push_back({{-0.2f, -0.2f},{0.0f, 0.0f, 1.0f}});
+    vertices.push_back({{0.2f, -0.2f},{0.0f, 1.0f, 0.0f}});
+    vertices.push_back({{0.2f, 0.2f},{0.0f, 0.0f, 1.0f}});
     // For index buffer showcase
-    vertices.push_back({{-1.0f, 1.0f},{0.0f, 1.0f, 0.0f}});
+    vertices.push_back({{-0.2f, 0.2f},{0.0f, 1.0f, 0.0f}});
+
+    /*vertices.push_back({{0.4f, -0.2f},{0.0f, 0.0f, 1.0f}});
+    vertices.push_back({{0.8f, -0.2f},{0.0f, 1.0f, 0.0f}});
+    vertices.push_back({{0.8f, 0.2f},{0.0f, 0.0f, 1.0f}});
+    // For index buffer showcase
+    vertices.push_back({{0.4f, 0.2f},{0.0f, 1.0f, 0.0f}});*/
 
     indices = {
             //0, 1, 2, 2, 3, 0
-            0, 1, 3, 3, 1, 2
+            0, 1, 3, 1, 2, 3
+
+            //,4, 5, 7, 7, 5, 6
     };
 
     mat = std::make_unique<Material>(resources, "shaders/vert.spv", "shaders/frag.spv");
@@ -89,18 +97,20 @@ void Vltava::Model::updateUniformBuffer(uint32_t currentImage) {
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
     MVP mvp{};
-    /*mvp.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    mvp.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     mvp.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     mvp.proj = glm::perspective(glm::radians(45.0f), aspect, 0.1f, 10.0f);
-    mvp.proj[1][1] *= -1;*/
-
-    mvp.view = glm::mat4(1.0f);
-    mvp.proj = glm::mat4(1.0f);
-    mvp.model = glm::mat4(1.0f);
     mvp.proj[1][1] *= -1;
 
-    mvp.aspect = aspect;
-    //mvp.res = glm::vec2(resources.extent.width, resources.extent.height);
+    mvp.localPos1 = vertices[0].pos;
+    mvp.localPos2 = vertices[1].pos;
+    mvp.localPos3 = vertices[2].pos;
+    mvp.localPos4 = vertices[3].pos;
+
+    /*mvp.view = glm::mat4(1.0f);
+    mvp.proj = glm::mat4(1.0f);
+    mvp.model = glm::mat4(1.0f);
+    mvp.proj[1][1] *= -1;*/
 
     uniformBuffers[currentImage].writeToBuffer(&mvp, sizeof(mvp));
 }

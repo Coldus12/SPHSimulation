@@ -61,7 +61,7 @@ namespace Vltava {
 
     /**
      * Vector of pointers version.
-     * ---------------------------
+     *
      * This version stores the pointers to the buffers and as a result it is now easier "scissor" the needed /
      * required vectors together.
      *

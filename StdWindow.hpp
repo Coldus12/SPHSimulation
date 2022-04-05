@@ -8,6 +8,7 @@
 #include "vulkan/vulkan_raii.hpp"
 
 #include "Model.hpp"
+#include "ParticleModel.hpp"
 
 #include <iostream>
 #include <limits>
@@ -47,6 +48,9 @@ namespace Vltava {
         std::unique_ptr<vk::raii::Queue> computeQueue;
 
         std::unique_ptr<Model> model;
+        //std::unique_ptr<ParticleModel> model;
+        std::vector<Buffer> sBuffers;
+        std::vector<Buffer> uBuffers;
 
         uint32_t currentFrame = 0;
         uint32_t graphicsQueueFamily = (uint32_t) -1;

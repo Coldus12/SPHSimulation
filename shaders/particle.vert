@@ -1,6 +1,8 @@
 #version 450
 #define PI 3.1415926538
 
+// Particle
+//--------------------------
 struct Particle {
     vec3 x;                     // position
     float h;                    // radius
@@ -14,13 +16,20 @@ struct Particle {
     float padding2;
 };
 
-/*layout(set = 0, binding = 0) uniform ModelViewProj {
+// Uniform Buffer Objects
+//--------------------------
+layout(set = 0, binding = 0) uniform ModelViewProj {
     mat4 model;
     mat4 view;
     mat4 projection;
-} mvp;*/
 
-layout(set = 0, binding = 0) uniform SimulationProperties {
+    vec2 localPosition1;
+    vec2 localPosition2;
+    vec2 localPosition3;
+    vec2 localPosition4;
+} mvp;
+
+layout(set = 0, binding = 1) uniform SimulationProperties {
     float desired_density;
     float k;                    // normalization constant / stiffness constant
     float nr_of_particles;
@@ -28,51 +37,51 @@ layout(set = 0, binding = 0) uniform SimulationProperties {
     float aspect;
 } SimProps;
 
-layout(set = 0, binding = 1, std430) readonly buffer inBuffer {
+// Storage buffers
+//--------------------------
+layout(set = 0, binding = 2, std430) readonly buffer inBuffer {
     Particle p[];
-} in_data;
+} storage_in;
 
-layout(set = 0, binding = 2, std430) buffer outBuffer {
+layout(set = 0, binding = 3, std430) buffer outBuffer {
     Particle p[];
-} out_data;
+} storage_out;
 
-/*
-
-// Unused input data
-//----------------------------------------------------------------------------------------------------------------------
-layout(location = 0) in vec3 unusedX;
-layout(location = 1) in float unusedH;
-layout(location = 2) in vec3 unusedV;
-layout(location = 3) in float unusedM;
-
-layout(location = 4) in float unusedRHO;
-layout(location = 5) in float unusedP;
-
-layout(location = 6) in float unusedPad1;
-layout(location = 7) in float unusedPad2;
-//----------------------------------------------------------------------------------------------------------------------
-
-layout(location = 0) out vec3 fragColor;
-layout(location = 1) out float drawRadius;*/
-
-
+// Input data
+//--------------------------
 layout(location = 0) in vec2 inPosition;
-layout(location = 1) in vec3 inColor;
 
-layout(location = 0) out vec3 fragColor;
+// Output data
+//--------------------------
+layout(location = 0) out vec2 localPos;
+layout(location = 1) out float r;
+layout(location = 2) out float c;
+
+mat4 translateTo(vec3 p) {
+    return mat4(
+        vec4(1, 0, 0, 0),
+        vec4(0, 1, 0, 0),
+        vec4(0, 0, 1, 0),
+        vec4(p.x, p.y, p.z, 1)
+    );
+}
 
 void main() {
-    /*vec3 particlePos = out_data.p[gl_VertexIndex].x;
+    switch(int(mod(gl_VertexIndex, 4))) {
+        case 0: localPos = mvp.localPosition1; break;
+        case 1: localPos = mvp.localPosition2; break;
+        case 2: localPos = mvp.localPosition3; break;
+        case 3: localPos = mvp.localPosition4; break;
+        default: break;
+    }
 
-    vec3 pointOnSurface = particlePos;
-    pointOnSurface.x += 1;
-    vec4 transformedSurfP = mvp.projection * mvp.view * mvp.model * vec4(pointOnSurface, 1.0);
-    vec4 transformedPos = mvp.projection * mvp.view * mvp.model * vec4(particlePos, 1.0);
+    c = gl_VertexIndex / (64.0 * 4);
 
-    gl_Position = transformedPos;
-    fragColor = vec3(0.1, 0.1, 0.9);
-    drawRadius = length(transformedPos - transformedSurfP);*/
+    int currentParticleNr = int(floor(gl_VertexIndex / 4));
+    Particle p = storage_in.p[currentParticleNr];
 
-    gl_Position = vec4(inPosition, 0.0, 1.0);
-    fragColor = inColor;
+    vec3 particlePos = p.x;
+    r = 0.2;
+
+    gl_Position = mvp.projection * mvp.view * mvp.model * translateTo(particlePos) * vec4(inPosition, 0.0, 1.0);
 }
