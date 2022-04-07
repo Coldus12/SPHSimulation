@@ -9,6 +9,7 @@
 
 #include "Model.hpp"
 #include "ParticleModel.hpp"
+#include "ComputeShader.hpp"
 
 #include <iostream>
 #include <limits>
@@ -24,6 +25,7 @@ namespace Vltava {
         //--------------------------------------------------------------------------------------------------------------
         explicit StdWindow(int width = 1280, int height = 720);
         ~StdWindow();
+        static bool rot;
 
     private:
         // Variables
@@ -34,6 +36,10 @@ namespace Vltava {
         bool framebufferResized = false;
         GLFWwindow *window;
 
+        static bool run1;
+        static bool run2;
+        void runComp();
+
         std::unique_ptr<vk::raii::Instance> instance;
         std::unique_ptr<vk::raii::PhysicalDevice> physicalDevice;
         std::unique_ptr<vk::raii::Device> device;
@@ -43,6 +49,9 @@ namespace Vltava {
         std::unique_ptr<vk::raii::RenderPass> renderPass;
         std::unique_ptr<vk::raii::CommandPool> commandPool;
         std::unique_ptr<vk::raii::CommandBuffers> commandBuffers;
+        std::unique_ptr<vk::raii::CommandPool> computeCmdPool;
+        std::unique_ptr<vk::raii::CommandBuffer> computeCmdBuffer;
+
         std::unique_ptr<vk::raii::Queue> graphicsQueue;
         std::unique_ptr<vk::raii::Queue> presentQueue;
         std::unique_ptr<vk::raii::Queue> computeQueue;
@@ -51,6 +60,9 @@ namespace Vltava {
         //std::unique_ptr<ParticleModel> model;
         std::vector<Buffer> sBuffers;
         std::vector<Buffer> uBuffers;
+
+        std::unique_ptr<ComputeShader> comp1;
+        std::unique_ptr<ComputeShader> comp2;
 
         uint32_t currentFrame = 0;
         uint32_t graphicsQueueFamily = (uint32_t) -1;
@@ -136,6 +148,8 @@ namespace Vltava {
         // Swapchain helper options
         void cleanupSwapChain();
         static void frameBufferResizeCallback(GLFWwindow *window, int width, int height);
+
+        static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
     };
 }
 

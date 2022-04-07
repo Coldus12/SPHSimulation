@@ -4,15 +4,44 @@
 #include "ParticleModel.hpp"
 
 namespace Vltava {
+    bool StdWindow::run1 = false;
+    bool StdWindow::run2 = false;
+    bool StdWindow::rot = true;
+
     // Main loop
     //------------------------------------------------------------------------------------------------------------------
     void StdWindow::mainloop() {
         while (!glfwWindowShouldClose(window)) {
             glfwPollEvents();
+            runComp();
             drawFrame();
         }
 
         device->waitIdle();
+    }
+
+    void StdWindow::runComp() {
+        if (run1) {
+            if (comp1 != nullptr) {
+                comp1->dispatch(*computeCmdBuffer, 64 / sizeof(Particle) + 1, 1, 1);
+                run1 = false;
+            }
+        }
+
+        if (run2) {
+            if (comp2 != nullptr) {
+                comp2->dispatch(*computeCmdBuffer, 64 / sizeof(Particle) + 1, 1, 1);
+                auto spheres = sBuffers[1].getData<Particle>();
+                std::cout << spheres.size() << std::endl;
+
+                for (int i = 0; i < 64; i++) {
+                    std::cout << "Density: " << spheres[i].rho << "; Pressure: " << spheres[i].p << " ; Position: " << spheres[i].x.x << " " << spheres[i].x.y << " " << spheres[i].x.z <<";\n";
+                }
+                std::cout << std::endl;
+                std::cout << "Done" << std::endl;
+                run2 = false;
+            }
+        }
     }
 
     void StdWindow::computeStuff() {
@@ -48,6 +77,7 @@ namespace Vltava {
         uBuffers.push_back(std::move(UBO));
 
         int nrOfP = 64;
+        float s=0.1;
         vk::DeviceSize size = sizeof(Particle) * nrOfP;
         auto* data = new Particle[nrOfP];
 
@@ -63,7 +93,7 @@ namespace Vltava {
             if (i%16 == 0)
                 z++;
 
-            data[i].x = glm::vec3(i%4,r%4, z);
+            data[i].x = glm::vec3((i%4) * s,(r%4) * s, z * s);
 
             data[i].h = 1;
             data[i].v = glm::vec3(0,0,0);
@@ -97,11 +127,12 @@ namespace Vltava {
         sBuffers.push_back(std::move(inBuffer));
         sBuffers.push_back(std::move(outBuffer));
 
-        ComputeShader comp(updated, "shaders/comp.spv");
-        comp.setBuffers(&uBuffers, &sBuffers);
-        comp.createPipeline();
-        comp.createCommandBuffer(computeQueueFamily);
-        comp.dispatch(size / sizeof(Particle) + 1, 1, 1);
+        //ComputeShader comp(updated, "shaders/comp.spv");
+        comp1 = std::make_unique<ComputeShader>(updated, "shaders/comp.spv");
+        comp1->setBuffers(&uBuffers, &sBuffers);
+        comp1->createPipeline();
+        //comp.createCommandBuffer(computeQueueFamily);
+        comp1->dispatch(*computeCmdBuffer, size / sizeof(Particle) + 1, 1, 1);
 
         auto spheres = sBuffers[1].getData<Particle>();
         std::cout << spheres.size() << std::endl;
@@ -111,6 +142,39 @@ namespace Vltava {
         }
         std::cout << std::endl;
         std::cout << "Done" << std::endl;
+
+        //ComputeShader comp2(updated, "shaders/comp_it.spv");
+        comp2 = std::make_unique<ComputeShader>(updated, "shaders/comp_it.spv");
+        comp2->setBuffers(&uBuffers, &sBuffers);
+        comp2->createPipeline();
+        //comp.createCommandBuffer(computeQueueFamily);
+        comp2->dispatch(*computeCmdBuffer, size / sizeof(Particle) + 1, 1, 1);
+
+        comp1->dispatch(*computeCmdBuffer, 64 / sizeof(Particle) + 1, 1, 1);
+        spheres = sBuffers[1].getData<Particle>();
+        std::cout << spheres.size() << std::endl;
+
+        for (int i = 0; i < nrOfP; i++) {
+            std::cout << "Density: " << spheres[i].rho << "; Pressure: " << spheres[i].p << ";\n";
+        }
+        std::cout << std::endl;
+        std::cout << "Done" << std::endl;
+
+        comp2->dispatch(*computeCmdBuffer, 64 / sizeof(Particle) + 1, 1, 1);
+    }
+
+    void StdWindow::key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+        if (key == GLFW_KEY_W && action == GLFW_PRESS) {
+            run1 = true;
+        }
+
+        if (key == GLFW_KEY_S && action == GLFW_PRESS) {
+            run2 = true;
+        }
+
+        if (key == GLFW_KEY_Q && action == GLFW_PRESS) {
+            rot = !rot;
+        }
     }
 
     // Constructor
@@ -123,6 +187,8 @@ namespace Vltava {
         window = glfwCreateWindow(width, height, "Window", nullptr, nullptr);
         glfwSetWindowUserPointer(window, this);
         glfwSetFramebufferSizeCallback(window, frameBufferResizeCallback);
+
+        glfwSetKeyCallback(window, key_callback);
 
         initVulkan();
         mainloop();
@@ -634,6 +700,9 @@ namespace Vltava {
     void StdWindow::createCommandPool() {
         vk::CommandPoolCreateInfo poolInfo(vk::CommandPoolCreateFlagBits::eResetCommandBuffer, graphicsQueueFamily);
         commandPool = std::make_unique<vk::raii::CommandPool>(*device, poolInfo);
+
+        vk::CommandPoolCreateInfo cmdPoolInfo(vk::CommandPoolCreateFlagBits::eResetCommandBuffer, computeQueueFamily);
+        computeCmdPool = std::make_unique<vk::raii::CommandPool>(*device, cmdPoolInfo);
     }
 
     // Command buffers
@@ -641,6 +710,10 @@ namespace Vltava {
     void StdWindow::createCommandBuffers() {
         vk::CommandBufferAllocateInfo allocInfo(**commandPool, vk::CommandBufferLevel::ePrimary, MAX_FRAMES_IN_FLIGHT);
         commandBuffers = std::make_unique<vk::raii::CommandBuffers>(*device, allocInfo);
+
+        vk::CommandBufferAllocateInfo cmdBufferInfo(**computeCmdPool, vk::CommandBufferLevel::ePrimary, 1);
+        vk::raii::CommandBuffers cmdBuffers(*device, cmdBufferInfo);
+        computeCmdBuffer = std::make_unique<vk::raii::CommandBuffer>(std::move(cmdBuffers.front()));
     }
 
     // Sync objects

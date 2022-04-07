@@ -5,6 +5,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <chrono>
 #include "ParticleModel.hpp"
+#include "StdWindow.hpp"
 
 namespace Vltava {
     // Particle
@@ -103,7 +104,12 @@ namespace Vltava {
 
         MVP mvp{};
         //mvp.model = glm::mat4(1.0f);
-        mvp.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+
+        if (StdWindow::rot) {
+            mvp.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        } else {
+            mvp.model = glm::identity<glm::mat4>();
+        }
         mvp.view = glm::lookAt(glm::vec3(0.0f, 10.0f, 10.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
         mvp.proj = glm::perspective(glm::radians(45.0f), aspect, 0.1f, 40.0f);
         mvp.proj[1][1] *= -1;

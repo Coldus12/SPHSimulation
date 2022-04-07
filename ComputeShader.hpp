@@ -15,20 +15,20 @@ namespace Vltava {
         vk::PipelineLayout getPipelineLayoutHandle();
 
         void setBuffers(const std::vector<Buffer>* uniformBuffers, const std::vector<Buffer>* storageBuffers);
-        void createCommandBuffer(uint32_t computeQueueFamily);
-        void dispatch(uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ);
+        //void createCommandBuffer(uint32_t computeQueueFamily);
+        void dispatch(const vk::raii::CommandBuffer &cmdBuffer, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ);
 
     private:
         std::string computeShaderPath;
-        VulkanResources& resources;
+        VulkanResources resources;
 
         std::unique_ptr<vk::raii::PipelineLayout> pipelineLayout;
         std::unique_ptr<vk::raii::Pipeline> computePipeline;
         std::unique_ptr<vk::raii::DescriptorSetLayout> setLayout;
         std::unique_ptr<vk::raii::DescriptorPool> setPool;
         std::unique_ptr<vk::raii::DescriptorSet> set;
-        std::unique_ptr<vk::raii::CommandPool> cmdPool;
-        std::unique_ptr<vk::raii::CommandBuffer> cmdBuffer;
+        /*std::unique_ptr<vk::raii::CommandPool> cmdPool;
+        std::unique_ptr<vk::raii::CommandBuffer> cmdBuffer;*/
     };
 }
 

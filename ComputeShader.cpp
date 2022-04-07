@@ -147,7 +147,7 @@ namespace Vltava {
         resources.dev->updateDescriptorSets(writeSets, nullptr);
     }
 
-    void ComputeShader::createCommandBuffer(uint32_t computeQueueFamily) {
+    /*void ComputeShader::createCommandBuffer(uint32_t computeQueueFamily) {
         vk::CommandPoolCreateInfo cmdPoolInfo(vk::CommandPoolCreateFlagBits::eResetCommandBuffer, computeQueueFamily);
         cmdPool = std::make_unique<vk::raii::CommandPool>(*resources.dev, cmdPoolInfo);
 
@@ -155,29 +155,41 @@ namespace Vltava {
         vk::raii::CommandBuffers cmdBuffers(*resources.dev, cmdBufferInfo);
 
         cmdBuffer = std::make_unique<vk::raii::CommandBuffer>(std::move(cmdBuffers.front()));
-    }
+    }*/
 
-    void ComputeShader::dispatch(uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) {
+    void ComputeShader::dispatch(const vk::raii::CommandBuffer &cmdBuffer, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) {
         vk::CommandBufferBeginInfo beginInfo({}, nullptr);
-        cmdBuffer->begin(beginInfo);
-        cmdBuffer->bindPipeline(vk::PipelineBindPoint::eCompute, **computePipeline);
-        cmdBuffer->bindDescriptorSets(
+        cmdBuffer.begin(beginInfo);
+        cmdBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, **computePipeline);
+        cmdBuffer.bindDescriptorSets(
                 vk::PipelineBindPoint::eCompute,
                 **pipelineLayout,
                 0,
                 **set,
                 nullptr
         );
-        cmdBuffer->dispatch(groupCountX, groupCountY, groupCountZ);
-        cmdBuffer->end();
+        cmdBuffer.dispatch(groupCountX, groupCountY, groupCountZ);
+        cmdBuffer.end();
 
         vk::SubmitInfo submitInfo(
                 {},
                 {},
-                **cmdBuffer,
+                *cmdBuffer,
                 {}
         );
+
+        /*vk::SubmitInfo submitInfo(
+                (uint32_t) 0,
+                {},
+                {},
+                (uint32_t) 1,
+                &*cmdBuffer,
+                (uint32_t) 0,
+                {}
+        );
+        std::array<vk::SubmitInfo, 1> infos = {submitInfo};*/
         resources.computeQueue->submit(submitInfo);
+        //resources.computeQueue->submit(infos);
         resources.computeQueue->waitIdle();
     }
-};
+}

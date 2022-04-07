@@ -32,19 +32,23 @@ layout(set = 0, binding = 2, std430) buffer outBuffer {
 } out_data;
 
 // Kernel function from https://interactivecomputergraphics.github.io/SPH-Tutorial/pdf/SPH_Tutorial.pdf
+// http://web.cse.ohio-state.edu/~wang.3602/courses/cse3541-2017-fall/08-SPH.pdf
 float kernel(Particle i, Particle j, float h) {
     float q = length(i.x - j.x)/h;
     float ret = 0;
 
     if (0 <= q && q < 1) {
-        ret = 6 * (pow(q, 3.0) - (pow(q, 2.0)) + 1);
+        //ret = 6 * (pow(q, 3.0) - pow(q, 2.0)) + 1;
+        ret = 2.0/3.0 - pow(q, 2.0) + pow(q, 3.0)/2.0;
     } else if (1 <= q && q < 2) {
-        ret = 2 * pow(1 - q, 3.0);
+        //ret = 2 * pow(1 - q, 3.0);
+        ret =  pow(2 - q, 3.0)/6.0;
     } else {
         ret = 0;
     }
 
-    ret *= 8.0/(PI * pow(h, 3.0));
+    //ret *= 8.0/(PI * pow(h, 3.0));
+    ret *= 3.0/(2.0 * PI * pow(h, 3.0));
     return ret;
 }
 
