@@ -22,6 +22,24 @@ namespace Vltava {
 
     void StdWindow::runComp() {
         if (run1) {
+            for (int i = 0; i < 100; i++) {
+                comp1->dispatch(*computeCmdBuffer, 64, 1, 1);
+                comp2->dispatch(*computeCmdBuffer, 64, 1, 1);
+            }
+
+            auto spheres = sBuffers[1].getData<Particle>();
+            std::cout << spheres.size() << std::endl;
+
+            for (int i = 0; i < 64; i++) {
+                std::cout << "Density: " << spheres[i].rho << "; Pressure: " << spheres[i].p << " ; Position: " << spheres[i].x.x << " " << spheres[i].x.y << " " << spheres[i].x.z << " ; Mass: " << spheres[i].m  << " ; Padding "  << spheres[i].padding1 <<";\n";
+            }
+            std::cout << std::endl;
+            std::cout << "Done" << std::endl;
+
+            run1 = false;
+        }
+
+        /*if (run1) {
             if (comp1 != nullptr) {
                 comp1->dispatch(*computeCmdBuffer, 64 / sizeof(Particle) + 1, 1, 1);
                 run1 = false;
@@ -41,7 +59,7 @@ namespace Vltava {
                 std::cout << "Done" << std::endl;
                 run2 = false;
             }
-        }
+        }*/
     }
 
     void StdWindow::computeStuff() {
@@ -61,7 +79,7 @@ namespace Vltava {
         SimProps props{
             1.0f,
             1.0f,
-            64,
+            64.0f,
             3.0f
         };
 
@@ -98,9 +116,13 @@ namespace Vltava {
             data[i].h = 1;
             data[i].v = glm::vec3(0,0,0);
             data[i].m = mass;
+            //data[i].m = 1.0f;
 
             data[i].rho = 0;
             data[i].p = 0;
+
+            data[i].padding1 = 0;
+            data[i].padding2 = 0;
         }
 
         Buffer inBuffer(
@@ -149,18 +171,6 @@ namespace Vltava {
         comp2->createPipeline();
         //comp.createCommandBuffer(computeQueueFamily);
         comp2->dispatch(*computeCmdBuffer, size / sizeof(Particle) + 1, 1, 1);
-
-        comp1->dispatch(*computeCmdBuffer, 64 / sizeof(Particle) + 1, 1, 1);
-        spheres = sBuffers[1].getData<Particle>();
-        std::cout << spheres.size() << std::endl;
-
-        for (int i = 0; i < nrOfP; i++) {
-            std::cout << "Density: " << spheres[i].rho << "; Pressure: " << spheres[i].p << ";\n";
-        }
-        std::cout << std::endl;
-        std::cout << "Done" << std::endl;
-
-        comp2->dispatch(*computeCmdBuffer, 64 / sizeof(Particle) + 1, 1, 1);
     }
 
     void StdWindow::key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
@@ -168,9 +178,9 @@ namespace Vltava {
             run1 = true;
         }
 
-        if (key == GLFW_KEY_S && action == GLFW_PRESS) {
+        /*if (key == GLFW_KEY_S && action == GLFW_PRESS) {
             run2 = true;
-        }
+        }*/
 
         if (key == GLFW_KEY_Q && action == GLFW_PRESS) {
             rot = !rot;

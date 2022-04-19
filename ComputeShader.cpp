@@ -190,6 +190,8 @@ namespace Vltava {
         std::array<vk::SubmitInfo, 1> infos = {submitInfo};*/
         resources.computeQueue->submit(submitInfo);
         //resources.computeQueue->submit(infos);
-        resources.computeQueue->waitIdle();
+        //resources.computeQueue->waitIdle();
+
+        resources.dev->waitIdle();
     }
 }

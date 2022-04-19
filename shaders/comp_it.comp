@@ -1,5 +1,6 @@
 #version 450
 layout (local_size_x = 1024) in;
+precision highp float;
 
 #define PI 3.1415926538
 
@@ -58,10 +59,12 @@ float kernel(Particle i, Particle j, float h) {
 */
 vec3 gradKernel(Particle pi, Particle pj) {
     vec3 xij = normalize(pi.x - pj.x);
-    xij /= SimProps.kernelh;
+    //xij /= SimProps.kernelh;
+    xij /= 0.1;
 
     float val = 0;
-    float q = length(pi.x - pj.x)/SimProps.kernelh;
+    //float q = length(pi.x - pj.x)/SimProps.kernelh;
+    float q = length(pi.x - pj.x)/0.1;
     if (0 <= q && q < 1) {
         //val = 18 * pow(q, 2.0) - 12 * q;
         val = -2 * q + 3.0/2.0 * pow(q, 2.0);
@@ -72,7 +75,8 @@ vec3 gradKernel(Particle pi, Particle pj) {
         val = 0;
     }
     //val *= 8.0/(PI * pow(h, 3.0));
-    val *= 3.0/(2.0 * PI * pow(SimProps.kernelh, 3.0));
+    //val *= 3.0/(2.0 * PI * pow(SimProps.kernelh, 3.0));
+    val *= 3.0/(2.0 * PI * pow(0.1, 3.0));
     xij *= val;
 
     return xij;
@@ -82,12 +86,14 @@ vec3 calculatePressureF(uint gID) {
     Particle pi = storage_in.p[gID];
 
     vec3 gradPi;
-    for (int j = 0; j < SimProps.nr_of_particles; j++) {
+    //for (int j = 0; j < SimProps.nr_of_particles; j++) {
+    for (int j = 0; j < 64; j++) {
         if (j == gID)
             continue;
 
         Particle pj = storage_in.p[j];
-        float val = pj.m * ((pi.p / pow(pi.rho, 2)) + (pj.p / pow(pj.rho, 2)));
+        //float val = pj.m * ((pi.p / pow(pi.rho, 2)) + (pj.p / pow(pj.rho, 2)));
+        float val = 1.0;
         gradPi += val * gradKernel(pi, pj);
     }
 
@@ -107,7 +113,8 @@ vec3 calculateViscosityF(uint gID) {
 
         Particle pj = storage_in.p[j];
         vec3 xij = pi.x - pj.x;
-        float val = (pj.m / pj.rho) * (dot(xij, gradKernel(pi, pj)) /  (dot(xij, xij) + 0.01 /* times h^2*/));
+        //float val = (pj.m / pj.rho) * (dot(xij, gradKernel(pi, pj)) /  (dot(xij, xij) + 0.01 /* times h^2*/));
+        float val = (dot(xij, gradKernel(pi, pj)) /  (dot(xij, xij) + 0.01 /* times h^2*/));
         vec3 vij = pi.v - pj.v;
         ret += val * vij;
     }
@@ -126,6 +133,7 @@ vec3 calcAcc(uint gID) {
     Fother = vec3(0);
     vec3 F = Fpressure + Fviscosity + Fother;
     vec3 acc = F / pi.m;
+    //vec3 acc = F / 1.0;
 
     return acc;
 }
@@ -142,12 +150,10 @@ void main() {
     vec3 acc = calcAcc(gID);
 
     float dt = 0.01;
-    for (int i = 0; i < 10; i++) {
-        viNext += acc * dt/2;
-        xiNext += viNext * dt;
-        acc = calcAcc(gID);
-        viNext += acc * dt/2;
-    }
+    viNext += acc * dt/2;
+    xiNext += viNext * dt;
+    acc = calcAcc(gID);
+    viNext += acc * dt/2;
 
     storage_out.p[gID].x = xiNext;
     storage_out.p[gID].h = pi.h;
@@ -156,4 +162,9 @@ void main() {
 
     storage_out.p[gID].rho = pi.rho;
     storage_out.p[gID].p = pi.p;
+
+    storage_out.p[gID].padding1 = 0;
+    storage_out.p[gID].padding2 = 0;
+
+    storage_out.p[gID].padding1 = 1/0;
 }

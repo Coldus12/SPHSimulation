@@ -1,5 +1,6 @@
 #version 450
 layout (local_size_x = 1024) in;
+precision highp float;
 
 #define PI 3.1415926538
 
@@ -88,4 +89,12 @@ void main()
     out_data.p[gID].m = in_data.p[gID].m;
     out_data.p[gID].rho = rho;
     out_data.p[gID].p = p;
+
+    out_data.p[gID].padding1 = 0;
+    out_data.p[gID].padding2 = 0;
+
+    //if (!(ubo.kernelh >= 0.09 && ubo.kernelh <= 0.11)) {
+        out_data.p[gID].padding1 = ubo.kernelh;
+        out_data.p[gID].padding1 = 1/0;
+    //}
 }
