@@ -5,11 +5,11 @@
 #include "GLFW/glfw3.h"
 
 #include "vulkan/vulkan.hpp"
-#include "vulkan/vulkan_raii.hpp"
 
 #include "Model.hpp"
 #include "ParticleModel.hpp"
 #include "ComputeShader.hpp"
+#include "Managed/Managed.hpp"
 
 #include <iostream>
 #include <limits>
@@ -33,6 +33,7 @@ namespace Vltava {
         int width;
         int height;
         int MAX_FRAMES_IN_FLIGHT = 2;
+
         bool framebufferResized = false;
         GLFWwindow *window;
 
@@ -40,21 +41,31 @@ namespace Vltava {
         static bool run2;
         void runComp();
 
-        std::unique_ptr<vk::raii::Instance> instance;
-        std::unique_ptr<vk::raii::PhysicalDevice> physicalDevice;
-        std::unique_ptr<vk::raii::Device> device;
-        std::unique_ptr<vk::raii::DebugUtilsMessengerEXT> debugUtilsMessenger;
-        std::unique_ptr<vk::raii::SwapchainKHR> swapChain;
-        std::unique_ptr<vk::raii::SurfaceKHR> surface;
-        std::unique_ptr<vk::raii::RenderPass> renderPass;
-        std::unique_ptr<vk::raii::CommandPool> commandPool;
-        std::unique_ptr<vk::raii::CommandBuffers> commandBuffers;
-        std::unique_ptr<vk::raii::CommandPool> computeCmdPool;
-        std::unique_ptr<vk::raii::CommandBuffer> computeCmdBuffer;
+        uint32_t currentFrame = 0;
+        uint32_t graphicsQueueFamily = (uint32_t) -1;
+        uint32_t presentQueueFamily = (uint32_t) -1;
+        uint32_t computeQueueFamily = (uint32_t) -1;
 
-        std::unique_ptr<vk::raii::Queue> graphicsQueue;
-        std::unique_ptr<vk::raii::Queue> presentQueue;
-        std::unique_ptr<vk::raii::Queue> computeQueue;
+        std::unique_ptr<MInstance> instance;
+        std::unique_ptr<MSurface> surface;
+        std::unique_ptr<MPhysDev> physicalDevice;
+        std::unique_ptr<MLogDev> logicalDevice;
+
+        std::unique_ptr<vk::Queue> graphicsQueue;
+        std::unique_ptr<vk::Queue> presentQueue;
+        std::unique_ptr<vk::Queue> computeQueue;
+
+        std::unique_ptr<MSwapChain> swapChain;
+        vk::Extent2D swapChainExtent;
+        std::vector<vk::Image> swapChainImages;
+        std::vector<MImageView> imageViews;
+        std::unique_ptr<MRenderPass> renderPass;
+        std::vector<MFramebuffer> swapChainFramebuffers;
+        std::unique_ptr<MCommandPool> commandPool;
+        std::unique_ptr<MCommandPool> computeCmdPool;
+
+        std::unique_ptr<MCommandBuffers> commandBuffers;
+        std::unique_ptr<MCommandBuffers> computeCmdBuffer;
 
         std::unique_ptr<Model> model;
         //std::unique_ptr<ParticleModel> model;
@@ -64,25 +75,14 @@ namespace Vltava {
         std::unique_ptr<ComputeShader> comp1;
         std::unique_ptr<ComputeShader> comp2;
 
-        uint32_t currentFrame = 0;
-        uint32_t graphicsQueueFamily = (uint32_t) -1;
-        uint32_t presentQueueFamily = (uint32_t) -1;
-        uint32_t computeQueueFamily = (uint32_t) -1;
-
         vk::Format swapChainImageFormat;
-        vk::Extent2D swapChainExtent;
 
-        std::vector<VkImage> swapChainImages; // even the sample uses VkImage and not vk::Image (i guess because swapchain.getImages() returns a vector of VkImage and not vk::Image)
-        std::vector<vk::raii::ImageView> imageViews;
-        std::vector<vk::raii::Framebuffer> swapChainFramebuffers;
-        std::vector<vk::raii::Semaphore> imageAvailableSemaphores;
-        std::vector<vk::raii::Semaphore> renderFinishedSemaphores;
-        std::vector<vk::raii::Fence> inFlightFences;
+        // even the sample uses VkImage and not vk::Image (i guess because swapchain.getImages() returns a vector of VkImage and not vk::Image)
+        std::vector<MSemaphore> imageAvailableSemaphores;
+        std::vector<MSemaphore> renderFinishedSemaphores;
+        std::vector<MFence> inFlightFences;
 
-        PFN_vkCreateDebugUtilsMessengerEXT pfnVkCreateDebugUtilsMessengerEXT = VK_NULL_HANDLE;
-        PFN_vkDestroyDebugUtilsMessengerEXT pfnVkDestroyDebugUtilsMessengerEXT = VK_NULL_HANDLE;
-
-        bool enableValidationLayers = true;
+        bool enableValidationLayers = false;
 
         const std::vector<const char *> deviceExtensions = {
                 VK_KHR_SWAPCHAIN_EXTENSION_NAME
@@ -96,7 +96,6 @@ namespace Vltava {
         //--------------------------------------------------------------------------------------------------------------
         virtual void initVulkan();
         virtual void createInstance(std::string app_name);
-        virtual void setupDebugMessenger();
         virtual void createSurface();
         virtual void selectPhysicalDevice();
         virtual void selectQueues();
@@ -117,33 +116,6 @@ namespace Vltava {
         void computeStuff();
 
         void mainloop();
-
-        // Helper functions
-        //--------------------------------------------------------------------------------------------------------------
-        // GPU selection helper functions
-        int getBestDevice(const vk::raii::PhysicalDevices &devs);
-        uint32_t rateDeviceSuitability(const vk::raii::PhysicalDevice &dev);
-        bool checkDeviceExtensionSupport(const vk::raii::PhysicalDevice &dev);
-
-        // Validation layer helper function
-        bool checkValidationLayerSupport();
-        std::vector<const char *> getRequiredExtensions();
-
-        VKAPI_ATTR VkResult VKAPI_CALL vkCreateDebugUtilsMessengerEXT(
-                VkInstance instance,
-                const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo,
-                const VkAllocationCallbacks *pAllocator,
-                VkDebugUtilsMessengerEXT *pDebugMessenger);
-
-        VKAPI_ATTR void VKAPI_CALL vkDestroyDebugUtilsMessengerEXT(
-                VkInstance instance,
-                VkDebugUtilsMessengerEXT debugMessenger,
-                const VkAllocationCallbacks *pAllocator);
-
-        static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
-                                                            VkDebugUtilsMessageTypeFlagsEXT type,
-                                                            const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
-                                                            void *pUserData);
 
         // Swapchain helper options
         void cleanupSwapChain();

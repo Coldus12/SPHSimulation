@@ -38,7 +38,7 @@ namespace Vltava {
         ParticleModel(VulkanResources& resources, std::vector<Buffer>* simPropsBuffer, std::vector<Buffer>* storageBuffers);
 
         void loadModel(const std::string& path) override;
-        void draw(const vk::raii::CommandBuffer& buffer, uint32_t currentFrame) override;
+        void draw(const vk::CommandBuffer& buffer, uint32_t currentFrame) override;
     private:
         std::vector<glm::vec2> vertexBufferData;
 

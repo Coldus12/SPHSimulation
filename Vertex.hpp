@@ -3,7 +3,6 @@
 
 #include <glm/glm.hpp>
 #include "vulkan/vulkan.hpp"
-#include "vulkan/vulkan_raii.hpp"
 
 namespace Vltava {
     struct Vertex {

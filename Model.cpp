@@ -115,7 +115,7 @@ void Vltava::Model::updateUniformBuffer(uint32_t currentImage) {
     uniformBuffers[currentImage].writeToBuffer(&mvp, sizeof(mvp));
 }
 
-void Vltava::Model::draw(const vk::raii::CommandBuffer& cmdBuffer, uint32_t currentFrame) {
+void Vltava::Model::draw(const vk::CommandBuffer& cmdBuffer, uint32_t currentFrame) {
     updateUniformBuffer(currentFrame);
     mat->draw(cmdBuffer, currentFrame);
 }

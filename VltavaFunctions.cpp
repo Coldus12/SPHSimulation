@@ -31,4 +31,33 @@ namespace Vltava {
     void sanityCheck(const std::string &str) {
         std::cout << "[Sanity check] " << str << std::endl;
     }
+
+    /*PFN_vkCreateDebugUtilsMessengerEXT pfnVkCreateDebugUtilsMessengerEXT = VK_NULL_HANDLE;
+    PFN_vkDestroyDebugUtilsMessengerEXT pfnVkDestroyDebugUtilsMessengerEXT = VK_NULL_HANDLE;
+
+    VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
+                                                            VkDebugUtilsMessageTypeFlagsEXT type,
+                                                            const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
+                                                            void *pUserData) {
+
+        std::cerr << "[Validation layer] " << pCallbackData->pMessage << std::endl;
+        return VK_FALSE;
+    }
+
+    VKAPI_ATTR VkResult VKAPI_CALL vkCreateDebugUtilsMessengerEXT(
+            VkInstance instance,
+            const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo,
+            const VkAllocationCallbacks *pAllocator,
+            VkDebugUtilsMessengerEXT *pDebugMessenger) {
+
+        return pfnVkCreateDebugUtilsMessengerEXT(instance, pCreateInfo, pAllocator, pDebugMessenger);
+    }
+
+    VKAPI_ATTR void VKAPI_CALL vkDestroyDebugUtilsMessengerEXT(
+            VkInstance instance,
+            VkDebugUtilsMessengerEXT debugMessenger,
+            const VkAllocationCallbacks *pAllocator) {
+
+        return pfnVkDestroyDebugUtilsMessengerEXT(instance, debugMessenger, pAllocator);
+    }*/
 }

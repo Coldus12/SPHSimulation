@@ -5,7 +5,6 @@
 #include <fstream>
 #include <glm/glm.hpp>
 #include "vulkan/vulkan.hpp"
-#include "vulkan/vulkan_raii.hpp"
 
 #include "Vertex.hpp"
 #include "VltavaFunctions.hpp"
@@ -30,7 +29,7 @@ namespace Vltava {
 
         virtual void loadModel(const std::string& path);
         void updateResources(const VulkanResources& res);
-        virtual void draw(const vk::raii::CommandBuffer& buffer, uint32_t currentFrame);
+        virtual void draw(const vk::CommandBuffer& buffer, uint32_t currentFrame);
 
         VulkanResources& resources;
     protected:

@@ -26,40 +26,40 @@ namespace Vltava {
     }
 
     vk::Pipeline ComputeShader::getPipelineHandle() {
-        return **computePipeline;
+        return computePipeline->getHandle();
     }
 
     vk::PipelineLayout ComputeShader::getPipelineLayoutHandle() {
-        return **pipelineLayout;
+        return pipelineLayout->getHandle();
     }
 
     void ComputeShader::createPipeline() {
         auto code = readFile(computeShaderPath);
         vk::ShaderModuleCreateInfo compInfo({}, code.size(), reinterpret_cast<uint32_t*>(code.data()));
-        vk::raii::ShaderModule compModule(*resources.dev, compInfo);
-        vk::PipelineShaderStageCreateInfo compStageInfo({}, vk::ShaderStageFlagBits::eCompute, *compModule, "main");
+        MShaderModule compModule(resources.dev->getHandle(), compInfo);
+        vk::PipelineShaderStageCreateInfo compStageInfo({}, vk::ShaderStageFlagBits::eCompute, compModule.getHandle(), "main");
         vk::PipelineShaderStageCreateInfo stages[] = {compStageInfo};
 
         vk::PipelineLayoutCreateInfo layoutInfo(
                 {},
                 1,
-                &**setLayout,
+                setLayout->getAddress(),
                 0,
                 nullptr
         );
 
-        pipelineLayout = std::make_unique<vk::raii::PipelineLayout>(*resources.dev, layoutInfo);
+        pipelineLayout = std::make_unique<MPipelineLayout>(resources.dev->getHandle(), layoutInfo);
 
         vk::Pipeline plHandle;
         vk::ComputePipelineCreateInfo computeInfo(
                 {},
                 compStageInfo,
-                **pipelineLayout,
+                pipelineLayout->getHandle(),
                 plHandle,
                 0
         );
 
-        computePipeline = std::make_unique<vk::raii::Pipeline>(*resources.dev, nullptr, computeInfo);
+        computePipeline = std::make_unique<MPipeline>(resources.dev->getHandle(), computeInfo);
     }
 
     void ComputeShader::setBuffers(const std::vector<Buffer>* uniformBuffers, const std::vector<Buffer>* storageBuffers) {
@@ -77,7 +77,7 @@ namespace Vltava {
         }
 
         vk::DescriptorSetLayoutCreateInfo layoutInfo({}, bindings);
-        setLayout = std::make_unique<vk::raii::DescriptorSetLayout>(*resources.dev, layoutInfo);
+        setLayout = std::make_unique<MDescriptorSetLayout>(resources.dev->getHandle(), layoutInfo);
 
         // Descriptor pool creation
         //---------------------------------
@@ -92,14 +92,12 @@ namespace Vltava {
                 sizes
         );
 
-        setPool = std::make_unique<vk::raii::DescriptorPool>(*resources.dev, poolInfo);
+        setPool = std::make_unique<MDescriptorPool>(resources.dev->getHandle(), poolInfo);
 
         // Descriptor set creation
         //---------------------------------
-        vk::DescriptorSetAllocateInfo allocInfo(**setPool, 1, &**setLayout);
-        set = std::make_unique<vk::raii::DescriptorSet>(
-                std::move(resources.dev->allocateDescriptorSets(allocInfo).front())
-        );
+        vk::DescriptorSetAllocateInfo allocInfo(setPool->getHandle(), 1, setLayout->getAddress());
+        set = std::make_unique<MDescriptorSets>(resources.dev->getHandle(), allocInfo);
 
         std::vector<vk::DescriptorBufferInfo> bufferInfos;
         std::vector<vk::WriteDescriptorSet> writeSets;
@@ -114,7 +112,7 @@ namespace Vltava {
             );
 
             writeSets.emplace_back(
-                    **set,
+                    set->getSets()[0],
                     i,
                     0,
                     1,
@@ -133,7 +131,7 @@ namespace Vltava {
             );
 
             writeSets.emplace_back(
-                    **set,
+                    set->getSets()[0],
                     i + uniformBuffers->size(),
                     0,
                     1,
@@ -144,7 +142,7 @@ namespace Vltava {
             );
         }
 
-        resources.dev->updateDescriptorSets(writeSets, nullptr);
+        resources.dev->getHandle().updateDescriptorSets(writeSets, nullptr);
     }
 
     /*void ComputeShader::createCommandBuffer(uint32_t computeQueueFamily) {
@@ -157,15 +155,15 @@ namespace Vltava {
         cmdBuffer = std::make_unique<vk::raii::CommandBuffer>(std::move(cmdBuffers.front()));
     }*/
 
-    void ComputeShader::dispatch(const vk::raii::CommandBuffer &cmdBuffer, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) {
+    void ComputeShader::dispatch(const vk::CommandBuffer &cmdBuffer, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) {
         vk::CommandBufferBeginInfo beginInfo({}, nullptr);
         cmdBuffer.begin(beginInfo);
-        cmdBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, **computePipeline);
+        cmdBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, computePipeline->getHandle());
         cmdBuffer.bindDescriptorSets(
                 vk::PipelineBindPoint::eCompute,
-                **pipelineLayout,
+                pipelineLayout->getHandle(),
                 0,
-                **set,
+                set->getSets()[0],
                 nullptr
         );
         cmdBuffer.dispatch(groupCountX, groupCountY, groupCountZ);
@@ -174,7 +172,7 @@ namespace Vltava {
         vk::SubmitInfo submitInfo(
                 {},
                 {},
-                *cmdBuffer,
+                cmdBuffer,
                 {}
         );
 
@@ -192,6 +190,6 @@ namespace Vltava {
         //resources.computeQueue->submit(infos);
         //resources.computeQueue->waitIdle();
 
-        resources.dev->waitIdle();
+        resources.dev->getHandle().waitIdle();
     }
 }

@@ -58,7 +58,7 @@ namespace Vltava {
         void createPipeline(std::vector<vk::VertexInputBindingDescription> bindingDescriptions,
                             std::vector<vk::VertexInputAttributeDescription> attributeDescriptions,
                             vk::PrimitiveTopology topology = vk::PrimitiveTopology::eTriangleList);
-        void draw(const vk::raii::CommandBuffer& buffer, uint32_t currentFrame);
+        void draw(const vk::CommandBuffer& buffer, uint32_t currentFrame);
 
         void recreatePipeline();
 
@@ -70,11 +70,11 @@ namespace Vltava {
         std::string vertPath;
         std::string fragPath;
 
-        std::unique_ptr<vk::raii::PipelineLayout> pipelineLayout;
-        std::unique_ptr<vk::raii::Pipeline> pipeline;
-        std::unique_ptr<vk::raii::DescriptorSetLayout> setLayout;
-        std::unique_ptr<vk::raii::DescriptorPool> setPool;
-        std::vector<vk::raii::DescriptorSet> sets;
+        std::unique_ptr<MPipelineLayout> pipelineLayout;
+        std::unique_ptr<MPipeline> pipeline;
+        std::unique_ptr<MDescriptorSetLayout> setLayout;
+        std::unique_ptr<MDescriptorPool> setPool;
+        std::vector<MDescriptorSet> sets;
 
         std::unique_ptr<Buffer> vertexBuffer;
         std::unique_ptr<Buffer> indexBuffer;

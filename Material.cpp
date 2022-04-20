@@ -98,7 +98,7 @@ namespace Vltava {
         }
 
         vk::DescriptorSetLayoutCreateInfo layoutInfo({}, bindings);
-        setLayout = std::make_unique<vk::raii::DescriptorSetLayout>(*res.dev, layoutInfo);
+        setLayout = std::make_unique<MDescriptorSetLayout>(res.dev->getHandle(), layoutInfo);
 
         // Descriptor pool creation
         //---------------------------------
@@ -115,13 +115,13 @@ namespace Vltava {
                 sizes
         );
 
-        setPool = std::make_unique<vk::raii::DescriptorPool>(*res.dev, poolInfo);
+        setPool = std::make_unique<MDescriptorPool>(res.dev->getHandle(), poolInfo);
 
         // Descriptor set creation
         //---------------------------------
-        vk::DescriptorSetAllocateInfo allocInfo(**setPool, 1, &**setLayout);
+        vk::DescriptorSetAllocateInfo allocInfo(setPool->getHandle(), 1, setLayout->getAddress());
         for (int j = 0; j < res.FRAMES_IN_FLIGHT; j++) {
-            sets.push_back(std::move(res.dev->allocateDescriptorSets(allocInfo).front()));
+            sets.emplace_back(res.dev->getHandle(), res.dev->getHandle().allocateDescriptorSets(allocInfo).front(), setPool->getHandle());
 
             std::vector<vk::DescriptorBufferInfo> bufferInfos;
             std::vector<vk::WriteDescriptorSet> writeSets;
@@ -136,7 +136,7 @@ namespace Vltava {
                 );
 
                 writeSets.emplace_back(
-                        *sets[j],
+                        sets[j].getHandle(),
                         i % bufferNrPerFrame,
                         0,
                         1,
@@ -155,7 +155,7 @@ namespace Vltava {
                 );
 
                 writeSets.emplace_back(
-                        *sets[j],
+                        sets[j].getHandle(),
                         i + bufferNrPerFrame,
                         0,
                         1,
@@ -166,7 +166,7 @@ namespace Vltava {
                 );
             }
 
-            res.dev->updateDescriptorSets(writeSets, nullptr);
+            res.dev->getHandle().updateDescriptorSets(writeSets, nullptr);
         }
     }
 
@@ -203,7 +203,7 @@ namespace Vltava {
         }
 
         vk::DescriptorSetLayoutCreateInfo layoutInfo({}, bindings);
-        setLayout = std::make_unique<vk::raii::DescriptorSetLayout>(*res.dev, layoutInfo);
+        setLayout = std::make_unique<MDescriptorSetLayout>(res.dev->getHandle(), layoutInfo);
 
         // Descriptor pool creation
         //---------------------------------
@@ -220,13 +220,13 @@ namespace Vltava {
                 sizes
         );
 
-        setPool = std::make_unique<vk::raii::DescriptorPool>(*res.dev, poolInfo);
+        setPool = std::make_unique<MDescriptorPool>(res.dev->getHandle(), poolInfo);
 
         // Descriptor set creation
         //---------------------------------
-        vk::DescriptorSetAllocateInfo allocInfo(**setPool, 1, &**setLayout);
+        vk::DescriptorSetAllocateInfo allocInfo(setPool->getHandle(), 1, setLayout->getAddress());
         for (int j = 0; j < res.FRAMES_IN_FLIGHT; j++) {
-            sets.push_back(std::move(res.dev->allocateDescriptorSets(allocInfo).front()));
+            sets.emplace_back(res.dev->getHandle(), res.dev->getHandle().allocateDescriptorSets(allocInfo).front(), setPool->getHandle());
 
             std::vector<vk::DescriptorBufferInfo> bufferInfos;
             std::vector<vk::WriteDescriptorSet> writeSets;
@@ -241,7 +241,7 @@ namespace Vltava {
                 );
 
                 writeSets.emplace_back(
-                        *sets[j],
+                        sets[j].getHandle(),
                         i % bufferNrPerFrame,
                         0,
                         1,
@@ -260,7 +260,7 @@ namespace Vltava {
                 );
 
                 writeSets.emplace_back(
-                        *sets[j],
+                        sets[j].getHandle(),
                         i + bufferNrPerFrame,
                         0,
                         1,
@@ -271,7 +271,7 @@ namespace Vltava {
                 );
             }
 
-            res.dev->updateDescriptorSets(writeSets, nullptr);
+            res.dev->getHandle().updateDescriptorSets(writeSets, nullptr);
         }
     }
 
@@ -287,11 +287,11 @@ namespace Vltava {
         vk::ShaderModuleCreateInfo vertInfo({}, vertCode.size(), reinterpret_cast<uint32_t*>(vertCode.data()));
         vk::ShaderModuleCreateInfo fragInfo({}, fragCode.size(), reinterpret_cast<uint32_t*>(fragCode.data()));
 
-        vk::raii::ShaderModule vertModule(*res.dev, vertInfo);
-        vk::raii::ShaderModule fragModule(*res.dev, fragInfo);
+        MShaderModule vertModule(res.dev->getHandle(), vertInfo);
+        MShaderModule fragModule(res.dev->getHandle(), fragInfo);
 
-        vk::PipelineShaderStageCreateInfo vertStageInfo({}, vk::ShaderStageFlagBits::eVertex, *vertModule, "main");
-        vk::PipelineShaderStageCreateInfo fragStageInfo({}, vk::ShaderStageFlagBits::eFragment, *fragModule, "main");
+        vk::PipelineShaderStageCreateInfo vertStageInfo({}, vk::ShaderStageFlagBits::eVertex, vertModule.getHandle(), "main");
+        vk::PipelineShaderStageCreateInfo fragStageInfo({}, vk::ShaderStageFlagBits::eFragment, fragModule.getHandle(), "main");
 
         vk::PipelineShaderStageCreateInfo shaderStages[] = {vertStageInfo, fragStageInfo};
 
@@ -361,12 +361,12 @@ namespace Vltava {
         vk::PipelineLayoutCreateInfo pipelineLayoutInfo(
                 {},
                 1,
-                &**setLayout,
+                setLayout->getAddress(),
                 0,
                 nullptr
         );
 
-        pipelineLayout = std::make_unique<vk::raii::PipelineLayout>(*res.dev, pipelineLayoutInfo);
+        pipelineLayout = std::make_unique<MPipelineLayout>(res.dev->getHandle(), pipelineLayoutInfo);
         //vk::raii::PipelineLayout pipelineLayout(*resources.dev, pipelineLayoutInfo);
 
         vk::GraphicsPipelineCreateInfo pipelineInfo(
@@ -382,22 +382,22 @@ namespace Vltava {
                 nullptr,
                 &colorBlending,
                 nullptr,
-                **pipelineLayout,
-                **res.renderPass,
+                pipelineLayout->getHandle(),
+                res.renderPass->getHandle(),
                 0
         );
 
-        pipeline = std::make_unique<vk::raii::Pipeline>(*res.dev, nullptr, pipelineInfo);
+        pipeline = std::make_unique<MPipeline>(res.dev->getHandle(), pipelineInfo);
     }
 
-    void Material::draw(const vk::raii::CommandBuffer &cmdBuffer, uint32_t currentFrame) {
-        cmdBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, **pipeline);
+    void Material::draw(const vk::CommandBuffer &cmdBuffer, uint32_t currentFrame) {
+        cmdBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline->getHandle());
 
         cmdBuffer.bindDescriptorSets(
                 vk::PipelineBindPoint::eGraphics,
-                **pipelineLayout,
+                pipelineLayout->getHandle(),
                 0,
-                {*sets[currentFrame]},
+                {sets[currentFrame].getHandle()},
                 nullptr
         );
 

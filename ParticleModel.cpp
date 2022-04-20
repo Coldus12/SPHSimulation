@@ -122,7 +122,7 @@ namespace Vltava {
         uniformBuffers[currentImage].writeToBuffer(&mvp, sizeof(mvp));
     }
 
-    void ParticleModel::draw(const vk::raii::CommandBuffer &buffer, uint32_t currentFrame) {
+    void ParticleModel::draw(const vk::CommandBuffer &buffer, uint32_t currentFrame) {
         updateUniformBuffer(currentFrame);
         mat->draw(buffer, currentFrame);
     }
