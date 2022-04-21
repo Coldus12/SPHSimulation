@@ -23,8 +23,8 @@ namespace Vltava {
     void StdWindow::runComp() {
         if (run1) {
             for (int i = 0; i < 100; i++) {
-                comp1->dispatch(computeCmdBuffer->getBuffers()[0], 64, 1, 1);
-                comp2->dispatch(computeCmdBuffer->getBuffers()[0], 64, 1, 1);
+                comp1->dispatch(computeCmdBuffer, 64, 1, 1);
+                comp2->dispatch(computeCmdBuffer, 64, 1, 1);
             }
 
             auto spheres = sBuffers[1].getData<Particle>();
@@ -38,37 +38,15 @@ namespace Vltava {
 
             run1 = false;
         }
-
-        /*if (run1) {
-            if (comp1 != nullptr) {
-                comp1->dispatch(*computeCmdBuffer, 64 / sizeof(Particle) + 1, 1, 1);
-                run1 = false;
-            }
-        }
-
-        if (run2) {
-            if (comp2 != nullptr) {
-                comp2->dispatch(*computeCmdBuffer, 64 / sizeof(Particle) + 1, 1, 1);
-                auto spheres = sBuffers[1].getData<Particle>();
-                std::cout << spheres.size() << std::endl;
-
-                for (int i = 0; i < 64; i++) {
-                    std::cout << "Density: " << spheres[i].rho << "; Pressure: " << spheres[i].p << " ; Position: " << spheres[i].x.x << " " << spheres[i].x.y << " " << spheres[i].x.z <<";\n";
-                }
-                std::cout << std::endl;
-                std::cout << "Done" << std::endl;
-                run2 = false;
-            }
-        }*/
     }
 
     void StdWindow::computeStuff() {
         VulkanResources updated{
-                &*renderPass,
+                &renderPass,
                 &*physicalDevice,
                 &*logicalDevice,
                 &*instance,
-                &*commandPool,
+                &commandPool,
                 &*graphicsQueue,
                 &*computeQueue,
                 swapChainExtent,
@@ -154,7 +132,7 @@ namespace Vltava {
         comp1->setBuffers(&uBuffers, &sBuffers);
         comp1->createPipeline();
         //comp.createCommandBuffer(computeQueueFamily);
-        comp1->dispatch(computeCmdBuffer->getBuffers()[0], size / sizeof(Particle) + 1, 1, 1);
+        comp1->dispatch(computeCmdBuffer, size / sizeof(Particle) + 1, 1, 1);
 
         auto spheres = sBuffers[1].getData<Particle>();
         std::cout << spheres.size() << std::endl;
@@ -170,7 +148,7 @@ namespace Vltava {
         comp2->setBuffers(&uBuffers, &sBuffers);
         comp2->createPipeline();
         //comp.createCommandBuffer(computeQueueFamily);
-        comp2->dispatch(computeCmdBuffer->getBuffers()[0], size / sizeof(Particle) + 1, 1, 1);
+        comp2->dispatch(computeCmdBuffer, size / sizeof(Particle) + 1, 1, 1);
     }
 
     void StdWindow::key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
@@ -227,13 +205,23 @@ namespace Vltava {
     //------------------------------------------------------------------------------------------------------------------
     void StdWindow::cleanup() {
         cleanupSwapChain();
+
+        for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+            logicalDevice->getHandle().destroySemaphore(renderFinishedSemaphores[i]);
+            logicalDevice->getHandle().destroySemaphore(imageAvailableSemaphores[i]);
+            logicalDevice->getHandle().destroyFence(inFlightFences[i]);
+        }
+
         glfwDestroyWindow(window);
+        //glfwTerminate();
     }
 
     // Destructor
     //------------------------------------------------------------------------------------------------------------------
     StdWindow::~StdWindow() {
+        logicalDevice->getHandle().waitIdle();
         cleanup();
+        logicalDevice->getHandle().waitIdle();
     }
 
     // Instance creation
@@ -333,11 +321,11 @@ namespace Vltava {
 
         // Updating / recreating the pipelines of the models
         VulkanResources updated{
-            &*renderPass,
+            &renderPass,
             &*physicalDevice,
             &*logicalDevice,
             &*instance,
-            &*commandPool,
+            &commandPool,
             &*graphicsQueue,
             &*computeQueue,
             swapChainExtent,
@@ -350,9 +338,18 @@ namespace Vltava {
     }
 
     void StdWindow::cleanupSwapChain() {
+        for (auto framebuffer : swapChainFramebuffers) {
+            logicalDevice->getHandle().destroyFramebuffer(framebuffer);
+        }
         swapChainFramebuffers.clear();
-        renderPass.reset();
+
+        logicalDevice->getHandle().destroyRenderPass(renderPass);
+
+        for (auto imgView: imageViews) {
+            logicalDevice->getHandle().destroyImageView(imgView);
+        }
         imageViews.clear();
+
         swapChain.reset();
     }
 
@@ -380,7 +377,7 @@ namespace Vltava {
 
         for (auto image: swapChainImages) {
             createInfo.image = image;
-            imageViews.emplace_back(logicalDevice->getHandle(), createInfo);
+            imageViews.push_back(logicalDevice->getHandle().createImageView(createInfo));
         }
     }
 
@@ -421,7 +418,7 @@ namespace Vltava {
                 &dependency
         );
 
-        renderPass = std::make_unique<MRenderPass>(logicalDevice->getHandle(), subpass, colorAttachment);
+        renderPass = logicalDevice->getHandle().createRenderPass(createInfo);
     }
 
     // Framebuffers
@@ -432,14 +429,14 @@ namespace Vltava {
         for (int i = 0; i < imageViews.size(); i++) {
             vk::FramebufferCreateInfo framebufferInfo(
                     {},
-                    renderPass->getHandle(),
+                    renderPass,
                     1,
-                    imageViews[i].getAddress(),
+                    &imageViews[i],
                     swapChainExtent.width,
                     swapChainExtent.height, 1
             );
 
-            swapChainFramebuffers.emplace_back(logicalDevice->getHandle(), framebufferInfo);
+            swapChainFramebuffers.push_back(logicalDevice->getHandle().createFramebuffer(framebufferInfo));
         }
     }
 
@@ -447,20 +444,20 @@ namespace Vltava {
     //------------------------------------------------------------------------------------------------------------------
     void StdWindow::createCommandPool() {
         vk::CommandPoolCreateInfo poolInfo(vk::CommandPoolCreateFlagBits::eResetCommandBuffer, graphicsQueueFamily);
-        commandPool = std::make_unique<MCommandPool>(logicalDevice->getHandle(), poolInfo);
+        commandPool = logicalDevice->getHandle().createCommandPool(poolInfo);
 
         vk::CommandPoolCreateInfo cmdPoolInfo(vk::CommandPoolCreateFlagBits::eResetCommandBuffer, computeQueueFamily);
-        computeCmdPool = std::make_unique<MCommandPool>(logicalDevice->getHandle(), cmdPoolInfo);
+        computeCmdPool = logicalDevice->getHandle().createCommandPool(cmdPoolInfo);
     }
 
     // Command buffers
     //------------------------------------------------------------------------------------------------------------------
     void StdWindow::createCommandBuffers() {
-        vk::CommandBufferAllocateInfo allocInfo(commandPool->getHandle(), vk::CommandBufferLevel::ePrimary, MAX_FRAMES_IN_FLIGHT);
-        commandBuffers = std::make_unique<MCommandBuffers>(logicalDevice->getHandle(), allocInfo);
+        vk::CommandBufferAllocateInfo allocInfo(commandPool, vk::CommandBufferLevel::ePrimary, MAX_FRAMES_IN_FLIGHT);
+        commandBuffers = logicalDevice->getHandle().allocateCommandBuffers(allocInfo);
 
-        vk::CommandBufferAllocateInfo cmdBufferInfo(computeCmdPool->getHandle(), vk::CommandBufferLevel::ePrimary, 1);
-        computeCmdBuffer = std::make_unique<MCommandBuffers>(logicalDevice->getHandle(), allocInfo);
+        vk::CommandBufferAllocateInfo cmdBufferInfo(computeCmdPool, vk::CommandBufferLevel::ePrimary, 1);
+        computeCmdBuffer = logicalDevice->getHandle().allocateCommandBuffers(cmdBufferInfo).front();
     }
 
     // Sync objects
@@ -474,9 +471,9 @@ namespace Vltava {
         vk::SemaphoreCreateInfo semaphoreCreateInfo;
 
         for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            imageAvailableSemaphores.emplace_back(logicalDevice->getHandle(), semaphoreCreateInfo);
-            renderFinishedSemaphores.emplace_back(logicalDevice->getHandle(), semaphoreCreateInfo);
-            inFlightFences.emplace_back(logicalDevice->getHandle(), fenceInfo);
+            imageAvailableSemaphores.push_back(logicalDevice->getHandle().createSemaphore(semaphoreCreateInfo));
+            renderFinishedSemaphores.push_back(logicalDevice->getHandle().createSemaphore(semaphoreCreateInfo));
+            inFlightFences.push_back(logicalDevice->getHandle().createFence(fenceInfo));
         }
     }
 
@@ -484,11 +481,11 @@ namespace Vltava {
     //------------------------------------------------------------------------------------------------------------------
     void StdWindow::loadModel() {
         VulkanResources res{
-            &*renderPass,
+            &renderPass,
             &*physicalDevice,
             &*logicalDevice,
             &*instance,
-            &*commandPool,
+            &commandPool,
             &*graphicsQueue,
             &*computeQueue,
             swapChainExtent,
@@ -504,12 +501,12 @@ namespace Vltava {
     // Draw frame
     //------------------------------------------------------------------------------------------------------------------
     void StdWindow::drawFrame() {
-        logicalDevice->getHandle().waitForFences(inFlightFences[currentFrame].getHandle(), true, UINT64_MAX);
+        logicalDevice->getHandle().waitForFences(inFlightFences[currentFrame], true, UINT64_MAX);
 
         vk::Result result;
         uint32_t imageIndex;
 
-        std::tie(result, imageIndex) = logicalDevice->getHandle().acquireNextImageKHR(swapChain->getHandle(), UINT64_MAX, imageAvailableSemaphores[currentFrame].getHandle());
+        std::tie(result, imageIndex) = logicalDevice->getHandle().acquireNextImageKHR(swapChain->getHandle(), UINT64_MAX, imageAvailableSemaphores[currentFrame]);
 
         if (result == vk::Result::eErrorOutOfDateKHR) {
             recreateSwapChain();
@@ -518,27 +515,27 @@ namespace Vltava {
             throw std::runtime_error("Failed to acquire swap chain image!");
         }
 
-        logicalDevice->getHandle().resetFences(inFlightFences[currentFrame].getHandle());
+        logicalDevice->getHandle().resetFences(inFlightFences[currentFrame]);
 
-        commandBuffers->getBuffers().at(currentFrame).reset();
+        commandBuffers[currentFrame].reset();
         recordCommandBuffer(imageIndex);
 
         vk::PipelineStageFlags flags(vk::PipelineStageFlagBits::eColorAttachmentOutput);
         vk::SubmitInfo submitInfo(
                 (uint32_t) 1,
-                imageAvailableSemaphores[currentFrame].getAddress(),
+                &imageAvailableSemaphores[currentFrame],
                 &flags,
                 (uint32_t) 1,
-                &commandBuffers->getBuffers().at(currentFrame),
+                &commandBuffers[currentFrame],
                 (uint32_t) 1,
-                renderFinishedSemaphores[currentFrame].getAddress()
+                &renderFinishedSemaphores[currentFrame]
         );
         std::array<vk::SubmitInfo, 1> infos = {submitInfo};
 
-        graphicsQueue->submit(infos, inFlightFences[currentFrame].getHandle());
+        graphicsQueue->submit(infos, inFlightFences[currentFrame]);
 
         std::array<vk::SwapchainKHR, 1> swapChains = {swapChain->getHandle()};
-        vk::PresentInfoKHR presentInfo(*renderFinishedSemaphores[currentFrame].getAddress(), swapChains, imageIndex);
+        vk::PresentInfoKHR presentInfo(renderFinishedSemaphores[currentFrame], swapChains, imageIndex);
 
         /** For some reason instead of returning the vk::eErrorOutOfDateKHR result,
          * this just throws an exception with the this error. But this try/catch block
@@ -563,25 +560,25 @@ namespace Vltava {
 
     void StdWindow::recordCommandBuffer(uint32_t imageIndex) {
         vk::CommandBufferBeginInfo beginInfo({}, nullptr);
-        commandBuffers->getBuffers().at(currentFrame).begin(beginInfo);
+        commandBuffers[currentFrame].begin(beginInfo);
 
         std::array<float, 4> color = {0.0f, 0.0f, 0.0f, 1.0f};
         vk::ClearValue clrVal((vk::ClearColorValue(color)));
 
         vk::RenderPassBeginInfo renderPassInfo(
-                renderPass->getHandle(),
-                swapChainFramebuffers[imageIndex].getHandle(),
+                renderPass,
+                swapChainFramebuffers[imageIndex],
                 {{0, 0}, swapChainExtent},
                 1, &clrVal
         );
 
-        commandBuffers->getBuffers().at(currentFrame).beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
+        commandBuffers[currentFrame].beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
 
         // Drawing the models
-        model->draw(commandBuffers->getBuffers().at(currentFrame),currentFrame);
+        model->draw(commandBuffers[currentFrame],currentFrame);
         //model->draw(commandBuffers->at(currentFrame));
 
-        commandBuffers->getBuffers().at(currentFrame).endRenderPass();
-        commandBuffers->getBuffers().at(currentFrame).end();
+        commandBuffers[currentFrame].endRenderPass();
+        commandBuffers[currentFrame].end();
     }
 }

@@ -46,13 +46,13 @@ namespace Vltava {
     };*/
 
     struct VulkanResources {
-        MRenderPass* renderPass;
-        MPhysDev* physDev;
-        MLogDev* dev;
-        MInstance* instance;
-        MCommandPool* commandPool;
-        vk::Queue* graphicsQueue;
-        vk::Queue* computeQueue;
+        vk::RenderPass* renderPass = nullptr;
+        MPhysDev* physDev = nullptr;
+        MLogDev* dev = nullptr;
+        MInstance* instance = nullptr;
+        vk::CommandPool* commandPool = nullptr;
+        vk::Queue* graphicsQueue = nullptr;
+        vk::Queue* computeQueue = nullptr;
 
         vk::Extent2D extent;
         int FRAMES_IN_FLIGHT = 0;
@@ -61,26 +61,6 @@ namespace Vltava {
     uint32_t findMemoryType(uint32_t typeFilter, const vk::PhysicalDeviceMemoryProperties &properties, vk::MemoryPropertyFlags flags);
     std::vector<char> readFile(const std::string &filename);
     void sanityCheck(const std::string &str);
-
-    /*extern PFN_vkCreateDebugUtilsMessengerEXT pfnVkCreateDebugUtilsMessengerEXT;
-    extern PFN_vkDestroyDebugUtilsMessengerEXT pfnVkDestroyDebugUtilsMessengerEXT;
-
-    VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
-            VkDebugUtilsMessageSeverityFlagBitsEXT severity,
-            VkDebugUtilsMessageTypeFlagsEXT type,
-            const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
-            void *pUserData);
-
-    VKAPI_ATTR VkResult VKAPI_CALL vkCreateDebugUtilsMessengerEXT(
-            VkInstance instance,
-            const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo,
-            const VkAllocationCallbacks *pAllocator,
-            VkDebugUtilsMessengerEXT *pDebugMessenger);
-
-    VKAPI_ATTR void VKAPI_CALL vkDestroyDebugUtilsMessengerEXT(
-            VkInstance instance,
-            VkDebugUtilsMessengerEXT debugMessenger,
-            const VkAllocationCallbacks *pAllocator);*/
 }
 
 #endif //SPHSIMULATION_VLTAVAFUNCTIONS_HPP

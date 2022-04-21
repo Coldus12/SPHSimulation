@@ -50,25 +50,25 @@ namespace Vltava {
         std::unique_ptr<MSurface> surface;
         std::unique_ptr<MPhysDev> physicalDevice;
         std::unique_ptr<MLogDev> logicalDevice;
+        std::unique_ptr<MSwapChain> swapChain;
+
+        vk::RenderPass renderPass;
+        vk::CommandPool commandPool;
+        vk::CommandPool computeCmdPool;
+        std::vector<vk::CommandBuffer> commandBuffers;
+        vk::CommandBuffer computeCmdBuffer;
 
         std::unique_ptr<vk::Queue> graphicsQueue;
         std::unique_ptr<vk::Queue> presentQueue;
         std::unique_ptr<vk::Queue> computeQueue;
 
-        std::unique_ptr<MSwapChain> swapChain;
         vk::Extent2D swapChainExtent;
         std::vector<vk::Image> swapChainImages;
-        std::vector<MImageView> imageViews;
-        std::unique_ptr<MRenderPass> renderPass;
-        std::vector<MFramebuffer> swapChainFramebuffers;
-        std::unique_ptr<MCommandPool> commandPool;
-        std::unique_ptr<MCommandPool> computeCmdPool;
+        std::vector<vk::ImageView> imageViews;
+        std::vector<vk::Framebuffer> swapChainFramebuffers;
 
-        std::unique_ptr<MCommandBuffers> commandBuffers;
-        std::unique_ptr<MCommandBuffers> computeCmdBuffer;
 
         std::unique_ptr<Model> model;
-        //std::unique_ptr<ParticleModel> model;
         std::vector<Buffer> sBuffers;
         std::vector<Buffer> uBuffers;
 
@@ -78,9 +78,9 @@ namespace Vltava {
         vk::Format swapChainImageFormat;
 
         // even the sample uses VkImage and not vk::Image (i guess because swapchain.getImages() returns a vector of VkImage and not vk::Image)
-        std::vector<MSemaphore> imageAvailableSemaphores;
-        std::vector<MSemaphore> renderFinishedSemaphores;
-        std::vector<MFence> inFlightFences;
+        std::vector<vk::Semaphore> imageAvailableSemaphores;
+        std::vector<vk::Semaphore> renderFinishedSemaphores;
+        std::vector<vk::Fence> inFlightFences;
 
         bool enableValidationLayers = false;
 

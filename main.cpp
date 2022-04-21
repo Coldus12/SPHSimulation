@@ -1,9 +1,10 @@
 #include "StdWindow.hpp"
+#include "Managed/Managed.hpp"
 
 int main(int, char**) {
-    try {
+    //try {
         Vltava::StdWindow window(1280, 720);
-    } catch ( vk::SystemError & err )
+    /*} catch ( vk::SystemError & err )
     {
         std::cout << "vk::SystemError: " << err.what() << std::endl;
         exit( -1 );
@@ -17,6 +18,6 @@ int main(int, char**) {
     {
         std::cout << "unknown error\n";
         exit( -1 );
-    }
+    }*/
     return 0;
 }

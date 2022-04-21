@@ -2,6 +2,7 @@
 // Created by PCF112021 on 3/19/2022.
 //
 
+#include <glm/vec2.hpp>
 #include "Buffer.hpp"
 
 namespace Vltava {
@@ -13,8 +14,22 @@ namespace Vltava {
         updateResources(vkResources);
 
         auto pair = createBuffer(bufferSize, usage, memFlags);
-        vkBuffer = std::make_unique<MBuffer>(res.dev->getHandle(), pair.first);
-        vkBufferMemory = std::make_unique<MDeviceMemory>(res.dev->getHandle(), pair.second);
+        vkBuffer = pair.first;
+        vkBufferMemory = pair.second;
+    }
+
+    Buffer::Buffer(Buffer &&buff) noexcept {
+        buff.moved = true;
+        this->vkBuffer = buff.vkBuffer;
+        this->vkBufferMemory = buff.vkBufferMemory;
+        this->dataSize = buff.dataSize;
+    }
+
+    Buffer::~Buffer() {
+        if (!moved) {
+            res.dev->getHandle().destroyBuffer(vkBuffer);
+            res.dev->getHandle().freeMemory(vkBufferMemory);
+        }
     }
 
     std::pair<vk::Buffer, vk::DeviceMemory> Buffer::createBuffer(vk::DeviceSize bufferSize,
@@ -27,9 +42,9 @@ namespace Vltava {
                 vk::SharingMode::eExclusive
         );
 
-        MBuffer localBuffer(res.dev->getHandle(), bufferInfo);
+        vk::Buffer localBuffer = res.dev->getHandle().createBuffer(bufferInfo);
 
-        vk::MemoryRequirements memReq = res.dev->getHandle().getBufferMemoryRequirements(localBuffer.getHandle());
+        vk::MemoryRequirements memReq = res.dev->getHandle().getBufferMemoryRequirements(localBuffer);
         vk::PhysicalDeviceMemoryProperties memProperties = res.physDev->getHandle().getMemoryProperties();
 
         vk::MemoryAllocateInfo memAllocInfo(memReq.size, {});
@@ -39,50 +54,53 @@ namespace Vltava {
                 memFlags
         );
 
-        MDeviceMemory devMem(res.dev->getHandle(), memAllocInfo);
+        vk::DeviceMemory devMem = res.dev->getHandle().allocateMemory(memAllocInfo);
 
-        return std::pair<vk::Buffer, vk::DeviceMemory>(localBuffer.getHandle(), devMem.getHandle());
+        return std::pair<vk::Buffer, vk::DeviceMemory>(localBuffer, devMem);
     }
 
     void Buffer::writeToBuffer(void *bufferData, size_t size) {
         bind(0);
-
-        void* data = map<void*>(0, VK_WHOLE_SIZE);
+        void* data = res.dev->getHandle().mapMemory(vkBufferMemory, 0, size);
         memcpy(data, bufferData, size);
-        unmap();
+        res.dev->getHandle().unmapMemory(vkBufferMemory);
 
         dataSize = size;
     }
 
     void Buffer::copyBuffer(vk::Buffer src, vk::Buffer dst, vk::DeviceSize size) {
-        if (res.dev == nullptr)
+        if (res.graphicsQueue == nullptr)
             throw std::runtime_error("Buffer's static VulkanResources is null!");
 
         vk::CommandBufferAllocateInfo allocateInfo(
-                res.commandPool->getHandle(),
+                *res.commandPool,
                 vk::CommandBufferLevel::ePrimary,
                 1
         );
 
-        MCommandBuffers commandBuffers(res.dev->getHandle(), allocateInfo);
+        vk::CommandBuffer commandBuffer = res.dev->getHandle().allocateCommandBuffers(allocateInfo).front();
 
         vk::CommandBufferBeginInfo beginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
-        commandBuffers.getBuffers()[0].begin(beginInfo);
+        commandBuffer.begin(beginInfo);
 
         vk::BufferCopy copyRegion(0,0, size);
-        commandBuffers.getBuffers()[0].copyBuffer(src, dst, copyRegion);
-        commandBuffers.getBuffers()[0].end();
+        commandBuffer.copyBuffer(src, dst, copyRegion);
+        commandBuffer.end();
 
         vk::SubmitInfo submitInfo;
         submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &commandBuffers.getBuffers()[0];
+        submitInfo.pCommandBuffers = &commandBuffer;
+
+        //vk::SubmitInfo submitInfo({}, {}, commandBuffer);
 
         res.graphicsQueue->submit(submitInfo);
         res.graphicsQueue->waitIdle();
+
+        res.dev->getHandle().freeCommandBuffers(*res.commandPool, commandBuffer);
     }
 
     vk::Buffer Buffer::getBufferHandle() const {
-        return vkBuffer->getHandle();
+        return vkBuffer;
     }
 
     size_t Buffer::getSize() const {
@@ -95,7 +113,7 @@ namespace Vltava {
 
     void Buffer::bind(int offset) {
         if (!bound)
-            res.dev->getHandle().bindBufferMemory(vkBuffer->getHandle(), vkBufferMemory->getHandle(), offset);
+            res.dev->getHandle().bindBufferMemory(vkBuffer, vkBufferMemory, offset);
 
         bound = true;
     }

@@ -12,6 +12,7 @@ namespace Vltava {
     class Material {
     public:
         Material(VulkanResources &resources, std::string pathToVert, std::string pathToFrag);
+        ~Material();
         void updateResources(const VulkanResources& resources);
 
         template<typename T>
@@ -60,6 +61,7 @@ namespace Vltava {
                             vk::PrimitiveTopology topology = vk::PrimitiveTopology::eTriangleList);
         void draw(const vk::CommandBuffer& buffer, uint32_t currentFrame);
 
+        void cleanup();
         void recreatePipeline();
 
     private:
@@ -70,11 +72,11 @@ namespace Vltava {
         std::string vertPath;
         std::string fragPath;
 
-        std::unique_ptr<MPipelineLayout> pipelineLayout;
-        std::unique_ptr<MPipeline> pipeline;
-        std::unique_ptr<MDescriptorSetLayout> setLayout;
-        std::unique_ptr<MDescriptorPool> setPool;
-        std::vector<MDescriptorSet> sets;
+        vk::PipelineLayout pipelineLayout;
+        vk::Pipeline pipeline;
+        vk::DescriptorSetLayout setLayout;
+        vk::DescriptorPool setPool;
+        std::vector<vk::DescriptorSet> sets;
 
         std::unique_ptr<Buffer> vertexBuffer;
         std::unique_ptr<Buffer> indexBuffer;

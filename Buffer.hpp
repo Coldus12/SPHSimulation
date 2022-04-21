@@ -13,6 +13,8 @@ namespace Vltava {
                vk::BufferUsageFlags usage,
                vk::MemoryPropertyFlags memFlags
         );
+        Buffer(Buffer&& buff) noexcept;
+        ~Buffer();
 
         void bind(int offset);
         void writeToBuffer(void* bufferData, size_t size);
@@ -27,14 +29,16 @@ namespace Vltava {
 
             bind(0);
             //T* bufferData = (T*) res.dev->getHandle().mapMemory<T*>(vkBufferMemory->getHandle(), 0, wholeSize);
-            T* bufferData = map<T>();
+            //T* bufferData = map<T>();
+
+            T* bufferData = (T*) res.dev->getHandle().mapMemory(vkBufferMemory, 0, wholeSize);
 
             for (int i = 0; i < nrOfObjects; i++) {
                 retVector.push_back(bufferData[i]);
             }
 
             //res.dev->getHandle().unmapMemory<T*>();
-            unmap();
+            res.dev->getHandle().unmapMemory(vkBufferMemory);
 
             return retVector;
         }
@@ -46,25 +50,13 @@ namespace Vltava {
         static void copyBuffer(vk::Buffer src, vk::Buffer dst, vk::DeviceSize size);
         static void updateResources(const VulkanResources& vkResources);
 
-        // Taken from: https://github.com/jherico/Vulkan/blob/cpp/base/vks/allocation.hpp
-        void* mapped{ nullptr };
-        template <typename T = void>
-        inline T* map(size_t offset = 0, VkDeviceSize size = VK_WHOLE_SIZE) {
-            mapped = res.dev->getHandle().mapMemory(vkBufferMemory->getHandle(), offset, size, vk::MemoryMapFlags());
-            return (T*)mapped;
-        }
-
-        inline void unmap() {
-            res.dev->getHandle().unmapMemory(vkBufferMemory->getHandle());
-            mapped = nullptr;
-        }
-
     private:
         size_t dataSize = 0;
         bool bound = false;
+        bool moved = false;
         inline static VulkanResources res;
-        std::unique_ptr<MBuffer> vkBuffer;
-        std::unique_ptr<MDeviceMemory> vkBufferMemory;
+        vk::Buffer vkBuffer;
+        vk::DeviceMemory vkBufferMemory;
 
         std::pair<vk::Buffer, vk::DeviceMemory> createBuffer(vk::DeviceSize bufferSize,
                                                              vk::BufferUsageFlags usage,

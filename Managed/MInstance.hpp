@@ -16,33 +16,13 @@ namespace Vltava {
         vk::Instance getHandle();
         std::vector<const char *> getValidationLayers();
     private:
-        std::unique_ptr<vk::Instance> instance;
-        std::unique_ptr<vk::DebugUtilsMessengerEXT> debugUtilsMessenger;
+        vk::Instance instance;
+        vk::DebugUtilsMessengerEXT debugUtilsMessenger;
         bool enableValidationLayers;
 
         const std::vector<const char *> validationLayers = {
                 "VK_LAYER_KHRONOS_validation"
         };
-
-        PFN_vkCreateDebugUtilsMessengerEXT pfnVkCreateDebugUtilsMessengerEXT = VK_NULL_HANDLE;
-        PFN_vkDestroyDebugUtilsMessengerEXT pfnVkDestroyDebugUtilsMessengerEXT = VK_NULL_HANDLE;
-
-        static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
-                VkDebugUtilsMessageSeverityFlagBitsEXT severity,
-                VkDebugUtilsMessageTypeFlagsEXT type,
-                const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
-                void *pUserData);
-
-        VKAPI_ATTR VkResult VKAPI_CALL vkCreateDebugUtilsMessengerEXT(
-                VkInstance instance,
-                const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo,
-                const VkAllocationCallbacks *pAllocator,
-                VkDebugUtilsMessengerEXT *pDebugMessenger);
-
-        VKAPI_ATTR void VKAPI_CALL vkDestroyDebugUtilsMessengerEXT(
-                VkInstance instance,
-                VkDebugUtilsMessengerEXT debugMessenger,
-                const VkAllocationCallbacks *pAllocator);
 
         bool checkValidationLayerSupport();
         void setupDebugMessenger();
