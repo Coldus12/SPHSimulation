@@ -24,14 +24,11 @@ namespace Vltava {
 
     class Model {
     public:
-        Model() = delete;
-        Model(VulkanResources& resources);
+        Model();
 
         virtual void loadModel(const std::string& path);
-        void updateResources(const VulkanResources& res);
+        void recreatePipeline();
         virtual void draw(const vk::CommandBuffer& buffer, uint32_t currentFrame);
-
-        VulkanResources& resources;
     protected:
         std::unique_ptr<Material> mat;
         float aspect;

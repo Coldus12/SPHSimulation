@@ -32,7 +32,7 @@ namespace Vltava {
         //--------------------------------------------------------------------------------------------------------------
         int width;
         int height;
-        int MAX_FRAMES_IN_FLIGHT = 2;
+        //int MAX_FRAMES_IN_FLIGHT = 2;
 
         bool framebufferResized = false;
         GLFWwindow *window;
@@ -46,27 +46,13 @@ namespace Vltava {
         uint32_t presentQueueFamily = (uint32_t) -1;
         uint32_t computeQueueFamily = (uint32_t) -1;
 
-        std::unique_ptr<MInstance> instance;
-        std::unique_ptr<MSurface> surface;
-        std::unique_ptr<MPhysDev> physicalDevice;
-        std::unique_ptr<MLogDev> logicalDevice;
-        std::unique_ptr<MSwapChain> swapChain;
-
-        vk::RenderPass renderPass;
-        vk::CommandPool commandPool;
-        vk::CommandPool computeCmdPool;
         std::vector<vk::CommandBuffer> commandBuffers;
         vk::CommandBuffer computeCmdBuffer;
 
-        std::unique_ptr<vk::Queue> graphicsQueue;
-        std::unique_ptr<vk::Queue> presentQueue;
-        std::unique_ptr<vk::Queue> computeQueue;
-
-        vk::Extent2D swapChainExtent;
+        //vk::Extent2D swapChainExtent;
         std::vector<vk::Image> swapChainImages;
         std::vector<vk::ImageView> imageViews;
         std::vector<vk::Framebuffer> swapChainFramebuffers;
-
 
         std::unique_ptr<Model> model;
         std::vector<Buffer> sBuffers;

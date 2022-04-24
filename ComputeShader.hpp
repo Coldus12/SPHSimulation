@@ -8,9 +8,9 @@
 namespace Vltava {
     class ComputeShader {
     public:
-        ComputeShader(VulkanResources &resources, std::string pathToShader);
+        ComputeShader(std::string pathToShader);
         ~ComputeShader();
-        void updateResources(const VulkanResources& resources);
+        void recreatePipeline();
         void createPipeline();
         vk::Pipeline getPipelineHandle();
         vk::PipelineLayout getPipelineLayoutHandle();
@@ -20,7 +20,6 @@ namespace Vltava {
 
     private:
         std::string computeShaderPath;
-        VulkanResources resources;
 
         vk::PipelineLayout pipelineLayout;
         vk::Pipeline computePipeline;

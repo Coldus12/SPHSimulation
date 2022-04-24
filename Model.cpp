@@ -4,23 +4,12 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <chrono>
 
-Vltava::Model::Model(VulkanResources &resources) : resources(resources) {
-    aspect = resources.extent.width / (float) resources.extent.height;
+Vltava::Model::Model() {
+    aspect = VulkanResources::getInstance().extent.width / (float) VulkanResources::getInstance().extent.height;
 }
 
-void Vltava::Model::updateResources(const VulkanResources &res) {
-    // Updating the resources
-    resources.dev = res.dev;
-    resources.extent = res.extent;
-    resources.renderPass = res.renderPass;
-    resources.physDev = res.physDev;
-    resources.instance = res.instance;
-    resources.commandPool = res.commandPool;
-    resources.graphicsQueue = res.graphicsQueue;
-    resources.computeQueue = res.computeQueue;
-    resources.FRAMES_IN_FLIGHT = res.FRAMES_IN_FLIGHT;
-
-    aspect = resources.extent.width / (float) resources.extent.height;
+void Vltava::Model::recreatePipeline() {
+    aspect = VulkanResources::getInstance().extent.width / (float) VulkanResources::getInstance().extent.height;
     mat->recreatePipeline();
 }
 
@@ -55,7 +44,7 @@ void Vltava::Model::loadModel(const std::string &path) {
             //,4, 5, 7, 7, 5, 6
     };
 
-    mat = std::make_unique<Material>(resources, "shaders/vert.spv", "shaders/frag.spv");
+    mat = std::make_unique<Material>("shaders/vert.spv", "shaders/frag.spv");
     mat->uploadVertexData<Vertex>(vertices);
     mat->uploadIndexData(indices);
     mat->setBuffers(&uniformBuffers, nullptr, vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment);
@@ -75,11 +64,10 @@ void Vltava::Model::loadModel(const std::string &path) {
 void Vltava::Model::createUniformBuffers() {
     vk::DeviceSize bufferSize = sizeof(MVP);
 
-    uniformBuffers.reserve(resources.FRAMES_IN_FLIGHT);
+    uniformBuffers.reserve(VulkanResources::getInstance().FRAMES_IN_FLIGHT);
 
-    for (size_t i = 0; i < resources.FRAMES_IN_FLIGHT; i++) {
+    for (size_t i = 0; i < VulkanResources::getInstance().FRAMES_IN_FLIGHT; i++) {
         uniformBuffers.emplace_back(
-                resources,
                 bufferSize,
                 vk::BufferUsageFlagBits::eUniformBuffer,
                 vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent

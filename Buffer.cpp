@@ -6,12 +6,9 @@
 #include "Buffer.hpp"
 
 namespace Vltava {
-    Buffer::Buffer(const VulkanResources &vkResources,
-                   vk::DeviceSize bufferSize,
+    Buffer::Buffer(vk::DeviceSize bufferSize,
                    vk::BufferUsageFlags usage,
                    vk::MemoryPropertyFlags memFlags) {
-
-        updateResources(vkResources);
 
         auto pair = createBuffer(bufferSize, usage, memFlags);
         vkBuffer = pair.first;
@@ -27,8 +24,8 @@ namespace Vltava {
 
     Buffer::~Buffer() {
         if (!moved) {
-            res.dev->getHandle().destroyBuffer(vkBuffer);
-            res.dev->getHandle().freeMemory(vkBufferMemory);
+            VulkanResources::getInstance().logDev->getHandle().destroyBuffer(vkBuffer);
+            VulkanResources::getInstance().logDev->getHandle().freeMemory(vkBufferMemory);
         }
     }
 
@@ -42,10 +39,10 @@ namespace Vltava {
                 vk::SharingMode::eExclusive
         );
 
-        vk::Buffer localBuffer = res.dev->getHandle().createBuffer(bufferInfo);
+        vk::Buffer localBuffer = VulkanResources::getInstance().logDev->getHandle().createBuffer(bufferInfo);
 
-        vk::MemoryRequirements memReq = res.dev->getHandle().getBufferMemoryRequirements(localBuffer);
-        vk::PhysicalDeviceMemoryProperties memProperties = res.physDev->getHandle().getMemoryProperties();
+        vk::MemoryRequirements memReq = VulkanResources::getInstance().logDev->getHandle().getBufferMemoryRequirements(localBuffer);
+        vk::PhysicalDeviceMemoryProperties memProperties = VulkanResources::getInstance().physDev->getHandle().getMemoryProperties();
 
         vk::MemoryAllocateInfo memAllocInfo(memReq.size, {});
         memAllocInfo.memoryTypeIndex = findMemoryType(
@@ -54,31 +51,31 @@ namespace Vltava {
                 memFlags
         );
 
-        vk::DeviceMemory devMem = res.dev->getHandle().allocateMemory(memAllocInfo);
+        vk::DeviceMemory devMem = VulkanResources::getInstance().logDev->getHandle().allocateMemory(memAllocInfo);
 
         return std::pair<vk::Buffer, vk::DeviceMemory>(localBuffer, devMem);
     }
 
     void Buffer::writeToBuffer(void *bufferData, size_t size) {
         bind(0);
-        void* data = res.dev->getHandle().mapMemory(vkBufferMemory, 0, size);
+        void* data = VulkanResources::getInstance().logDev->getHandle().mapMemory(vkBufferMemory, 0, size);
         memcpy(data, bufferData, size);
-        res.dev->getHandle().unmapMemory(vkBufferMemory);
+        VulkanResources::getInstance().logDev->getHandle().unmapMemory(vkBufferMemory);
 
         dataSize = size;
     }
 
     void Buffer::copyBuffer(vk::Buffer src, vk::Buffer dst, vk::DeviceSize size) {
-        if (res.graphicsQueue == nullptr)
-            throw std::runtime_error("Buffer's static VulkanResources is null!");
+        if (VulkanResources::getInstance().graphicsQueue == nullptr)
+            throw std::runtime_error("[ERROR] VulkanResources' graphicsQueue is null!\n[ERROR] Thrown from Buffer.copyBuffer().");
 
         vk::CommandBufferAllocateInfo allocateInfo(
-                *res.commandPool,
+                *VulkanResources::getInstance().graphicalCmdPool,
                 vk::CommandBufferLevel::ePrimary,
                 1
         );
 
-        vk::CommandBuffer commandBuffer = res.dev->getHandle().allocateCommandBuffers(allocateInfo).front();
+        vk::CommandBuffer commandBuffer = VulkanResources::getInstance().logDev->getHandle().allocateCommandBuffers(allocateInfo).front();
 
         vk::CommandBufferBeginInfo beginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
         commandBuffer.begin(beginInfo);
@@ -93,10 +90,10 @@ namespace Vltava {
 
         //vk::SubmitInfo submitInfo({}, {}, commandBuffer);
 
-        res.graphicsQueue->submit(submitInfo);
-        res.graphicsQueue->waitIdle();
+        VulkanResources::getInstance().graphicsQueue->submit(submitInfo);
+        VulkanResources::getInstance().graphicsQueue->waitIdle();
 
-        res.dev->getHandle().freeCommandBuffers(*res.commandPool, commandBuffer);
+        VulkanResources::getInstance().logDev->getHandle().freeCommandBuffers(*VulkanResources::getInstance().graphicalCmdPool, commandBuffer);
     }
 
     vk::Buffer Buffer::getBufferHandle() const {
@@ -113,19 +110,8 @@ namespace Vltava {
 
     void Buffer::bind(int offset) {
         if (!bound)
-            res.dev->getHandle().bindBufferMemory(vkBuffer, vkBufferMemory, offset);
+            VulkanResources::getInstance().logDev->getHandle().bindBufferMemory(vkBuffer, vkBufferMemory, offset);
 
         bound = true;
-    }
-
-    void Buffer::updateResources(const VulkanResources &vkResources) {
-        res.dev = vkResources.dev;
-        res.extent = vkResources.extent;
-        res.renderPass = vkResources.renderPass;
-        res.physDev = vkResources.physDev;
-        res.instance = vkResources.instance;
-        res.commandPool = vkResources.commandPool;
-        res.graphicsQueue = vkResources.graphicsQueue;
-        res.FRAMES_IN_FLIGHT = vkResources.FRAMES_IN_FLIGHT;
     }
 }

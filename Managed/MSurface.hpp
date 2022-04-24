@@ -3,7 +3,7 @@
 
 #define GLFW_INCLUDE_VULKAN
 #include "GLFW/glfw3.h"
-#include "../VltavaFunctions.hpp"
+#include "vulkan/vulkan.hpp"
 
 namespace Vltava {
     class MSurface {

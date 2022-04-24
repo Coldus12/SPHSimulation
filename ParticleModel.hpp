@@ -35,7 +35,7 @@ namespace Vltava {
 
     class ParticleModel : public Model {
     public:
-        ParticleModel(VulkanResources& resources, std::vector<Buffer>* simPropsBuffer, std::vector<Buffer>* storageBuffers);
+        ParticleModel(std::vector<Buffer>* simPropsBuffer, std::vector<Buffer>* storageBuffers);
 
         void loadModel(const std::string& path) override;
         void draw(const vk::CommandBuffer& buffer, uint32_t currentFrame) override;

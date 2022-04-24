@@ -11,9 +11,8 @@
 namespace Vltava {
     class Material {
     public:
-        Material(VulkanResources &resources, std::string pathToVert, std::string pathToFrag);
+        Material(std::string pathToVert, std::string pathToFrag);
         ~Material();
-        void updateResources(const VulkanResources& resources);
 
         template<typename T>
         void uploadVertexData(std::vector<T> vertices) {
@@ -23,7 +22,6 @@ namespace Vltava {
             // Staging buffer creation
             //---------------------------------
             Buffer stagingBuffer(
-                    res,
                     bufferSize,
                     vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferSrc,
                     vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
@@ -34,7 +32,6 @@ namespace Vltava {
             // Device local buffer creation
             //---------------------------------
             vertexBuffer = std::make_unique<Buffer>(
-                    res,
                     bufferSize,
                     vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer,
                     vk::MemoryPropertyFlagBits::eDeviceLocal
@@ -65,7 +62,6 @@ namespace Vltava {
         void recreatePipeline();
 
     private:
-        VulkanResources& res;
         float aspect;
         int nrOfIndices = 0;
         int nrOfVertices = 0;

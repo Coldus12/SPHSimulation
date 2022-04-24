@@ -23,11 +23,11 @@ if (WIN32)
 endif(WIN32)
 
 if (UNIX)
-    target_link_libraries(${PROJECT_NAME} Vulkan::Vulkan glfw3 glm)
+    target_link_libraries(${PROJECT_NAME} Vulkan::Vulkan glfw glm)
 
     find_package(glm CONFIG REQUIRED)
     target_link_libraries(${PROJECT_NAME} glm)
 
     find_package(glfw3 REQUIRED)
-    target_link_libraries(${PROJECT_NAME} glfw3)
+    target_link_libraries(${PROJECT_NAME} glfw)
 endif(UNIX)

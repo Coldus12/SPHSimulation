@@ -2,34 +2,18 @@
 
 namespace Vltava {
 
-    ComputeShader::ComputeShader(VulkanResources &resources, std::string pathToShader) : resources(resources), computeShaderPath(pathToShader) {
-        //createPipeline();
-    }
+    ComputeShader::ComputeShader(std::string pathToShader) : computeShaderPath(pathToShader) {}
 
     ComputeShader::~ComputeShader() {
-        resources.dev->getHandle().destroyDescriptorPool(setPool);
-        resources.dev->getHandle().destroyDescriptorSetLayout(setLayout);
-        resources.dev->getHandle().destroyPipelineLayout(pipelineLayout);
-        resources.dev->getHandle().destroyPipeline(computePipeline);
+        VulkanResources::getInstance().logDev->getHandle().destroyDescriptorPool(setPool);
+        VulkanResources::getInstance().logDev->getHandle().destroyDescriptorSetLayout(setLayout);
+        VulkanResources::getInstance().logDev->getHandle().destroyPipelineLayout(pipelineLayout);
+        VulkanResources::getInstance().logDev->getHandle().destroyPipeline(computePipeline);
     }
 
-    void ComputeShader::updateResources(const VulkanResources &res) {
-        // Updating the resources
-        resources.dev = res.dev;
-        resources.extent = res.extent;
-        resources.renderPass = res.renderPass;
-        resources.physDev = res.physDev;
-        resources.instance = res.instance;
-        resources.commandPool = res.commandPool;
-        resources.graphicsQueue = res.graphicsQueue;
-        resources.computeQueue = res.computeQueue;
-        resources.FRAMES_IN_FLIGHT = res.FRAMES_IN_FLIGHT;
-
-        // Deleting the out of date pipeline
-        resources.dev->getHandle().destroyPipelineLayout(pipelineLayout);
-        resources.dev->getHandle().destroyPipeline(computePipeline);
-
-        // Creating new pipeline with the updated resources
+    void ComputeShader::recreatePipeline() {
+        VulkanResources::getInstance().logDev->getHandle().destroyPipelineLayout(pipelineLayout);
+        VulkanResources::getInstance().logDev->getHandle().destroyPipeline(computePipeline);
         createPipeline();
     }
 
@@ -44,7 +28,7 @@ namespace Vltava {
     void ComputeShader::createPipeline() {
         auto code = readFile(computeShaderPath);
         vk::ShaderModuleCreateInfo compInfo({}, code.size(), reinterpret_cast<uint32_t*>(code.data()));
-        vk::ShaderModule compModule = resources.dev->getHandle().createShaderModule(compInfo);
+        vk::ShaderModule compModule = VulkanResources::getInstance().logDev->getHandle().createShaderModule(compInfo);
         vk::PipelineShaderStageCreateInfo compStageInfo({}, vk::ShaderStageFlagBits::eCompute, compModule, "main");
         vk::PipelineShaderStageCreateInfo stages[] = {compStageInfo};
 
@@ -56,7 +40,7 @@ namespace Vltava {
                 nullptr
         );
 
-        pipelineLayout = resources.dev->getHandle().createPipelineLayout(layoutInfo);
+        pipelineLayout = VulkanResources::getInstance().logDev->getHandle().createPipelineLayout(layoutInfo);
 
         vk::Pipeline plHandle;
         vk::ComputePipelineCreateInfo computeInfo(
@@ -67,8 +51,8 @@ namespace Vltava {
                 0
         );
 
-        computePipeline = resources.dev->getHandle().createComputePipeline({}, computeInfo).value;
-        resources.dev->getHandle().destroyShaderModule(compModule);
+        computePipeline = VulkanResources::getInstance().logDev->getHandle().createComputePipeline({}, computeInfo).value;
+        VulkanResources::getInstance().logDev->getHandle().destroyShaderModule(compModule);
     }
 
     void ComputeShader::setBuffers(const std::vector<Buffer>* uniformBuffers, const std::vector<Buffer>* storageBuffers) {
@@ -86,7 +70,7 @@ namespace Vltava {
         }
 
         vk::DescriptorSetLayoutCreateInfo layoutInfo({}, bindings);
-        setLayout = resources.dev->getHandle().createDescriptorSetLayout(layoutInfo);
+        setLayout = VulkanResources::getInstance().logDev->getHandle().createDescriptorSetLayout(layoutInfo);
 
         // Descriptor pool creation
         //---------------------------------
@@ -101,12 +85,12 @@ namespace Vltava {
                 sizes
         );
 
-        setPool = resources.dev->getHandle().createDescriptorPool(poolInfo);
+        setPool = VulkanResources::getInstance().logDev->getHandle().createDescriptorPool(poolInfo);
 
         // Descriptor set creation
         //---------------------------------
         vk::DescriptorSetAllocateInfo allocInfo(setPool, 1, &setLayout);
-        set = resources.dev->getHandle().allocateDescriptorSets(allocInfo).front();
+        set = VulkanResources::getInstance().logDev->getHandle().allocateDescriptorSets(allocInfo).front();
 
         std::vector<vk::DescriptorBufferInfo> bufferInfos;
         std::vector<vk::WriteDescriptorSet> writeSets;
@@ -151,9 +135,13 @@ namespace Vltava {
             );
         }
 
-        resources.dev->getHandle().updateDescriptorSets(writeSets, nullptr);
+        VulkanResources::getInstance().logDev->getHandle().updateDescriptorSets(writeSets, nullptr);
     }
 
+    // TODO: REWRITE THIS WHOLE THING
+    // Barrier: needs to be implemented to prevent the shader to overwrite its own data
+    // Dispatch: instead of calling this function a million times, the cmdBuffer.dispatch should be
+    // called appropriately.
     void ComputeShader::dispatch(const vk::CommandBuffer &cmdBuffer, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) {
         vk::CommandBufferBeginInfo beginInfo({}, nullptr);
         cmdBuffer.begin(beginInfo);
@@ -175,7 +163,7 @@ namespace Vltava {
                 {}
         );
 
-        resources.computeQueue->submit(submitInfo);
-        resources.dev->getHandle().waitIdle();
+        VulkanResources::getInstance().computeQueue->submit(submitInfo);
+        VulkanResources::getInstance().logDev->getHandle().waitIdle();
     }
 }

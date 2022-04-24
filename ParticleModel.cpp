@@ -37,8 +37,8 @@ namespace Vltava {
 
     // ParticleModel
     //------------------------------------------------------------------------------------------------------------------
-    ParticleModel::ParticleModel(VulkanResources& resources, std::vector<Buffer>* simPropsBuffers, std::vector<Buffer>* storageBuffers)
-    : Model(resources), simPropsBuffers(simPropsBuffers), storageBuffers(storageBuffers) {
+    ParticleModel::ParticleModel(std::vector<Buffer>* simPropsBuffers, std::vector<Buffer>* storageBuffers)
+    : Model(), simPropsBuffers(simPropsBuffers), storageBuffers(storageBuffers) {
         loadModel("");
     }
 
@@ -47,7 +47,7 @@ namespace Vltava {
         for (int i = 0; i < uniformBuffers.size(); i++)
             uniformBuffers[i].setSize(sizeof(MVP));
 
-        mat = std::make_unique<Material>(resources, "shaders/vert_p.spv", "shaders/frag_p.spv");
+        mat = std::make_unique<Material>("shaders/vert_p.spv", "shaders/frag_p.spv");
 
         int nr = 64;
         vertexBufferData.reserve(nr * 4);
@@ -66,9 +66,9 @@ namespace Vltava {
         mat->uploadIndexData(indices);
 
         // Uniform buffers scissored together
-        uniformBuffersU.reserve(uniformBuffers.size() + resources.FRAMES_IN_FLIGHT * simPropsBuffers->size());
+        uniformBuffersU.reserve(uniformBuffers.size() + VulkanResources::getInstance().FRAMES_IN_FLIGHT * simPropsBuffers->size());
 
-        for (int f = 0; f < resources.FRAMES_IN_FLIGHT; f++) {
+        for (int f = 0; f < VulkanResources::getInstance().FRAMES_IN_FLIGHT; f++) {
             uniformBuffersU.push_back(&uniformBuffers[f]);
             for (auto & simPropsBuffer : *simPropsBuffers)
                 uniformBuffersU.push_back(&simPropsBuffer);

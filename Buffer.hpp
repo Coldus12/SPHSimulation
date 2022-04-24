@@ -8,8 +8,7 @@ namespace Vltava {
     class Buffer {
     public:
         Buffer() = delete;
-        Buffer(const VulkanResources& vkResources,
-               vk::DeviceSize bufferSize,
+        Buffer(vk::DeviceSize bufferSize,
                vk::BufferUsageFlags usage,
                vk::MemoryPropertyFlags memFlags
         );
@@ -28,17 +27,13 @@ namespace Vltava {
             retVector.reserve(nrOfObjects);
 
             bind(0);
-            //T* bufferData = (T*) res.dev->getHandle().mapMemory<T*>(vkBufferMemory->getHandle(), 0, wholeSize);
-            //T* bufferData = map<T>();
-
-            T* bufferData = (T*) res.dev->getHandle().mapMemory(vkBufferMemory, 0, wholeSize);
+            T* bufferData = (T*) VulkanResources::getInstance().logDev->getHandle().mapMemory(vkBufferMemory, 0, wholeSize);
 
             for (int i = 0; i < nrOfObjects; i++) {
                 retVector.push_back(bufferData[i]);
             }
 
-            //res.dev->getHandle().unmapMemory<T*>();
-            res.dev->getHandle().unmapMemory(vkBufferMemory);
+            VulkanResources::getInstance().logDev->getHandle().unmapMemory(vkBufferMemory);
 
             return retVector;
         }
@@ -46,15 +41,12 @@ namespace Vltava {
         vk::Buffer getBufferHandle() const;
         size_t getSize() const;
         void setSize(size_t size); // Need this for output storage buffers which would have a size of 0
-
         static void copyBuffer(vk::Buffer src, vk::Buffer dst, vk::DeviceSize size);
-        static void updateResources(const VulkanResources& vkResources);
 
     private:
         size_t dataSize = 0;
         bool bound = false;
         bool moved = false;
-        inline static VulkanResources res;
         vk::Buffer vkBuffer;
         vk::DeviceMemory vkBufferMemory;
 

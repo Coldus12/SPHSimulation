@@ -7,34 +7,14 @@
 #include <utility>
 
 namespace Vltava {
-    Material::Material(VulkanResources &resources, std::string pathToVert, std::string pathToFrag) :
-    res(resources), vertPath(std::move(pathToVert)), fragPath(std::move(pathToFrag)) {
+    Material::Material(std::string pathToVert, std::string pathToFrag) :
+    vertPath(std::move(pathToVert)), fragPath(std::move(pathToFrag)) {
 
-        aspect = res.extent.width / (float) res.extent.height;
+        aspect = VulkanResources::getInstance().extent.width / (float) VulkanResources::getInstance().extent.height;
     }
 
     Material::~Material() {
         cleanup();
-        //res.dev->getHandle().freeDescriptorSets(setPool, sets);
-        //res.dev->getHandle().destroyDescriptorPool(setPool);
-        //res.dev->getHandle().destroyDescriptorSetLayout(setLayout);
-        //res.dev->getHandle().destroyPipelineLayout(pipelineLayout);
-        //res.dev->getHandle().destroyPipeline(pipeline);
-    }
-
-    void Material::updateResources(const VulkanResources &resources) {
-        // Updating the resources
-        res.dev = resources.dev;
-        res.extent = resources.extent;
-        res.renderPass = resources.renderPass;
-        res.physDev = resources.physDev;
-        res.instance = resources.instance;
-        res.commandPool = resources.commandPool;
-        res.graphicsQueue = resources.graphicsQueue;
-        res.computeQueue = resources.computeQueue;
-        res.FRAMES_IN_FLIGHT = resources.FRAMES_IN_FLIGHT;
-
-        aspect = res.extent.width / (float) resources.extent.height;
     }
 
     void Material::uploadIndexData(std::vector<uint16_t> indices) {
@@ -44,7 +24,6 @@ namespace Vltava {
         // Staging buffer creation
         //---------------------------------
         Buffer stagingBuffer(
-                res,
                 bufferSize,
                 vk::BufferUsageFlagBits::eTransferSrc,
                 vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
@@ -55,7 +34,6 @@ namespace Vltava {
         // Device local buffer creation
         //---------------------------------
         indexBuffer = std::make_unique<Buffer>(
-                res,
                 bufferSize,
                 vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer,
                 vk::MemoryPropertyFlagBits::eDeviceLocal
@@ -96,7 +74,7 @@ namespace Vltava {
         std::vector<vk::DescriptorSetLayoutBinding> bindings;
         bindings.reserve(storageBuffers->size() + uniformBuffers->size());
 
-        int bufferNrPerFrame = (uniformBuffers->size() / res.FRAMES_IN_FLIGHT);
+        int bufferNrPerFrame = (uniformBuffers->size() / VulkanResources::getInstance().FRAMES_IN_FLIGHT);
 
         for (int i = 0; i < bufferNrPerFrame; i++) {
             bindings.emplace_back(i, vk::DescriptorType::eUniformBuffer, 1, shaderStages);
@@ -107,16 +85,22 @@ namespace Vltava {
         }
 
         vk::DescriptorSetLayoutCreateInfo layoutInfo({}, bindings);
-        setLayout = res.dev->getHandle().createDescriptorSetLayout(layoutInfo);
+        setLayout = VulkanResources::getInstance().logDev->getHandle().createDescriptorSetLayout(layoutInfo);
 
         // Descriptor pool creation
         //---------------------------------
         std::vector<vk::DescriptorPoolSize> sizes;
         if (!uniformBuffers->empty())
-            sizes.emplace_back(vk::DescriptorType::eUniformBuffer, static_cast<uint32_t>(uniformBuffers->size()) * res.FRAMES_IN_FLIGHT);
+            sizes.emplace_back(
+                    vk::DescriptorType::eUniformBuffer,
+                    static_cast<uint32_t>(uniformBuffers->size()) * VulkanResources::getInstance().FRAMES_IN_FLIGHT
+            );
 
         if (!storageBuffers->empty())
-            sizes.emplace_back(vk::DescriptorType::eStorageBuffer, static_cast<uint32_t>(storageBuffers->size()) * res.FRAMES_IN_FLIGHT);
+            sizes.emplace_back(
+                    vk::DescriptorType::eStorageBuffer,
+                    static_cast<uint32_t>(storageBuffers->size()) * VulkanResources::getInstance().FRAMES_IN_FLIGHT
+            );
 
         vk::DescriptorPoolCreateInfo poolInfo(
                 vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
@@ -124,13 +108,13 @@ namespace Vltava {
                 sizes
         );
 
-        setPool = res.dev->getHandle().createDescriptorPool(poolInfo);
+        setPool = VulkanResources::getInstance().logDev->getHandle().createDescriptorPool(poolInfo);
 
         // Descriptor set creation
         //---------------------------------
         vk::DescriptorSetAllocateInfo allocInfo(setPool, 1, &setLayout);
-        for (int j = 0; j < res.FRAMES_IN_FLIGHT; j++) {
-            sets.push_back(res.dev->getHandle().allocateDescriptorSets(allocInfo).front());
+        for (int j = 0; j < VulkanResources::getInstance().FRAMES_IN_FLIGHT; j++) {
+            sets.push_back(VulkanResources::getInstance().logDev->getHandle().allocateDescriptorSets(allocInfo).front());
 
             std::vector<vk::DescriptorBufferInfo> bufferInfos;
             std::vector<vk::WriteDescriptorSet> writeSets;
@@ -175,7 +159,7 @@ namespace Vltava {
                 );
             }
 
-            res.dev->getHandle().updateDescriptorSets(writeSets, nullptr);
+            VulkanResources::getInstance().logDev->getHandle().updateDescriptorSets(writeSets, nullptr);
         }
     }
 
@@ -201,7 +185,7 @@ namespace Vltava {
         std::vector<vk::DescriptorSetLayoutBinding> bindings;
         bindings.reserve(storageBuffers->size() + uniformBuffers->size());
 
-        int bufferNrPerFrame = (uniformBuffers->size() / res.FRAMES_IN_FLIGHT);
+        int bufferNrPerFrame = (uniformBuffers->size() / VulkanResources::getInstance().FRAMES_IN_FLIGHT);
 
         for (int i = 0; i < bufferNrPerFrame; i++) {
             bindings.emplace_back(i, vk::DescriptorType::eUniformBuffer, 1, shaderStages);
@@ -212,16 +196,22 @@ namespace Vltava {
         }
 
         vk::DescriptorSetLayoutCreateInfo layoutInfo({}, bindings);
-        setLayout = res.dev->getHandle().createDescriptorSetLayout(layoutInfo);
+        setLayout = VulkanResources::getInstance().logDev->getHandle().createDescriptorSetLayout(layoutInfo);
 
         // Descriptor pool creation
         //---------------------------------
         std::vector<vk::DescriptorPoolSize> sizes;
         if (!uniformBuffers->empty())
-            sizes.emplace_back(vk::DescriptorType::eUniformBuffer, static_cast<uint32_t>(uniformBuffers->size()) * res.FRAMES_IN_FLIGHT);
+            sizes.emplace_back(
+                    vk::DescriptorType::eUniformBuffer,
+                    static_cast<uint32_t>(uniformBuffers->size()) * VulkanResources::getInstance().FRAMES_IN_FLIGHT
+            );
 
         if (!storageBuffers->empty())
-            sizes.emplace_back(vk::DescriptorType::eStorageBuffer, static_cast<uint32_t>(storageBuffers->size()) * res.FRAMES_IN_FLIGHT);
+            sizes.emplace_back(
+                    vk::DescriptorType::eStorageBuffer,
+                    static_cast<uint32_t>(storageBuffers->size()) * VulkanResources::getInstance().FRAMES_IN_FLIGHT
+            );
 
         vk::DescriptorPoolCreateInfo poolInfo(
                 vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
@@ -229,13 +219,13 @@ namespace Vltava {
                 sizes
         );
 
-        setPool = res.dev->getHandle().createDescriptorPool(poolInfo);
+        setPool = VulkanResources::getInstance().logDev->getHandle().createDescriptorPool(poolInfo);
 
         // Descriptor set creation
         //---------------------------------
         vk::DescriptorSetAllocateInfo allocInfo(setPool, 1, &setLayout);
-        for (int j = 0; j < res.FRAMES_IN_FLIGHT; j++) {
-            sets.push_back(res.dev->getHandle().allocateDescriptorSets(allocInfo).front());
+        for (int j = 0; j < VulkanResources::getInstance().FRAMES_IN_FLIGHT; j++) {
+            sets.push_back(VulkanResources::getInstance().logDev->getHandle().allocateDescriptorSets(allocInfo).front());
 
             std::vector<vk::DescriptorBufferInfo> bufferInfos;
             std::vector<vk::WriteDescriptorSet> writeSets;
@@ -280,7 +270,7 @@ namespace Vltava {
                 );
             }
 
-            res.dev->getHandle().updateDescriptorSets(writeSets, nullptr);
+            VulkanResources::getInstance().logDev->getHandle().updateDescriptorSets(writeSets, nullptr);
         }
     }
 
@@ -296,8 +286,8 @@ namespace Vltava {
         vk::ShaderModuleCreateInfo vertInfo({}, vertCode.size(), reinterpret_cast<uint32_t*>(vertCode.data()));
         vk::ShaderModuleCreateInfo fragInfo({}, fragCode.size(), reinterpret_cast<uint32_t*>(fragCode.data()));
 
-        vk::ShaderModule vertModule = res.dev->getHandle().createShaderModule(vertInfo);
-        vk::ShaderModule fragModule = res.dev->getHandle().createShaderModule(fragInfo);
+        vk::ShaderModule vertModule = VulkanResources::getInstance().logDev->getHandle().createShaderModule(vertInfo);
+        vk::ShaderModule fragModule = VulkanResources::getInstance().logDev->getHandle().createShaderModule(fragInfo);
 
         vk::PipelineShaderStageCreateInfo vertStageInfo({}, vk::ShaderStageFlagBits::eVertex, vertModule, "main");
         vk::PipelineShaderStageCreateInfo fragStageInfo({}, vk::ShaderStageFlagBits::eFragment, fragModule, "main");
@@ -314,8 +304,15 @@ namespace Vltava {
 
         vk::PipelineInputAssemblyStateCreateInfo inputAssembly({}, topology, false);
 
-        vk::Viewport viewport(0.0f, 0.0f, (float) res.extent.width, (float) res.extent.height, 0.0f, 1.0f);
-        vk::Rect2D scissor({0, 0}, res.extent);
+        vk::Viewport viewport(
+                0.0f,
+                0.0f,
+                (float) VulkanResources::getInstance().extent.width,
+                (float) VulkanResources::getInstance().extent.height,
+                0.0f,
+                1.0f
+        );
+        vk::Rect2D scissor({0, 0}, VulkanResources::getInstance().extent);
         vk::PipelineViewportStateCreateInfo viewportState({}, 1, &viewport, 1, &scissor);
 
         vk::PipelineRasterizationStateCreateInfo rasterizer(
@@ -375,7 +372,7 @@ namespace Vltava {
                 nullptr
         );
 
-        pipelineLayout = res.dev->getHandle().createPipelineLayout(pipelineLayoutInfo);
+        pipelineLayout = VulkanResources::getInstance().logDev->getHandle().createPipelineLayout(pipelineLayoutInfo);
 
         vk::GraphicsPipelineCreateInfo pipelineInfo(
                 {},
@@ -391,14 +388,14 @@ namespace Vltava {
                 &colorBlending,
                 nullptr,
                 pipelineLayout,
-                *res.renderPass,
+                *VulkanResources::getInstance().renderPass,
                 0
         );
 
-        pipeline = res.dev->getHandle().createGraphicsPipeline({}, pipelineInfo).value;
+        pipeline = VulkanResources::getInstance().logDev->getHandle().createGraphicsPipeline({}, pipelineInfo).value;
 
-        res.dev->getHandle().destroyShaderModule(vertModule);
-        res.dev->getHandle().destroyShaderModule(fragModule);
+        VulkanResources::getInstance().logDev->getHandle().destroyShaderModule(vertModule);
+        VulkanResources::getInstance().logDev->getHandle().destroyShaderModule(fragModule);
     }
 
     void Material::draw(const vk::CommandBuffer &cmdBuffer, uint32_t currentFrame) {
@@ -424,16 +421,16 @@ namespace Vltava {
     }
 
     void Material::recreatePipeline() {
-        res.dev->getHandle().destroyPipeline(pipeline);
-        aspect = res.extent.width / (float) res.extent.height;
+        VulkanResources::getInstance().logDev->getHandle().destroyPipeline(pipeline);
+        aspect = VulkanResources::getInstance().extent.width / (float) VulkanResources::getInstance().extent.height;
         createPipeline(bindings, attribs);
     }
 
     void Material::cleanup() {
-        res.dev->getHandle().freeDescriptorSets(setPool, sets);
-        res.dev->getHandle().destroyDescriptorPool(setPool);
-        res.dev->getHandle().destroyDescriptorSetLayout(setLayout);
-        res.dev->getHandle().destroyPipelineLayout(pipelineLayout);
-        res.dev->getHandle().destroyPipeline(pipeline);
+        VulkanResources::getInstance().logDev->getHandle().freeDescriptorSets(setPool, sets);
+        VulkanResources::getInstance().logDev->getHandle().destroyDescriptorPool(setPool);
+        VulkanResources::getInstance().logDev->getHandle().destroyDescriptorSetLayout(setLayout);
+        VulkanResources::getInstance().logDev->getHandle().destroyPipelineLayout(pipelineLayout);
+        VulkanResources::getInstance().logDev->getHandle().destroyPipeline(pipeline);
     }
 }
