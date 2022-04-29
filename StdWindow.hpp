@@ -1,6 +1,11 @@
 #ifndef SPHSIMULATION_STDWINDOW_HPP
 #define SPHSIMULATION_STDWINDOW_HPP
 
+#include "imgui/imgui.h"
+#include "imgui/imgui_impl_glfw.h"
+#include "imgui/imgui_impl_vulkan.h"
+
+#define GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_VULKAN
 #include "GLFW/glfw3.h"
 
@@ -79,8 +84,13 @@ namespace Vltava {
                 "VK_LAYER_KHRONOS_validation"
         };
 
+        //IMGUI
+        VkDescriptorPool imguiPool;
+
         // Functions
         //--------------------------------------------------------------------------------------------------------------
+        void initImgui();
+
         virtual void initVulkan();
         virtual void createInstance(std::string app_name);
         virtual void createSurface();

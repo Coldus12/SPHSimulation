@@ -3,6 +3,8 @@
 #include "ComputeShader.hpp"
 #include "ParticleModel.hpp"
 
+#define IMGUI_ENABLED true
+
 namespace Vltava {
     bool StdWindow::run = false;
     bool StdWindow::rot = true;
@@ -12,6 +14,12 @@ namespace Vltava {
     void StdWindow::mainloop() {
         while (!glfwWindowShouldClose(window)) {
             glfwPollEvents();
+#if IMGUI_ENABLED
+            ImGui_ImplVulkan_NewFrame();
+            ImGui_ImplGlfw_NewFrame();
+            ImGui::NewFrame();
+            ImGui::ShowDemoWindow();
+#endif
             runComp();
             drawFrame();
         }
@@ -181,6 +189,9 @@ namespace Vltava {
         glfwSetKeyCallback(window, key_callback);
 
         initVulkan();
+#if IMGUI_ENABLED
+        initImgui();
+#endif
         mainloop();
     }
 
@@ -206,6 +217,15 @@ namespace Vltava {
     // Cleaning up
     //------------------------------------------------------------------------------------------------------------------
     void StdWindow::cleanup() {
+#if IMGUI_ENABLED
+        vkDestroyDescriptorPool(
+                VulkanResources::getInstance().logDev->getHandle(),
+                imguiPool,
+                nullptr
+        );
+        ImGui_ImplVulkan_Shutdown();
+#endif
+
         cleanupSwapChain();
 
         for (int i = 0; i < VulkanResources::getInstance().FRAMES_IN_FLIGHT; i++) {
@@ -225,6 +245,77 @@ namespace Vltava {
     //------------------------------------------------------------------------------------------------------------------
     StdWindow::~StdWindow() {
         cleanup();
+    }
+
+    // DearImgui initialization
+    //------------------------------------------------------------------------------------------------------------------
+    void StdWindow::initImgui() {
+        //1: create descriptor pool for IMGUI
+        // the size of the pool is very oversize, but it's copied from imgui demo itself.
+        VkDescriptorPoolSize pool_sizes[] =
+                {
+                        { VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
+                        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
+                        { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
+                        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
+                        { VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
+                        { VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
+                        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
+                        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
+                        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
+                        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
+                        { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
+                };
+
+        VkDescriptorPoolCreateInfo pool_info = {};
+        pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+        pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+        pool_info.maxSets = 1000;
+        pool_info.poolSizeCount = std::size(pool_sizes);
+        pool_info.pPoolSizes = pool_sizes;
+
+        vkCreateDescriptorPool(
+                VulkanResources::getInstance().logDev->getHandle(),
+                &pool_info,
+                nullptr,
+                &imguiPool
+        );
+
+        // 2: initialize imgui library
+
+        //this initializes the core structures of imgui
+        ImGui::CreateContext();
+
+        //this initializes imgui for GLFW
+        ImGui_ImplGlfw_InitForVulkan(window, true);
+
+        //this initializes imgui for Vulkan
+        ImGui_ImplVulkan_InitInfo init_info = {};
+        init_info.Instance = VulkanResources::getInstance().instance->getHandle();
+        init_info.PhysicalDevice = VulkanResources::getInstance().physDev->getHandle();
+        init_info.Device = VulkanResources::getInstance().logDev->getHandle();
+        init_info.Queue = *VulkanResources::getInstance().graphicsQueue;
+        init_info.DescriptorPool = imguiPool;
+        init_info.MinImageCount = 3;
+        init_info.ImageCount = 3;
+        init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+
+        ImGui_ImplVulkan_Init(&init_info, *VulkanResources::getInstance().renderPass);
+
+        //execute a gpu command to upload imgui font textures
+        vk::CommandBufferBeginInfo beginInfo({}, nullptr);
+        commandBuffers[currentFrame].begin(beginInfo);
+        ImGui_ImplVulkan_CreateFontsTexture(commandBuffers[currentFrame]);
+        commandBuffers[currentFrame].end();
+
+        vk::SubmitInfo submitInfo({},{}, commandBuffers[currentFrame]);
+        std::array<vk::SubmitInfo, 1> infos = {submitInfo};
+
+        VulkanResources::getInstance().graphicsQueue->submit(infos, inFlightFences[currentFrame]);
+        VulkanResources::getInstance().logDev->getHandle().waitIdle();
+
+        //clear font textures from cpu data
+        ImGui_ImplVulkan_DestroyFontUploadObjects();
     }
 
     // Instance creation
@@ -495,6 +586,9 @@ namespace Vltava {
     // Draw frame
     //------------------------------------------------------------------------------------------------------------------
     void StdWindow::drawFrame() {
+#if IMGUI_ENABLED
+        ImGui::Render();
+#endif
         VulkanResources::getInstance().logDev->getHandle().waitForFences(inFlightFences[currentFrame], true, UINT64_MAX);
 
         vk::Result result;
@@ -575,6 +669,11 @@ namespace Vltava {
         // Drawing the models
         model->draw(commandBuffers[currentFrame],currentFrame);
         //model->draw(commandBuffers->at(currentFrame));
+
+#if IMGUI_ENABLED
+        // Recording imgui draw cmds into the commandBuffer
+        ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffers[currentFrame]);
+#endif
 
         commandBuffers[currentFrame].endRenderPass();
         commandBuffers[currentFrame].end();
