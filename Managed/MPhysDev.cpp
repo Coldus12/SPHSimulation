@@ -1,6 +1,7 @@
 #include <set>
 #include "MPhysDev.hpp"
 #include "MInstance.hpp"
+#include <iostream>
 
 namespace Vltava {
     MPhysDev::MPhysDev(vk::Instance instance, const std::vector<const char *> deviceExtensions)
@@ -19,6 +20,8 @@ namespace Vltava {
             throw std::runtime_error("[ERROR] Failed to find GPUs with Vulkan support!\n [ERROR] Thrown from MPhysDev.");
 
         physDev = std::make_unique<vk::PhysicalDevice>(getBestDevice(devices));
+
+        std::cout << "[Device name] " << physDev->getProperties().deviceName << std::endl;
     }
 
     vk::PhysicalDevice MPhysDev::getBestDevice(const std::vector<vk::PhysicalDevice> &devs) {

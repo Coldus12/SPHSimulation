@@ -4,8 +4,7 @@
 #include "ParticleModel.hpp"
 
 namespace Vltava {
-    bool StdWindow::run1 = false;
-    bool StdWindow::run2 = false;
+    bool StdWindow::run = false;
     bool StdWindow::rot = true;
 
     // Main loop
@@ -21,11 +20,8 @@ namespace Vltava {
     }
 
     void StdWindow::runComp() {
-        if (run1) {
-            for (int i = 0; i < 100; i++) {
-                comp1->dispatch(computeCmdBuffer, 64, 1, 1);
-                comp2->dispatch(computeCmdBuffer, 64, 1, 1);
-            }
+        if (run) {
+            dispatchCompute(64, 1, 1);
 
             auto spheres = sBuffers[1].getData<Particle>();
             std::cout << spheres.size() << std::endl;
@@ -36,7 +32,7 @@ namespace Vltava {
             std::cout << std::endl;
             std::cout << "Done" << std::endl;
 
-            run1 = false;
+            run = false;
         }
     }
 
@@ -56,7 +52,6 @@ namespace Vltava {
          );
         UBO.writeToBuffer(&props, sizeof(SimProps));
 
-        //std::vector<Buffer> uBuffers;
         uBuffers.push_back(std::move(UBO));
 
         int nrOfP = 64;
@@ -108,42 +103,62 @@ namespace Vltava {
         inBuffer.writeToBuffer(data, size);
         delete[] data;
 
-        //std::vector<Buffer> sBuffers;
         sBuffers.push_back(std::move(inBuffer));
         sBuffers.push_back(std::move(outBuffer));
 
-        //ComputeShader comp(updated, "shaders/comp.spv");
         comp1 = std::make_unique<ComputeShader>("shaders/comp.spv");
         comp1->setBuffers(&uBuffers, &sBuffers);
         comp1->createPipeline();
-        //comp.createCommandBuffer(computeQueueFamily);
-        comp1->dispatch(computeCmdBuffer, size / sizeof(Particle) + 1, 1, 1);
 
-        auto spheres = sBuffers[1].getData<Particle>();
-        std::cout << spheres.size() << std::endl;
-
-        for (int i = 0; i < nrOfP; i++) {
-            std::cout << "Density: " << spheres[i].rho << "; Pressure: " << spheres[i].p << ";\n";
-        }
-        std::cout << std::endl;
-        std::cout << "Done" << std::endl;
-
-        //ComputeShader comp2(updated, "shaders/comp_it.spv");
         comp2 = std::make_unique<ComputeShader>("shaders/comp_it.spv");
         comp2->setBuffers(&uBuffers, &sBuffers);
         comp2->createPipeline();
-        //comp.createCommandBuffer(computeQueueFamily);
-        comp2->dispatch(computeCmdBuffer, size / sizeof(Particle) + 1, 1, 1);
     }
+
+    //------------------------------------------------------------------------------------------------------------------
+
+    void StdWindow::dispatchCompute(int groupCountX, int groupCountY, int groupCountZ) {
+        vk::CommandBufferBeginInfo beginInfo({}, nullptr);
+        computeCmdBuffer.begin(beginInfo);
+
+        for (int i = 0; i < 100; i++) {
+            comp1->bindPipelineAndDescriptors(computeCmdBuffer);
+            computeCmdBuffer.dispatch(groupCountX, groupCountY, groupCountZ);
+
+            for (auto& buffer: sBuffers) {
+                vk::BufferMemoryBarrier barrier(
+                        vk::AccessFlagBits::eMemoryWrite,
+                        vk::AccessFlagBits::eMemoryRead,
+                        computeQueueFamily,
+                        computeQueueFamily,
+                        buffer.getBufferHandle(),
+                        0,
+                        buffer.getSize()
+                );
+            }
+            comp2->bindPipelineAndDescriptors(computeCmdBuffer);
+            computeCmdBuffer.dispatch(groupCountX, groupCountY, groupCountZ);
+        }
+
+        computeCmdBuffer.end();
+
+        vk::SubmitInfo submitInfo(
+                {},
+                {},
+                computeCmdBuffer,
+                {}
+        );
+
+        VulkanResources::getInstance().computeQueue->submit(submitInfo);
+        VulkanResources::getInstance().logDev->getHandle().waitIdle();
+    }
+
+    //------------------------------------------------------------------------------------------------------------------
 
     void StdWindow::key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
         if (key == GLFW_KEY_W && action == GLFW_PRESS) {
-            run1 = true;
+            run = true;
         }
-
-        /*if (key == GLFW_KEY_S && action == GLFW_PRESS) {
-            run2 = true;
-        }*/
 
         if (key == GLFW_KEY_Q && action == GLFW_PRESS) {
             rot = !rot;

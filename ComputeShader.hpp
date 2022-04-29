@@ -16,7 +16,9 @@ namespace Vltava {
         vk::PipelineLayout getPipelineLayoutHandle();
 
         void setBuffers(const std::vector<Buffer>* uniformBuffers, const std::vector<Buffer>* storageBuffers);
-        void dispatch(const vk::CommandBuffer &cmdBuffer, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ);
+        //void dispatch(const vk::CommandBuffer &cmdBuffer, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ);
+
+        void bindPipelineAndDescriptors(vk::CommandBuffer& cmdBuffer);
 
     private:
         std::string computeShaderPath;

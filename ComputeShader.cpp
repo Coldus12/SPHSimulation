@@ -138,11 +138,24 @@ namespace Vltava {
         VulkanResources::getInstance().logDev->getHandle().updateDescriptorSets(writeSets, nullptr);
     }
 
+    void ComputeShader::bindPipelineAndDescriptors(vk::CommandBuffer& cmdBuffer) {
+        cmdBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, computePipeline);
+        cmdBuffer.bindDescriptorSets(
+                vk::PipelineBindPoint::eCompute,
+                pipelineLayout,
+                0,
+                set,
+                nullptr
+        );
+    }
+
     // TODO: REWRITE THIS WHOLE THING
     // Barrier: needs to be implemented to prevent the shader to overwrite its own data
     // Dispatch: instead of calling this function a million times, the cmdBuffer.dispatch should be
     // called appropriately.
-    void ComputeShader::dispatch(const vk::CommandBuffer &cmdBuffer, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) {
+    /*void ComputeShader::dispatch(const vk::CommandBuffer &cmdBuffer, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) {
+        //vk::BufferMemoryBarrier memBarrier(vk::AccessFlagBits::eShaderWrite, vk::AccessFlagBits::eShaderRead, 0, 0, storageBuffers)
+
         vk::CommandBufferBeginInfo beginInfo({}, nullptr);
         cmdBuffer.begin(beginInfo);
         cmdBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, computePipeline);
@@ -165,5 +178,5 @@ namespace Vltava {
 
         VulkanResources::getInstance().computeQueue->submit(submitInfo);
         VulkanResources::getInstance().logDev->getHandle().waitIdle();
-    }
+    }*/
 }
