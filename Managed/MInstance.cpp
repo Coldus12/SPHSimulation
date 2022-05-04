@@ -74,11 +74,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugMessageFunc( VkDebugUtilsMessageSeverityFlag
         }
     }
 
-#ifdef _WIN32
-    MessageBox( NULL, message.str().c_str(), "Alert", MB_OK );
-#else
     std::cout << message.str() << std::endl;
-#endif
     return false;
 }
 

@@ -43,6 +43,8 @@ namespace Vltava {
         GLFWwindow *window;
 
         static bool run;
+        bool useBarriers = false;
+        int nrOfIter = 100;
         void runComp();
 
         uint32_t currentFrame = 0;
@@ -112,6 +114,7 @@ namespace Vltava {
 
         void computeStuff();
         void dispatchCompute(int groupCountX, int groupCountY, int groupCountZ);
+        void resetData();
 
         void mainloop();
 

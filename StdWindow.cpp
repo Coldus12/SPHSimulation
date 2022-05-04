@@ -18,7 +18,19 @@ namespace Vltava {
             ImGui_ImplVulkan_NewFrame();
             ImGui_ImplGlfw_NewFrame();
             ImGui::NewFrame();
-            ImGui::ShowDemoWindow();
+            //ImGui::ShowDemoWindow();
+            ImGui::Begin("Test");
+
+            ImGui::Text("Reset data??");
+            if (ImGui::Button("Yes"))
+                resetData();
+
+            if (ImGui::Button("Toggle barriers"))
+                useBarriers = !useBarriers;
+
+            ImGui::InputInt("Number of iterations", &nrOfIter);
+
+            ImGui::End();
 #endif
             runComp();
             drawFrame();
@@ -35,13 +47,51 @@ namespace Vltava {
             std::cout << spheres.size() << std::endl;
 
             for (int i = 0; i < 64; i++) {
-                std::cout << "Density: " << spheres[i].rho << "; Pressure: " << spheres[i].p << " ; Position: " << spheres[i].x.x << " " << spheres[i].x.y << " " << spheres[i].x.z << " ; Mass: " << spheres[i].m  << " ; Padding "  << spheres[i].padding1 <<";\n";
+                std::cout << "Density: " << spheres[i].rho << "; Pressure: " << spheres[i].p << " ; Position: " << spheres[i].x.x << " " << spheres[i].x.y << " " << spheres[i].x.z << " ; Mass: " << spheres[i].m  /*<< " ; Padding1 "  << spheres[i].padding1 << " ; Padding2 " << spheres[i].padding2*/ <<";\n";
             }
             std::cout << std::endl;
             std::cout << "Done" << std::endl;
 
             run = false;
         }
+    }
+
+    void StdWindow::resetData() {
+        int nrOfP = 64;
+        float s=0.1;
+        vk::DeviceSize size = sizeof(Particle) * nrOfP;
+        auto* data = new Particle[nrOfP];
+
+        int r = -1;
+        int z = -1;
+
+        float mass = (2.0f/3.0f * 1) * (2.0f/3.0f * 1) * (2.0f/3.0f * 1);
+
+        for (int i = 0; i < nrOfP; i++) {
+            if (i%4 == 0)
+                r++;
+
+            if (i%16 == 0)
+                z++;
+
+            data[i].x = glm::vec3((i%4) * s,(r%4) * s, z * s);
+
+            data[i].h = 1;
+            data[i].v = glm::vec3(0,0,0);
+            data[i].m = mass;
+            //data[i].m = 1.0f;
+
+            data[i].rho = 1;
+            data[i].p = 1;
+
+            //data[i].padding1 = 0;
+            //data[i].padding2 = 0;
+        }
+
+        for (auto& b: sBuffers)
+            b.writeToBuffer(data, size);
+
+        delete[] data;
     }
 
     void StdWindow::computeStuff() {
@@ -86,11 +136,11 @@ namespace Vltava {
             data[i].m = mass;
             //data[i].m = 1.0f;
 
-            data[i].rho = 0;
-            data[i].p = 0;
+            data[i].rho = 1;
+            data[i].p = 1;
 
-            data[i].padding1 = 0;
-            data[i].padding2 = 0;
+            //data[i].padding1 = 0;
+            //data[i].padding2 = 0;
         }
 
         Buffer inBuffer(
@@ -129,24 +179,88 @@ namespace Vltava {
         vk::CommandBufferBeginInfo beginInfo({}, nullptr);
         computeCmdBuffer.begin(beginInfo);
 
-        for (int i = 0; i < 100; i++) {
+        /*vk::MemoryBarrier2 memBarrier(
+                vk::PipelineStageFlagBits2::eComputeShader,
+                vk::AccessFlagBits2::eMemoryWrite,
+                vk::PipelineStageFlagBits2::eComputeShader,
+                vk::AccessFlagBits2::eMemoryRead
+        );
+        std::vector<vk::BufferMemoryBarrier2> sBarriers;
+        for (auto& b: sBuffers) {
+            sBarriers.emplace_back(
+                    vk::PipelineStageFlagBits2::eComputeShader,
+                    vk::AccessFlagBits2::eMemoryWrite,
+                    vk::PipelineStageFlagBits2::eComputeShader,
+                    vk::AccessFlagBits2::eMemoryRead,
+                    computeQueueFamily,
+                    computeQueueFamily,
+                    b.getBufferHandle(),
+                    0,
+                    b.getSize()
+            );
+        }
+
+        vk::DependencyInfoKHR dependencyInfo({}, memBarrier, sBarriers);*/
+
+        std::vector<vk::BufferMemoryBarrier> membarriers;
+
+        for (auto& buffer: sBuffers) {
+            /*vk::BufferMemoryBarrier bufferBarrier(
+                    vk::AccessFlagBits::eShaderWrite,
+                    vk::AccessFlagBits::eShaderRead,
+                    computeQueueFamily,
+                    computeQueueFamily,
+                    buffer.getBufferHandle(),
+                    0,
+                    VK_WHOLE_SIZE
+            );*/
+
+            membarriers.emplace_back(
+                    vk::AccessFlagBits::eShaderWrite,
+                    vk::AccessFlagBits::eShaderRead,
+                    computeQueueFamily,
+                    computeQueueFamily,
+                    buffer.getBufferHandle(),
+                    0,
+                    VK_WHOLE_SIZE
+            );
+        }
+
+        for (int i = 0; i < nrOfIter; i++) {
             comp1->bindPipelineAndDescriptors(computeCmdBuffer);
             computeCmdBuffer.dispatch(groupCountX, groupCountY, groupCountZ);
-
-            for (auto& buffer: sBuffers) {
-                vk::BufferMemoryBarrier barrier(
-                        vk::AccessFlagBits::eMemoryWrite,
-                        vk::AccessFlagBits::eMemoryRead,
-                        computeQueueFamily,
-                        computeQueueFamily,
-                        buffer.getBufferHandle(),
-                        0,
-                        buffer.getSize()
+            if (useBarriers)
+                computeCmdBuffer.pipelineBarrier(
+                        vk::PipelineStageFlagBits::eComputeShader,
+                        vk::PipelineStageFlagBits::eComputeShader,
+                        {},
+                        {},
+                        membarriers,
+                        {}
                 );
-            }
+
             comp2->bindPipelineAndDescriptors(computeCmdBuffer);
             computeCmdBuffer.dispatch(groupCountX, groupCountY, groupCountZ);
+
+            if (useBarriers)
+                computeCmdBuffer.pipelineBarrier(
+                        vk::PipelineStageFlagBits::eComputeShader,
+                        vk::PipelineStageFlagBits::eComputeShader,
+                        {},
+                        {},
+                        membarriers,
+                        {}
+                );
         }
+        /*computeCmdBuffer.pipelineBarrier2(dependencyInfo);
+        comp1->bindPipelineAndDescriptors(computeCmdBuffer);
+        computeCmdBuffer.pipelineBarrier2(dependencyInfo);
+        computeCmdBuffer.dispatch(groupCountX, groupCountY, groupCountZ);
+
+        computeCmdBuffer.pipelineBarrier2(dependencyInfo);
+        comp2->bindPipelineAndDescriptors(computeCmdBuffer);
+        computeCmdBuffer.pipelineBarrier2(dependencyInfo);
+        computeCmdBuffer.dispatch(groupCountX, groupCountY, groupCountZ);*/
 
         computeCmdBuffer.end();
 

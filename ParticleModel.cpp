@@ -28,8 +28,8 @@ namespace Vltava {
                 {4, 0, vk::Format::eR32Sfloat, offsetof(Particle, rho)},
                 {5, 0, vk::Format::eR32Sfloat, offsetof(Particle, p)},
 
-                {6, 0, vk::Format::eR32Sfloat, offsetof(Particle, padding1)},
-                {7, 0, vk::Format::eR32Sfloat, offsetof(Particle, padding2)},
+                //{6, 0, vk::Format::eR32Sfloat, offsetof(Particle, padding1)},
+                //Ű{7, 0, vk::Format::eR32Sfloat, offsetof(Particle, padding2)},
         };
 
         return attribs;

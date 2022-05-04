@@ -64,8 +64,14 @@ namespace Vltava {
     }
 
     bool MPhysDev::checkDeviceExtensionSupport(const vk::PhysicalDevice &dev) {
+        //std::cout << dev.getProperties().deviceName << std::endl;
+        //std::cout << "--------------------------------------------------------------" << std::endl;
+
         uint32_t extensionCount = 0;
         std::vector<vk::ExtensionProperties> availableExtensions = dev.enumerateDeviceExtensionProperties();
+        /*for (auto& ext: availableExtensions) {
+            std::cout << ext.extensionName << std::endl;
+        }*/
 
         std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
 

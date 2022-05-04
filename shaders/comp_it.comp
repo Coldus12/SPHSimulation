@@ -13,8 +13,8 @@ struct Particle {
     float rho;                  // density
     float p;                    // pressure
 
-    float padding1;
-    float padding2;
+    //float padding1;
+    //float padding2;
 };
 
 layout(set = 0, binding = 0) uniform SimulationProperties {
@@ -155,16 +155,27 @@ void main() {
     acc = calcAcc(gID);
     viNext += acc * dt/2;
 
-    storage_out.p[gID].x = xiNext;
+    /*storage_out.p[gID].x = xiNext;
     storage_out.p[gID].h = pi.h;
     storage_out.p[gID].v = viNext;
     storage_out.p[gID].m = pi.m;
 
     storage_out.p[gID].rho = pi.rho;
-    storage_out.p[gID].p = pi.p;
+    storage_out.p[gID].p = pi.p;*/
 
-    storage_out.p[gID].padding1 = 0;
-    storage_out.p[gID].padding2 = 0;
+    //storage_out.p[gID].padding1 = 0;
+    //storage_out.p[gID].padding2 = 0;
 
-    storage_out.p[gID].padding1 = 1/0;
+    storage_out.p[gID].x = storage_in.p[gID].x*1.001;
+    storage_out.p[gID].h = storage_in.p[gID].h;
+    storage_out.p[gID].v = storage_in.p[gID].v;
+    storage_out.p[gID].m = storage_in.p[gID].m;
+
+    storage_out.p[gID].rho = storage_in.p[gID].rho;
+    storage_out.p[gID].p = storage_in.p[gID].p;
+
+    //storage_out.p[gID].padding1 = length(acc);
+    //storage_out.p[gID].padding2 = length(acc);
+
+    //storage_out.p[gID].padding1 = 1/0;
 }
