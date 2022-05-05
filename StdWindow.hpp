@@ -43,7 +43,6 @@ namespace Vltava {
         GLFWwindow *window;
 
         static bool run;
-        bool useBarriers = false;
         int nrOfIter = 100;
         void runComp();
 

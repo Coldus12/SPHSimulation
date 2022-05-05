@@ -15,11 +15,11 @@ namespace Vltava {
         glm::vec3 v;
         float m;
 
-        alignas(8) float rho;
-        alignas(8) float p;
+        float rho;
+        float p;
 
-        //float padding1 = 0;
-        //float padding2 = 0;
+        float padding1 = 0;
+        float padding2 = 0;
 
         static std::vector<vk::VertexInputBindingDescription> getBindingDescription();
         static std::vector<vk::VertexInputAttributeDescription> getAttributeDescription();

@@ -4,15 +4,23 @@
 
 namespace Vltava {
     CPUSim::CPUSim() {
+        // Water rest density = 1 kg/m^3
+        //
+        // Particle h = 0.05 meter
+        // Particle volume = 5.2359 * 10^-4 m^3 = 0.005236 m^3 (4/3 * 0.05^3 * PI)
+        // Particle mass = volume * density = 0.005236 kg
+        //
+        // Smoothing length := 2 * h = 0.1 meter (for now)
+
         int nrOfP = 64;
         particles1.reserve(nrOfP);
         particles2.reserve(nrOfP);
-        float s=0.1;
+        float s=0.1; // meter
 
         int r = -1;
         int z = -1;
 
-        float mass = (2.0f/3.0f * 1) * (2.0f/3.0f * 1) * (2.0f/3.0f * 1);
+        float mass = 0.005236f; // kg
 
         for (int i = 0; i < nrOfP; i++) {
             Particle data;
@@ -29,8 +37,8 @@ namespace Vltava {
             data.m = mass;
             //data[i].m = 1.0f;
 
-            data.rho = 1;
-            data.p = 1;
+            data.rho = 0;
+            data.p = 0;
 
             particles1.push_back(data);
             particles2.push_back(data);
@@ -99,7 +107,12 @@ namespace Vltava {
                 if (j == i)
                     continue;
 
-                float val = p1[j].m * ((p1[i].p / pow(p1[i].rho, 2)) + (p1[j].p / pow(p1[j].rho, 2)));
+                // Note to self: as the particles get further and further from each other the density decreases which means rho --> 0
+                // whihc leads to something/0^2, which is either inf or -inf ----> nan or -nan
+                float val = 0;
+                if (p1[j].rho != 0 && p1[i].rho != 0)
+                    val = p1[j].m * ((p1[i].p / pow(p1[i].rho, 2)) + (p1[j].p / pow(p1[j].rho, 2)));
+
                 pressure += val * gradKernel(i, j);
 
                 glm::vec3 xij = p1[i].x - p1[j].x;
@@ -115,7 +128,7 @@ namespace Vltava {
 
             glm::vec3 acc = (pressure + viscosity) / p1[i].m;
 
-            float dt = 0.00000001;
+            float dt = 0.01;
             glm::vec3 viNext = p1[i].v;
             glm::vec3 xiNext = p1[i].x;
             viNext += acc * (float) dt/2.0f;
@@ -150,13 +163,19 @@ namespace Vltava {
         return val;
     }
 
+    // One of the errors: vec3 i == vec3 j ---> normalize(i-j) -> nan
     glm::vec3 CPUSim::gradKernel(int i, int j) {
         auto& particles = first ? particles1 : particles2;
 
-        glm::vec3 xij = normalize(particles[i].x - particles[j].x);
+        float xijlength = length(particles[i].x - particles[j].x);
+        if (xijlength == 0)
+            return glm::vec3(0);
+
+        //glm::vec3 xij = normalize(particles[i].x - particles[j].x);
+        glm::vec3 dir = (particles[i].x - particles[j].x) / xijlength;
 
         float val = 0;
-        float q = length(particles[i].x - particles[j].x)/simProps.kernelh;
+        float q = xijlength/simProps.kernelh;
         if (0 <= q && q < 1) {
             val = 3.0/2.0 * pow(q,2) - 2 * q;
         } else if (1 <= q && q < 2) {
@@ -166,8 +185,8 @@ namespace Vltava {
         }
 
         val *= 3.0/(2*PI) * 1.0/(pow(simProps.kernelh, 3));
-        xij *= val;
+        dir *= val;
 
-        return xij;
+        return dir;
     }
 }

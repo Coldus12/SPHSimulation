@@ -2,6 +2,7 @@
 #include "VltavaFunctions.hpp"
 #include "ComputeShader.hpp"
 #include "ParticleModel.hpp"
+#include "CPUSim.h"
 
 #define IMGUI_ENABLED true
 
@@ -25,9 +26,6 @@ namespace Vltava {
             if (ImGui::Button("Yes"))
                 resetData();
 
-            if (ImGui::Button("Toggle barriers"))
-                useBarriers = !useBarriers;
-
             ImGui::InputInt("Number of iterations", &nrOfIter);
 
             ImGui::End();
@@ -43,8 +41,9 @@ namespace Vltava {
         if (run) {
             dispatchCompute(64, 1, 1);
 
-            auto spheres = sBuffers[1].getData<Particle>();
-            std::cout << spheres.size() << std::endl;
+            auto spheres = sBuffers[0].getData<Particle>();
+            std::cout << "Compute data - size: " << spheres.size() << std::endl;
+            std::cout << "----------------------------------------------" << std::endl;
 
             for (int i = 0; i < 64; i++) {
                 std::cout << "Density: " << spheres[i].rho <<
@@ -54,13 +53,21 @@ namespace Vltava {
                 " ; Velocity: " << spheres[i].v.x << " " << spheres[i].v.y << " " << spheres[i].v.z <<";\n";
             }
             std::cout << std::endl;
-            std::cout << "Done" << std::endl;
+            std::cout << "----------------------------------------------" << std::endl;
 
             run = false;
         }
     }
 
     void StdWindow::resetData() {
+        // Water rest density = 1 kg/m^3
+        //
+        // Particle h = 0.05 meter
+        // Particle volume = 5.2359 * 10^-4 m^3 = 0.005236 m^3 (4/3 * 0.05^3 * PI)
+        // Particle mass = volume * density = 0.005236 kg
+        //
+        // Smoothing length := 2 * h = 0.1 meter (for now)
+
         int nrOfP = 64;
         float s=0.1;
         vk::DeviceSize size = sizeof(Particle) * nrOfP;
@@ -69,7 +76,7 @@ namespace Vltava {
         int r = -1;
         int z = -1;
 
-        float mass = (2.0f/3.0f * 1) * (2.0f/3.0f * 1) * (2.0f/3.0f * 1);
+        float mass = 0.005236f;
 
         for (int i = 0; i < nrOfP; i++) {
             if (i%4 == 0)
@@ -88,8 +95,8 @@ namespace Vltava {
             data[i].rho = 1;
             data[i].p = 1;
 
-            //data[i].padding1 = 0;
-            //data[i].padding2 = 0;
+            data[i].padding1 = 0;
+            data[i].padding2 = 0;
         }
 
         for (auto& b: sBuffers)
@@ -124,7 +131,7 @@ namespace Vltava {
         int r = -1;
         int z = -1;
 
-        float mass = (2.0f/3.0f * 1) * (2.0f/3.0f * 1) * (2.0f/3.0f * 1);
+        float mass = 0.005236f;
 
         for (int i = 0; i < nrOfP; i++) {
             if (i%4 == 0)
@@ -140,11 +147,11 @@ namespace Vltava {
             data[i].m = mass;
             //data[i].m = 1.0f;
 
-            data[i].rho = 1;
-            data[i].p = 1;
+            data[i].rho = 0;
+            data[i].p = 0;
 
-            //data[i].padding1 = 0;
-            //data[i].padding2 = 0;
+            data[i].padding1 = 0;
+            data[i].padding2 = 0;
         }
 
         Buffer inBuffer(
@@ -183,42 +190,8 @@ namespace Vltava {
         vk::CommandBufferBeginInfo beginInfo({}, nullptr);
         computeCmdBuffer.begin(beginInfo);
 
-        /*vk::MemoryBarrier2 memBarrier(
-                vk::PipelineStageFlagBits2::eComputeShader,
-                vk::AccessFlagBits2::eMemoryWrite,
-                vk::PipelineStageFlagBits2::eComputeShader,
-                vk::AccessFlagBits2::eMemoryRead
-        );
-        std::vector<vk::BufferMemoryBarrier2> sBarriers;
-        for (auto& b: sBuffers) {
-            sBarriers.emplace_back(
-                    vk::PipelineStageFlagBits2::eComputeShader,
-                    vk::AccessFlagBits2::eMemoryWrite,
-                    vk::PipelineStageFlagBits2::eComputeShader,
-                    vk::AccessFlagBits2::eMemoryRead,
-                    computeQueueFamily,
-                    computeQueueFamily,
-                    b.getBufferHandle(),
-                    0,
-                    b.getSize()
-            );
-        }
-
-        vk::DependencyInfoKHR dependencyInfo({}, memBarrier, sBarriers);*/
-
         std::vector<vk::BufferMemoryBarrier> membarriers;
-
         for (auto& buffer: sBuffers) {
-            /*vk::BufferMemoryBarrier bufferBarrier(
-                    vk::AccessFlagBits::eShaderWrite,
-                    vk::AccessFlagBits::eShaderRead,
-                    computeQueueFamily,
-                    computeQueueFamily,
-                    buffer.getBufferHandle(),
-                    0,
-                    VK_WHOLE_SIZE
-            );*/
-
             membarriers.emplace_back(
                     vk::AccessFlagBits::eShaderWrite,
                     vk::AccessFlagBits::eShaderRead,
@@ -233,38 +206,26 @@ namespace Vltava {
         for (int i = 0; i < nrOfIter; i++) {
             comp1->bindPipelineAndDescriptors(computeCmdBuffer);
             computeCmdBuffer.dispatch(groupCountX, groupCountY, groupCountZ);
-            if (useBarriers)
-                computeCmdBuffer.pipelineBarrier(
-                        vk::PipelineStageFlagBits::eComputeShader,
-                        vk::PipelineStageFlagBits::eComputeShader,
-                        {},
-                        {},
-                        membarriers,
-                        {}
-                );
+            computeCmdBuffer.pipelineBarrier(
+                    vk::PipelineStageFlagBits::eComputeShader,
+                    vk::PipelineStageFlagBits::eComputeShader,
+                    {},
+                    {},
+                    membarriers,
+                    {}
+            );
 
             comp2->bindPipelineAndDescriptors(computeCmdBuffer);
             computeCmdBuffer.dispatch(groupCountX, groupCountY, groupCountZ);
-
-            if (useBarriers)
-                computeCmdBuffer.pipelineBarrier(
-                        vk::PipelineStageFlagBits::eComputeShader,
-                        vk::PipelineStageFlagBits::eComputeShader,
-                        {},
-                        {},
-                        membarriers,
-                        {}
-                );
+            computeCmdBuffer.pipelineBarrier(
+                    vk::PipelineStageFlagBits::eComputeShader,
+                    vk::PipelineStageFlagBits::eComputeShader,
+                    {},
+                    {},
+                    membarriers,
+                    {}
+            );
         }
-        /*computeCmdBuffer.pipelineBarrier2(dependencyInfo);
-        comp1->bindPipelineAndDescriptors(computeCmdBuffer);
-        computeCmdBuffer.pipelineBarrier2(dependencyInfo);
-        computeCmdBuffer.dispatch(groupCountX, groupCountY, groupCountZ);
-
-        computeCmdBuffer.pipelineBarrier2(dependencyInfo);
-        comp2->bindPipelineAndDescriptors(computeCmdBuffer);
-        computeCmdBuffer.pipelineBarrier2(dependencyInfo);
-        computeCmdBuffer.dispatch(groupCountX, groupCountY, groupCountZ);*/
 
         computeCmdBuffer.end();
 

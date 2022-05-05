@@ -12,6 +12,9 @@ struct Particle {
 
     float rho;                  // density
     float p;                    // pressure
+
+    float padding1;
+    float padding2;
 };
 
 layout(set = 0, binding = 0) uniform UBO {
@@ -21,7 +24,7 @@ layout(set = 0, binding = 0) uniform UBO {
     float kernelh;
 } ubo;
 
-layout(set = 0, binding = 1, std430) readonly buffer inBuffer {
+layout(set = 0, binding = 1, std430)  buffer inBuffer {
     Particle p[];
 } in_data;
 
@@ -29,46 +32,51 @@ layout(set = 0, binding = 2, std430) buffer outBuffer {
     Particle p[];
 } out_data;
 
-// Kernel function from https://interactivecomputergraphics.github.io/SPH-Tutorial/pdf/SPH_Tutorial.pdf
-// http://web.cse.ohio-state.edu/~wang.3602/courses/cse3541-2017-fall/08-SPH.pdf
-// https://cg.informatik.uni-freiburg.de/publications/2014_EG_SPH_STAR.pdf <--- Current version.
-float kernel(Particle i, Particle j, float h) {
-    float q = length(i.x - j.x)/h;
-    float oneoverhd = 1/(pow(h, 3));
+float kernel(uint i, uint j) {
+    float q = length(in_data.p[i].x - in_data.p[j].x) / ubo.kernelh;
+    float oneoverhd = 1.0/(pow(ubo.kernelh, 3));
     float val = 0;
 
     if (0 <= q && q < 1) {
-        val = 2/3 - pow(q, 2) + pow(q,3)/2;
+        val = 2.0/3.0 - pow(q, 2) + pow(q,3)/2;
     } else if (1 <= q && q < 2) {
-        val = pow(2-q, 3)/6;
+        val = pow(2-q, 3)/6.0;
     } else {
         val = 0;
     }
 
-    val *= 3/(2*PI);
+    val *= 3.0/(2.0*PI);
     val *= oneoverhd;
     return val;
 }
 
-float calculate_density(uint id) {
-    float density = 0.0;
-    Particle pi = in_data.p[id];
+void copyData(uint gID) {
+    out_data.p[gID].x = in_data.p[gID].x;
+    out_data.p[gID].h = in_data.p[gID].h;
+    out_data.p[gID].v = in_data.p[gID].v;
+    out_data.p[gID].m = in_data.p[gID].m;
 
-    for (int j = 0; j < ubo.nr_of_particles; j++) {
-        if (j != id) {
-            Particle pj = in_data.p[j];
-            density += pj.m * kernel(pi, pj, ubo.kernelh);
-        }
-    }
+    out_data.p[gID].rho = in_data.p[gID].rho;
+    out_data.p[gID].p = in_data.p[gID].p;
 
-    return density;
+    out_data.p[gID].padding1 = 1;
+    out_data.p[gID].padding2 = 1;
 }
 
-float calculate_pressure(uint id, float rho) {
-    float ratio = rho/ubo.desired_density;
-    float p = ubo.k * (pow(ratio, 7.0) - 1.0);
+void calculateRhoAndP(uint gID) {
+    float density = 0.0;
 
-    return p;
+    for (int j = 0; j < ubo.nr_of_particles; j++) {
+        if (gID == j)
+            continue;
+
+        density += in_data.p[gID].m * kernel(gID, j);
+    }
+
+    out_data.p[gID].rho = density;
+
+    float ratio = density / ubo.desired_density;
+    out_data.p[gID].p = ubo.k * (pow(ratio, 7) - 1.0);
 }
 
 void main()
@@ -76,17 +84,6 @@ void main()
     //grab global ID
     uint gID = gl_GlobalInvocationID.x;
 
-    float rho = calculate_density(gID);
-    float p = calculate_pressure(gID, rho);
-
-    out_data.p[gID].x = in_data.p[gID].x;
-    out_data.p[gID].h = in_data.p[gID].h;
-    out_data.p[gID].v = in_data.p[gID].v;
-    out_data.p[gID].m = in_data.p[gID].m;
-
-    out_data.p[gID].rho = rho;
-    out_data.p[gID].p = p;
-
-    //out_data.p[gID].rho = in_data.p[gID].rho;
-    //out_data.p[gID].p = in_data.p[gID].p;
+    copyData(gID);
+    calculateRhoAndP(gID);
 }

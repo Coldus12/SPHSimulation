@@ -12,6 +12,9 @@ struct Particle {
 
     float rho;                  // density
     float p;                    // pressure
+
+    float padding1;
+    float padding2;
 };
 
 layout(set = 0, binding = 0) uniform SimulationProperties {
@@ -29,141 +32,85 @@ layout(set = 0, binding = 2, std430) buffer outBuffer {
     Particle p[];
 } storage_in;
 
-/**
-* http://web.cse.ohio-state.edu/~wang.3602/courses/cse3541-2017-fall/08-SPH.pdf
-* 12. dia
-*/
-vec3 gradKernel(Particle pi, Particle pj) {
-    vec3 xij = normalize(pi.x - pj.x);
-    //xij /= SimProps.kernelh;
-    //xij /= 0.1;
+vec3 gradKernel(uint i, uint j) {
+    float xijlength = length(storage_in.p[i].x - storage_in.p[j].x);
+    if (xijlength == 0)
+        return vec3(0);
 
+    vec3 dir = (storage_in.p[i].x - storage_in.p[j].x) / xijlength;
     float val = 0;
-    float q = length(pi.x - pj.x)/SimProps.kernelh;
-    //float q = length(pi.x - pj.x)/0.1;
+    float q = xijlength/SimProps.kernelh;
     if (0 <= q && q < 1) {
-        //val = 18 * pow(q, 2.0) - 12 * q;
-        //val = -2 * q + 3.0/2.0 * pow(q, 2.0);
-
-        val = 3/2 * pow(q,2) - 2 * q;
+        val = 3.0/2.0 * pow(q,2) - 2 * q;
     } else if (1 <= q && q < 2) {
-        //val = -6 * pow(1 - q, 2.0);
-        //val = -1.0/2.0 * pow(2 - q, 2.0);
-
         val = -pow(2 - q, 2)/2.0;
     } else {
         val = 0;
     }
-    //val *= 8.0/(PI * pow(h, 3.0));
-    //val *= 3.0/(2.0 * PI * pow(SimProps.kernelh, 3.0));
-    //val *= 3.0/(2.0 * PI * pow(0.1, 3.0));
 
-    val *= 3/(2*PI) * 1/(pow(SimProps.kernelh, 3));
-    xij *= val;
+    val *= 3.0/(2*PI) * 1.0/(pow(SimProps.kernelh, 3));
+    dir *= val;
 
-    return xij;
+    return dir;
 }
 
-vec3 calculatePressureF(uint gID) {
-    Particle pi = storage_in.p[gID];
+void copyData(uint gID) {
+    storage_out.p[gID].x = storage_in.p[gID].x;
+    storage_out.p[gID].h = storage_in.p[gID].h;
+    storage_out.p[gID].v = storage_in.p[gID].v;
+    storage_out.p[gID].m = storage_in.p[gID].m;
 
-    vec3 gradPi = vec3(0);
-    for (int j = 0; j < SimProps.nr_of_particles; j++) {
-        if (j == gID)
-            continue;
+    storage_out.p[gID].rho = storage_in.p[gID].rho;
+    storage_out.p[gID].p = storage_in.p[gID].p;
 
-        Particle pj = storage_in.p[j];
-        float val = pj.m * ((pi.p / pow(pi.rho, 2)) + (pj.p / pow(pj.rho, 2)));
-        gradPi += val * gradKernel(pi, pj);
-    }
-
-    //gradPi *= pi.rho;
-    //gradPi /= pi.rho;
-    gradPi *= -pi.m;
-
-    return gradPi;
+    storage_out.p[gID].padding1 = 1;
+    storage_out.p[gID].padding2 = 1;
 }
-// https://cg.informatik.uni-freiburg.de/publications/2014_EG_SPH_STAR.pdf
-vec3 calculateViscosityF(uint gID) {
-    Particle pi = storage_in.p[gID];
 
-    vec3 ret = vec3(0);
+void iterate(uint i) {
+    vec3 pressure = vec3(0);
+    vec3 viscosity = vec3(0);
+
     for (int j = 0; j < SimProps.nr_of_particles; j++) {
-        if (j == gID)
+        if (i == j)
             continue;
 
-        Particle pj = storage_in.p[j];
-        vec3 xij = pi.x - pj.x;
-        float val = (pj.m / pj.rho) * (dot(xij, gradKernel(pi, pj)) /  (dot(xij, xij) + 0.01 * SimProps.kernelh));
-        //float val = (dot(xij, gradKernel(pi, pj)) /  (dot(xij, xij) + 0.01 /*times h^2*/));
-        vec3 vij = pi.v - pj.v;
-        ret += val * vij;
+        // Note to self: as the particles get further and further from each other the density decreases which means rho --> 0
+        // which leads to something/0^2, which is either inf or -inf ----> nan or -nan
+        float val = 0;
+        if (storage_in.p[j].rho != 0 && storage_in.p[i].rho != 0)
+            val = storage_in.p[j].m * ((storage_in.p[i].p / pow(storage_in.p[i].rho, 2)) + (storage_in.p[j].p / pow(storage_in.p[j].rho, 2)));
+
+        vec3 k = gradKernel(i, j);
+        pressure += val * gradKernel(i, j);
+
+        vec3 xij = storage_in.p[i].x - storage_in.p[j].x;
+        float pval = (storage_in.p[j].m / storage_in.p[j].rho) * (dot(xij, gradKernel(i, j)) /  (dot(xij, xij) + 0.01 * SimProps.kernelh));
+        vec3 vij = storage_in.p[i].v - storage_in.p[j].v;
+        viscosity += pval * vij;
     }
+
+    pressure *= -storage_in.p[i].m;
 
     float nu = 0.00001;
+    viscosity *= 2 * nu * storage_in.p[i].m;
+    
+    vec3 acc = (pressure + viscosity) / storage_in.p[i].m;
 
-    ret *= 2 * nu * pi.m;
-    return ret;
-}
-
-vec3 calcAcc(uint gID) {
-    Particle pi = storage_in.p[gID];
-
-    vec3 Fpressure = calculatePressureF(gID);
-    vec3 Fviscosity = calculateViscosityF(gID);
-    vec3 Fother = pi.m * vec3(0, 0, -9.8);
-    Fother = vec3(0);
-    vec3 F = Fpressure + Fviscosity + Fother;
-    vec3 acc = F / pi.m;
-    //vec3 acc = F / 1.0;
-
-    return acc;
-
-    /*vec3 acc = vec3(0,0,0);
-    for (int j = 0; j < SimProps.nr_of_particles; j++) {
-        if (j == gID)
-            continue;
-
-        Particle pj = storage_in.p[j];
-
-        vec3 grad = gradKernel(pi, pj);
-        acc += pj.m * (pi.p / pow(pi.rho, 2.0) + pj.p / pow(pj.rho, 2.0)) * grad;
-    }
-
-    acc -= 1 * pi.v;
-    return -1 * acc;*/
+    float dt = 0.01;
+    vec3 viNext = storage_in.p[i].v;
+    vec3 xiNext = storage_in.p[i].x;
+    viNext += acc * dt/2.0f;
+    xiNext += viNext * dt;
+    
+    storage_out.p[i].x = xiNext;
+    storage_out.p[i].v = viNext;
+    storage_out.p[i].rho = storage_in.p[i].rho;
+    storage_out.p[i].p = storage_in.p[i].p;
 }
 
 void main() {
     uint gID = gl_GlobalInvocationID.x;
-    Particle pi = storage_in.p[gID];
-
-    vec3 viNext = pi.v;
-    vec3 xiNext = pi.x;
-
-    vec3 acc = calcAcc(gID);
-
-    //float dt = 0.01;
-    float dt = 0.00000001;
-    viNext += acc * dt/2;
-    xiNext += viNext * dt;
-
-    storage_out.p[gID].x = xiNext;
-    storage_out.p[gID].h = pi.h;
-    storage_out.p[gID].v = viNext;
-    storage_out.p[gID].m = pi.m;
-
-    storage_out.p[gID].rho = pi.rho;
-    storage_out.p[gID].p = pi.p;
-
-    //storage_out.p[gID].padding1 = 0;
-    //storage_out.p[gID].padding2 = 0;
-
-    /*storage_out.p[gID].x = storage_in.p[gID].x*1.001;
-    storage_out.p[gID].h = storage_in.p[gID].h;
-    storage_out.p[gID].v = viNext;
-    storage_out.p[gID].m = storage_in.p[gID].m;
-
-    storage_out.p[gID].rho = storage_in.p[gID].rho;
-    storage_out.p[gID].p = storage_in.p[gID].p;*/
+    copyData(gID);
+    iterate(gID);
 }
