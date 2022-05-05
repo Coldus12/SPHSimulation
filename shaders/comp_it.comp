@@ -12,9 +12,6 @@ struct Particle {
 
     float rho;                  // density
     float p;                    // pressure
-
-    //float padding1;
-    //float padding2;
 };
 
 layout(set = 0, binding = 0) uniform SimulationProperties {
@@ -32,27 +29,6 @@ layout(set = 0, binding = 2, std430) buffer outBuffer {
     Particle p[];
 } storage_in;
 
-// Kernel function from https://interactivecomputergraphics.github.io/SPH-Tutorial/pdf/SPH_Tutorial.pdf
-// http://web.cse.ohio-state.edu/~wang.3602/courses/cse3541-2017-fall/08-SPH.pdf
-float kernel(Particle i, Particle j, float h) {
-    float q = length(i.x - j.x)/h;
-    float ret = 0;
-
-    if (0 <= q && q < 1) {
-        //ret = 6 * (pow(q, 3.0) - pow(q, 2.0)) + 1;
-        ret = 2.0/3.0 - pow(q, 2.0) + pow(q, 3.0)/2.0;
-    } else if (1 <= q && q < 2) {
-        //ret = 2 * pow(1 - q, 3.0);
-        ret =  pow(2 - q, 3.0)/6.0;
-    } else {
-        ret = 0;
-    }
-
-    //ret *= 8.0/(PI * pow(h, 3.0));
-    ret *= 3.0/(2.0 * PI * pow(h, 3.0));
-    return ret;
-}
-
 /**
 * http://web.cse.ohio-state.edu/~wang.3602/courses/cse3541-2017-fall/08-SPH.pdf
 * 12. dia
@@ -60,23 +36,29 @@ float kernel(Particle i, Particle j, float h) {
 vec3 gradKernel(Particle pi, Particle pj) {
     vec3 xij = normalize(pi.x - pj.x);
     //xij /= SimProps.kernelh;
-    xij /= 0.1;
+    //xij /= 0.1;
 
     float val = 0;
-    //float q = length(pi.x - pj.x)/SimProps.kernelh;
-    float q = length(pi.x - pj.x)/0.1;
+    float q = length(pi.x - pj.x)/SimProps.kernelh;
+    //float q = length(pi.x - pj.x)/0.1;
     if (0 <= q && q < 1) {
         //val = 18 * pow(q, 2.0) - 12 * q;
-        val = -2 * q + 3.0/2.0 * pow(q, 2.0);
+        //val = -2 * q + 3.0/2.0 * pow(q, 2.0);
+
+        val = 3/2 * pow(q,2) - 2 * q;
     } else if (1 <= q && q < 2) {
         //val = -6 * pow(1 - q, 2.0);
-        val = -1.0/2.0 * pow(2 - q, 2.0);
+        //val = -1.0/2.0 * pow(2 - q, 2.0);
+
+        val = -pow(2 - q, 2)/2.0;
     } else {
         val = 0;
     }
     //val *= 8.0/(PI * pow(h, 3.0));
     //val *= 3.0/(2.0 * PI * pow(SimProps.kernelh, 3.0));
-    val *= 3.0/(2.0 * PI * pow(0.1, 3.0));
+    //val *= 3.0/(2.0 * PI * pow(0.1, 3.0));
+
+    val *= 3/(2*PI) * 1/(pow(SimProps.kernelh, 3));
     xij *= val;
 
     return xij;
@@ -85,24 +67,23 @@ vec3 gradKernel(Particle pi, Particle pj) {
 vec3 calculatePressureF(uint gID) {
     Particle pi = storage_in.p[gID];
 
-    vec3 gradPi;
-    //for (int j = 0; j < SimProps.nr_of_particles; j++) {
-    for (int j = 0; j < 64; j++) {
+    vec3 gradPi = vec3(0);
+    for (int j = 0; j < SimProps.nr_of_particles; j++) {
         if (j == gID)
             continue;
 
         Particle pj = storage_in.p[j];
-        //float val = pj.m * ((pi.p / pow(pi.rho, 2)) + (pj.p / pow(pj.rho, 2)));
-        float val = 1.0;
+        float val = pj.m * ((pi.p / pow(pi.rho, 2)) + (pj.p / pow(pj.rho, 2)));
         gradPi += val * gradKernel(pi, pj);
     }
 
     //gradPi *= pi.rho;
+    //gradPi /= pi.rho;
     gradPi *= -pi.m;
 
     return gradPi;
 }
-
+// https://cg.informatik.uni-freiburg.de/publications/2014_EG_SPH_STAR.pdf
 vec3 calculateViscosityF(uint gID) {
     Particle pi = storage_in.p[gID];
 
@@ -113,8 +94,8 @@ vec3 calculateViscosityF(uint gID) {
 
         Particle pj = storage_in.p[j];
         vec3 xij = pi.x - pj.x;
-        //float val = (pj.m / pj.rho) * (dot(xij, gradKernel(pi, pj)) /  (dot(xij, xij) + 0.01 /* times h^2*/));
-        float val = (dot(xij, gradKernel(pi, pj)) /  (dot(xij, xij) + 0.01 /* times h^2*/));
+        float val = (pj.m / pj.rho) * (dot(xij, gradKernel(pi, pj)) /  (dot(xij, xij) + 0.01 * SimProps.kernelh));
+        //float val = (dot(xij, gradKernel(pi, pj)) /  (dot(xij, xij) + 0.01 /*times h^2*/));
         vec3 vij = pi.v - pj.v;
         ret += val * vij;
     }
@@ -127,6 +108,7 @@ vec3 calculateViscosityF(uint gID) {
 
 vec3 calcAcc(uint gID) {
     Particle pi = storage_in.p[gID];
+
     vec3 Fpressure = calculatePressureF(gID);
     vec3 Fviscosity = calculateViscosityF(gID);
     vec3 Fother = pi.m * vec3(0, 0, -9.8);
@@ -136,46 +118,52 @@ vec3 calcAcc(uint gID) {
     //vec3 acc = F / 1.0;
 
     return acc;
+
+    /*vec3 acc = vec3(0,0,0);
+    for (int j = 0; j < SimProps.nr_of_particles; j++) {
+        if (j == gID)
+            continue;
+
+        Particle pj = storage_in.p[j];
+
+        vec3 grad = gradKernel(pi, pj);
+        acc += pj.m * (pi.p / pow(pi.rho, 2.0) + pj.p / pow(pj.rho, 2.0)) * grad;
+    }
+
+    acc -= 1 * pi.v;
+    return -1 * acc;*/
 }
 
 void main() {
     uint gID = gl_GlobalInvocationID.x;
     Particle pi = storage_in.p[gID];
 
-    //vec3 vi = pi.v +
-    //Euler integration:
     vec3 viNext = pi.v;
     vec3 xiNext = pi.x;
 
     vec3 acc = calcAcc(gID);
 
-    float dt = 0.01;
+    //float dt = 0.01;
+    float dt = 0.00000001;
     viNext += acc * dt/2;
     xiNext += viNext * dt;
-    acc = calcAcc(gID);
-    viNext += acc * dt/2;
 
-    /*storage_out.p[gID].x = xiNext;
+    storage_out.p[gID].x = xiNext;
     storage_out.p[gID].h = pi.h;
     storage_out.p[gID].v = viNext;
     storage_out.p[gID].m = pi.m;
 
     storage_out.p[gID].rho = pi.rho;
-    storage_out.p[gID].p = pi.p;*/
+    storage_out.p[gID].p = pi.p;
 
     //storage_out.p[gID].padding1 = 0;
     //storage_out.p[gID].padding2 = 0;
 
-    storage_out.p[gID].x = storage_in.p[gID].x*1.001;
+    /*storage_out.p[gID].x = storage_in.p[gID].x*1.001;
     storage_out.p[gID].h = storage_in.p[gID].h;
-    storage_out.p[gID].v = storage_in.p[gID].v;
+    storage_out.p[gID].v = viNext;
     storage_out.p[gID].m = storage_in.p[gID].m;
 
     storage_out.p[gID].rho = storage_in.p[gID].rho;
-    storage_out.p[gID].p = storage_in.p[gID].p;
-
-    //storage_out.p[gID].padding1 = length(acc);
-    //storage_out.p[gID].padding2 = length(acc);
-
-    //storage_out.p[gID].padding1 = 1/0;
+    storage_out.p[gID].p = storage_in.p[gID].p;*/
 }

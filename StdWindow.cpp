@@ -47,7 +47,11 @@ namespace Vltava {
             std::cout << spheres.size() << std::endl;
 
             for (int i = 0; i < 64; i++) {
-                std::cout << "Density: " << spheres[i].rho << "; Pressure: " << spheres[i].p << " ; Position: " << spheres[i].x.x << " " << spheres[i].x.y << " " << spheres[i].x.z << " ; Mass: " << spheres[i].m  /*<< " ; Padding1 "  << spheres[i].padding1 << " ; Padding2 " << spheres[i].padding2*/ <<";\n";
+                std::cout << "Density: " << spheres[i].rho <<
+                "; Pressure: " << spheres[i].p <<
+                " ; Position: " << spheres[i].x.x << " " << spheres[i].x.y << " " << spheres[i].x.z <<
+                " ; Mass: " << spheres[i].m << /*<< " ; Padding1 "  << spheres[i].padding1 << " ; Padding2 " << spheres[i].padding2*/
+                " ; Velocity: " << spheres[i].v.x << " " << spheres[i].v.y << " " << spheres[i].v.z <<";\n";
             }
             std::cout << std::endl;
             std::cout << "Done" << std::endl;
@@ -98,9 +102,9 @@ namespace Vltava {
         // density / pressure calculation
         SimProps props{
             1.0f,
-            1.0f,
+            0.1f,
             64.0f,
-            3.0f
+            0.1f
         };
 
         Buffer UBO(
