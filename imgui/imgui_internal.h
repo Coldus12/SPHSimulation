@@ -198,12 +198,12 @@ namespace ImStb
 #endif
 
 // Debug Logging for selected systems. Remove the '((void)0) //' to enable.
-//#define IMGUI_DEBUG_LOG_POPUP         IMGUI_DEBUG_LOG // Enable log
-//#define IMGUI_DEBUG_LOG_NAV           IMGUI_DEBUG_LOG // Enable log
-//#define IMGUI_DEBUG_LOG_IO            IMGUI_DEBUG_LOG // Enable log
-#define IMGUI_DEBUG_LOG_POPUP(...)      ((void)0)       // Disable log
-#define IMGUI_DEBUG_LOG_NAV(...)        ((void)0)       // Disable log
-#define IMGUI_DEBUG_LOG_IO(...)         ((void)0)       // Disable log
+//#define IMGUI_DEBUG_LOG_POPUP         IMGUI_DEBUG_LOG // Enable show_log
+//#define IMGUI_DEBUG_LOG_NAV           IMGUI_DEBUG_LOG // Enable show_log
+//#define IMGUI_DEBUG_LOG_IO            IMGUI_DEBUG_LOG // Enable show_log
+#define IMGUI_DEBUG_LOG_POPUP(...)      ((void)0)       // Disable show_log
+#define IMGUI_DEBUG_LOG_NAV(...)        ((void)0)       // Disable show_log
+#define IMGUI_DEBUG_LOG_IO(...)         ((void)0)       // Disable show_log
 
 // Static Asserts
 #define IM_STATIC_ASSERT(_COND)         static_assert(_COND, "")
@@ -1781,8 +1781,8 @@ struct ImGuiContext
     // Capture/Logging
     bool                    LogEnabled;                         // Currently capturing
     ImGuiLogType            LogType;                            // Capture target
-    ImFileHandle            LogFile;                            // If != NULL log to stdout/ file
-    ImGuiTextBuffer         LogBuffer;                          // Accumulation buffer when log to clipboard. This is pointer so our GImGui static constructor doesn't call heap allocators.
+    ImFileHandle            LogFile;                            // If != NULL show_log to stdout/ file
+    ImGuiTextBuffer         LogBuffer;                          // Accumulation buffer when show_log to clipboard. This is pointer so our GImGui static constructor doesn't call heap allocators.
     const char*             LogNextPrefix;
     const char*             LogNextSuffix;
     float                   LogLinePosY;
@@ -2406,7 +2406,7 @@ struct IMGUI_API ImGuiTable
 // - We also leave out of this structure data that tend to be particularly useful for debugging/metrics.
 struct IMGUI_API ImGuiTableTempData
 {
-    int                         TableIndex;                 // Index in g.Tables.Buf[] pool
+    int                         TableIndex;                 // Index in g.Tables.buff[] pool
     float                       LastTimeActive;             // Last timestamp this structure was used
 
     ImVec2                      UserOuterSize;              // outer_size.x passed to BeginTable()
@@ -2908,7 +2908,7 @@ extern const char*  ImGuiTestEngine_FindItemDebugLabel(ImGuiContext* ctx, ImGuiI
 
 #define IMGUI_TEST_ENGINE_ITEM_ADD(_BB,_ID)                 if (g.TestEngineHookItems) ImGuiTestEngineHook_ItemAdd(&g, _BB, _ID)               // Register item bounding box
 #define IMGUI_TEST_ENGINE_ITEM_INFO(_ID,_LABEL,_FLAGS)      if (g.TestEngineHookItems) ImGuiTestEngineHook_ItemInfo(&g, _ID, _LABEL, _FLAGS)   // Register item label and status flags (optional)
-#define IMGUI_TEST_ENGINE_LOG(_FMT,...)                     if (g.TestEngineHookItems) ImGuiTestEngineHook_Log(&g, _FMT, __VA_ARGS__)          // Custom log entry from user land into test log
+#define IMGUI_TEST_ENGINE_LOG(_FMT,...)                     if (g.TestEngineHookItems) ImGuiTestEngineHook_Log(&g, _FMT, __VA_ARGS__)          // Custom show_log entry from user land into test show_log
 #else
 #define IMGUI_TEST_ENGINE_ITEM_ADD(_BB,_ID)                 ((void)0)
 #define IMGUI_TEST_ENGINE_ITEM_INFO(_ID,_LABEL,_FLAGS)      ((void)g)

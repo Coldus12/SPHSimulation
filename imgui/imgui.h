@@ -789,7 +789,7 @@ namespace ImGui
     IMGUI_API void          LogToClipboard(int auto_open_depth = -1);                           // start logging to OS clipboard
     IMGUI_API void          LogFinish();                                                        // stop logging (close file, etc.)
     IMGUI_API void          LogButtons();                                                       // helper to display buttons for logging to tty/file/clipboard
-    IMGUI_API void          LogText(const char* fmt, ...) IM_FMTARGS(1);                        // pass text data straight to log (without being displayed)
+    IMGUI_API void          LogText(const char* fmt, ...) IM_FMTARGS(1);                        // pass text data straight to show_log (without being displayed)
     IMGUI_API void          LogTextV(const char* fmt, va_list args) IM_FMTLIST(1);
 
     // Drag and Drop
@@ -1911,7 +1911,7 @@ struct ImGuiIO
     float       DeltaTime;                      // = 1.0f/60.0f     // Time elapsed since last frame, in seconds. May change every frame.
     float       IniSavingRate;                  // = 5.0f           // Minimum time between saving positions/sizes to .ini file, in seconds.
     const char* IniFilename;                    // = "imgui.ini"    // Path to .ini file (important: default "imgui.ini" is relative to current working dir!). Set NULL to disable automatic .ini loading/saving or if you want to manually call LoadIniSettingsXXX() / SaveIniSettingsXXX() functions.
-    const char* LogFilename;                    // = "imgui_log.txt"// Path to .log file (default parameter to ImGui::LogToFile when no file is specified).
+    const char* LogFilename;                    // = "imgui_log.txt"// Path to .show_log file (default parameter to ImGui::LogToFile when no file is specified).
     float       MouseDoubleClickTime;           // = 0.30f          // Time for a double-click, in seconds.
     float       MouseDoubleClickMaxDist;        // = 6.0f           // Distance threshold to stay in to validate a double-click, in pixels.
     float       MouseDragThreshold;             // = 6.0f           // Distance threshold before considering we are dragging.
@@ -2076,13 +2076,13 @@ struct ImGuiInputTextCallbackData
 
     // Arguments for the different callback events
     // - To modify the text buffer in a callback, prefer using the InsertChars() / DeleteChars() function. InsertChars() will take care of calling the resize callback if necessary.
-    // - If you know your edits are not going to resize the underlying buffer allocation, you may modify the contents of 'Buf[]' directly. You need to update 'BufTextLen' accordingly (0 <= BufTextLen < BufSize) and set 'BufDirty'' to true so InputText can update its internal state.
+    // - If you know your edits are not going to resize the underlying buffer allocation, you may modify the contents of 'buff[]' directly. You need to update 'BufTextLen' accordingly (0 <= BufTextLen < BufSize) and set 'BufDirty'' to true so InputText can update its internal state.
     ImWchar             EventChar;      // Character input                      // Read-write   // [CharFilter] Replace character with another one, or set to zero to drop. return 1 is equivalent to setting EventChar=0;
     ImGuiKey            EventKey;       // Key pressed (Up/Down/TAB)            // Read-only    // [Completion,History]
     char*               Buf;            // Text buffer                          // Read-write   // [Resize] Can replace pointer / [Completion,History,Always] Only write to pointed data, don't replace the actual pointer!
     int                 BufTextLen;     // Text length (in bytes)               // Read-write   // [Resize,Completion,History,Always] Exclude zero-terminator storage. In C land: == strlen(some_text), in C++ land: string.length()
     int                 BufSize;        // Buffer size (in bytes) = capacity+1  // Read-only    // [Resize,Completion,History,Always] Include zero-terminator storage. In C land == ARRAYSIZE(my_char_array), in C++ land: string.capacity()+1
-    bool                BufDirty;       // Set if you modify Buf/BufTextLen!    // Write        // [Completion,History,Always]
+    bool                BufDirty;       // Set if you modify buff/BufTextLen!    // Write        // [Completion,History,Always]
     int                 CursorPos;      //                                      // Read-write   // [Completion,History,Always]
     int                 SelectionStart; //                                      // Read-write   // [Completion,History,Always] == to SelectionEnd when no selection)
     int                 SelectionEnd;   //                                      // Read-write   // [Completion,History,Always]
@@ -2210,7 +2210,7 @@ struct ImGuiTextBuffer
     ImGuiTextBuffer()   { }
     inline char         operator[](int i) const { IM_ASSERT(Buf.Data != NULL); return Buf.Data[i]; }
     const char*         begin() const           { return Buf.Data ? &Buf.front() : EmptyString; }
-    const char*         end() const             { return Buf.Data ? &Buf.back() : EmptyString; }   // Buf is zero-terminated, so end() will point on the zero-terminator
+    const char*         end() const             { return Buf.Data ? &Buf.back() : EmptyString; }   // buff is zero-terminated, so end() will point on the zero-terminator
     int                 size() const            { return Buf.Size ? Buf.Size - 1 : 0; }
     bool                empty() const           { return Buf.Size <= 1; }
     void                clear()                 { Buf.clear(); }
@@ -2243,7 +2243,7 @@ struct ImGuiStorage
 
     ImVector<ImGuiStoragePair>      Data;
 
-    // - Get***() functions find pair, never add/allocate. Pairs are sorted so a query is O(log N)
+    // - Get***() functions find pair, never add/allocate. Pairs are sorted so a query is O(show_log N)
     // - Set***() functions find pair, insertion on demand if missing.
     // - Sorted insertion is costly, paid once. A typical frame shouldn't need to insert any new pair.
     void                Clear() { Data.clear(); }

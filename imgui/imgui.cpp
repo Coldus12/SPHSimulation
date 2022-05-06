@@ -380,7 +380,7 @@ CODE
  ====================
 
  Occasionally introducing changes that are breaking the API. We try to make the breakage minor and easy to fix.
- Below is a change-log of API breaking changes only. If you are using one of the functions listed, expect to have to fix some code.
+ Below is a change-show_log of API breaking changes only. If you are using one of the functions listed, expect to have to fix some code.
  When you are not sure about an old symbol or function name, try using the Search/Find function of your IDE to look for comments or references in all imgui files.
  You can read releases logs https://github.com/ocornut/imgui/releases for more details.
 
@@ -510,7 +510,7 @@ CODE
                        If you never altered io.KeyRepeatRate nor used GetKeyPressedAmount() this won't affect you.
  - 2019/07/15 (1.72) - removed TreeAdvanceToLabelPos() which is rarely used and only does SetCursorPosX(GetCursorPosX() + GetTreeNodeToLabelSpacing()). Kept redirection function (will obsolete).
  - 2019/07/12 (1.72) - renamed ImFontAtlas::CustomRect to ImFontAtlasCustomRect. Kept redirection typedef (will obsolete).
- - 2019/06/14 (1.72) - removed redirecting functions/enums names that were marked obsolete in 1.51 (June 2017): ImGuiCol_Column*, ImGuiSetCond_*, IsItemHoveredRect(), IsPosHoveringAnyWindow(), IsMouseHoveringAnyWindow(), IsMouseHoveringWindow(), IMGUI_ONCE_UPON_A_FRAME. Grep this log for details and new names, or see how they were implemented until 1.71.
+ - 2019/06/14 (1.72) - removed redirecting functions/enums names that were marked obsolete in 1.51 (June 2017): ImGuiCol_Column*, ImGuiSetCond_*, IsItemHoveredRect(), IsPosHoveringAnyWindow(), IsMouseHoveringAnyWindow(), IsMouseHoveringWindow(), IMGUI_ONCE_UPON_A_FRAME. Grep this show_log for details and new names, or see how they were implemented until 1.71.
  - 2019/06/07 (1.71) - rendering of child window outer decorations (bg color, border, scrollbars) is now performed as part of the parent window. If you have
                        overlapping child windows in a same parent, and relied on their relative z-order to be mapped to their submission order, this will affect your rendering.
                        This optimization is disabled if the parent window has no visual output, because it appears to be the most common situation leading to the creation of overlapping child windows.
@@ -6451,7 +6451,7 @@ bool ImGui::Begin(const char* name, bool* p_open, ImGuiWindowFlags flags)
             bool render_decorations_in_parent = false;
             if ((flags & ImGuiWindowFlags_ChildWindow) && !(flags & ImGuiWindowFlags_Popup) && !window_is_child_tooltip)
             {
-                // - We test overlap with the previous child window only (testing all would end up being O(log N) not a good investment here)
+                // - We test overlap with the previous child window only (testing all would end up being O(show_log N) not a good investment here)
                 // - We disable this when the parent window has zero vertices, which is a common pattern leading to laying out multiple overlapping childs
                 ImGuiWindow* previous_child = parent_window->DC.ChildWindows.Size >= 2 ? parent_window->DC.ChildWindows[parent_window->DC.ChildWindows.Size - 2] : NULL;
                 bool previous_child_overlapping = previous_child ? previous_child->Rect().Overlaps(window->Rect()) : false;
@@ -11277,7 +11277,7 @@ void ImGui::EndDragDropTarget()
 // By default, tree nodes are automatically opened during logging.
 //-----------------------------------------------------------------------------
 
-// Pass text data straight to log (without being displayed)
+// Pass text data straight to show_log (without being displayed)
 static inline void LogTextV(ImGuiContext& g, const char* fmt, va_list args)
 {
     if (g.LogFile)
@@ -11348,7 +11348,7 @@ void ImGui::LogRenderedText(const ImVec2* ref_pos, const char* text, const char*
     const char* text_remaining = text;
     for (;;)
     {
-        // Split the string. Each new line (after a '\n') is followed by indentation corresponding to the current depth of our log entry.
+        // Split the string. Each new line (after a '\n') is followed by indentation corresponding to the current depth of our show_log entry.
         // We don't add a trailing \n yet to allow a subsequent item on the same line to be captured.
         const char* line_start = text_remaining;
         const char* line_end = ImStreolRange(line_start, text_end);
@@ -11507,7 +11507,7 @@ void ImGui::LogButtons()
     PopAllowKeyboardFocus();
     PopID();
 
-    // Start logging at the end of the function so that the buttons don't appear in the log
+    // Start logging at the end of the function so that the buttons don't appear in the show_log
     if (log_to_tty)
         LogToTTY();
     if (log_to_file)

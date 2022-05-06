@@ -6,6 +6,84 @@
 
 #define IMGUI_ENABLED true
 
+// ImGui log - taken from imgui/showDemoWindow.cpp
+struct ImLog
+{
+    ImGuiTextBuffer buff;
+    ImVector<int> lineOffsets; // Index to lines offset. We maintain this with AddLog() calls.
+    bool autoScroll;  // Keep scrolling if already at the bottom.
+
+    ImLog() {
+        autoScroll = true;
+        clear();
+    }
+
+    void clear() {
+        buff.clear();
+        lineOffsets.clear();
+        lineOffsets.push_back(0);
+    }
+
+    void addLog(const char* fmt, ...) IM_FMTARGS(2)
+    {
+        int old_size = buff.size();
+        va_list args;
+        va_start(args, fmt);
+        buff.appendfv(fmt, args);
+        va_end(args);
+        for (int new_size = buff.size(); old_size < new_size; old_size++)
+            if (buff[old_size] == '\n')
+                lineOffsets.push_back(old_size + 1);
+    }
+
+    void draw(const char* title, bool* p_open = NULL) {
+        if (!ImGui::Begin(title, p_open)) {
+            ImGui::End();
+            return;
+        }
+
+        // Main window
+        if (ImGui::Button("Options"))
+            ImGui::OpenPopup("Options");
+        ImGui::SameLine();
+        bool clear = ImGui::Button("Clear");
+        ImGui::SameLine();
+        bool copy = ImGui::Button("Copy");
+        ImGui::SameLine();
+
+        ImGui::Separator();
+        ImGui::BeginChild("scrolling", ImVec2(0, 0), false, ImGuiWindowFlags_HorizontalScrollbar);
+
+        if (clear)
+            this->clear();
+        if (copy)
+            ImGui::LogToClipboard();
+
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
+        const char* buf = buff.begin();
+        const char* buf_end = buff.end();
+        ImGuiListClipper clipper;
+        clipper.Begin(lineOffsets.Size);
+        while (clipper.Step()) {
+            for (int line_no = clipper.DisplayStart; line_no < clipper.DisplayEnd; line_no++) {
+                const char* line_start = buf + lineOffsets[line_no];
+                const char* line_end = (line_no + 1 < lineOffsets.Size) ? (buf + lineOffsets[line_no + 1] - 1) : buf_end;
+                ImGui::TextUnformatted(line_start, line_end);
+            }
+        }
+        clipper.End();
+        ImGui::PopStyleVar();
+
+        if (autoScroll && ImGui::GetScrollY() >= ImGui::GetScrollMaxY())
+            ImGui::SetScrollHereY(1.0f);
+
+        ImGui::EndChild();
+        ImGui::End();
+    }
+};
+
+static ImLog my_log;
+
 namespace Vltava {
     bool StdWindow::run = false;
     bool StdWindow::rot = true;
@@ -29,6 +107,13 @@ namespace Vltava {
             ImGui::InputInt("Number of iterations", &nrOfIter);
             ImGui::InputInt("Number of particles: ", &particleNr);
 
+            ImGui::Checkbox("Show log?", &show_log);
+            ImGui::Checkbox("Write log?", &write_log);
+            ImGui::Checkbox("Write log into cli?", &console_log);
+
+            if (show_log)
+                my_log.draw("Sup");
+
             ImGui::End();
 #endif
             runComp();
@@ -42,19 +127,28 @@ namespace Vltava {
         if (run) {
             dispatchCompute(nrOfP, 1, 1);
 
-            auto spheres = sBuffers[1].getData<Particle>();
-            std::cout << "Compute data - size: " << spheres.size() << std::endl;
-            std::cout << "----------------------------------------------" << std::endl;
+            if (write_log) {
+                auto spheres = sBuffers[1].getData<Particle>();
+                std::string str = "";
+                str += "Compute data - size: " + std::to_string(spheres.size()) + "\n";
+                str += "----------------------------------------------\n";
 
-            for (int i = 0; i < nrOfP; i++) {
-                std::cout << "Density: " << spheres[i].rho <<
-                "; Pressure: " << spheres[i].p <<
-                " ; Position: " << spheres[i].x.x << " " << spheres[i].x.y << " " << spheres[i].x.z <<
-                " ; Mass: " << spheres[i].m << /*<< " ; Padding1 "  << spheres[i].padding1 << " ; Padding2 " << spheres[i].padding2*/
-                " ; Velocity: " << spheres[i].v.x << " " << spheres[i].v.y << " " << spheres[i].v.z <<";\n";
+                for (int i = 0; i < nrOfP; i++) {
+                    str += "Density: " + std::to_string(spheres[i].rho) +
+                           "; Pressure: " + std::to_string(spheres[i].p) +
+                           " ; Position: " + std::to_string(spheres[i].x.x) + " " + std::to_string(spheres[i].x.y) +
+                           " " + std::to_string(spheres[i].x.z) +
+                           " ; Mass: " + std::to_string(spheres[i].m) +
+                           " ; Velocity: " + std::to_string(spheres[i].v.x) + " " + std::to_string(spheres[i].v.y) +
+                           " " + std::to_string(spheres[i].v.z) + ";\n";
+                }
+                str += "\n----------------------------------------------\n";
+
+                my_log.addLog(str.c_str());
+
+                if (console_log)
+                    std::cout << str << std::endl;
             }
-            std::cout << std::endl;
-            std::cout << "----------------------------------------------" << std::endl;
 
             run = false;
         }

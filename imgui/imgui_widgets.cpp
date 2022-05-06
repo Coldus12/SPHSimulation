@@ -2630,7 +2630,7 @@ float ImGui::ScaleRatioFromValueT(ImGuiDataType data_type, TYPE v, TYPE v_min, T
         if (flipped) // Handle the case where the range is backwards
             ImSwap(v_min, v_max);
 
-        // Fudge min/max to avoid getting close to log(0)
+        // Fudge min/max to avoid getting close to show_log(0)
         FLOATTYPE v_min_fudged = (ImAbs((FLOATTYPE)v_min) < logarithmic_zero_epsilon) ? ((v_min < 0.0f) ? -logarithmic_zero_epsilon : logarithmic_zero_epsilon) : (FLOATTYPE)v_min;
         FLOATTYPE v_max_fudged = (ImAbs((FLOATTYPE)v_max) < logarithmic_zero_epsilon) ? ((v_max < 0.0f) ? -logarithmic_zero_epsilon : logarithmic_zero_epsilon) : (FLOATTYPE)v_max;
 
@@ -6857,7 +6857,7 @@ bool ImGui::BeginMenuEx(const char* label, const char* icon, bool enabled)
         flags |= ImGuiWindowFlags_ChildWindow;
 
     // If a menu with same the ID was already submitted, we will append to it, matching the behavior of Begin().
-    // We are relying on a O(N) search - so O(N log N) over the frame - which seems like the most efficient for the expected small amount of BeginMenu() calls per frame.
+    // We are relying on a O(N) search - so O(N show_log N) over the frame - which seems like the most efficient for the expected small amount of BeginMenu() calls per frame.
     // If somehow this is ever becoming a problem we can switch to use e.g. ImGuiStorage mapping key to last frame used.
     if (g.MenusIdSubmittedThisFrame.contains(id))
     {

@@ -1039,7 +1039,7 @@ void ImGui::TableUpdateLayout(ImGuiTable* table)
 
         // Alignment
         // FIXME-TABLE: This align based on the whole column width, not per-cell, and therefore isn't useful in
-        // many cases (to be able to honor this we might be able to store a log of cells width, per row, for
+        // many cases (to be able to honor this we might be able to store a show_log of cells width, per row, for
         // visible rows, but nav/programmatic scroll would have visible artifacts.)
         //if (column->Flags & ImGuiTableColumnFlags_AlignRight)
         //    column->WorkMinX = ImMax(column->WorkMinX, column->MaxX - column->ContentWidthRowsUnfrozen);

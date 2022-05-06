@@ -46,6 +46,9 @@ namespace Vltava {
         int nrOfIter = 100;
         int particleNr = 64;
         int nrOfP = particleNr;
+        bool show_log = false;
+        bool write_log = false;
+        bool console_log = false;
 
         void runComp();
 
