@@ -44,6 +44,9 @@ namespace Vltava {
 
         static bool run;
         int nrOfIter = 100;
+        int particleNr = 64;
+        int nrOfP = particleNr;
+
         void runComp();
 
         uint32_t currentFrame = 0;
@@ -59,7 +62,7 @@ namespace Vltava {
         std::vector<vk::ImageView> imageViews;
         std::vector<vk::Framebuffer> swapChainFramebuffers;
 
-        std::unique_ptr<Model> model;
+        std::unique_ptr<ParticleModel> model;
         // For the compute shaders.
         // These contain the particle data.
         std::vector<Buffer> sBuffers;
@@ -111,8 +114,9 @@ namespace Vltava {
         void loadModel();
         void cleanup();
 
-        void computeStuff();
+        void initCompute();
         void dispatchCompute(int groupCountX, int groupCountY, int groupCountZ);
+        void setComputeData();
         void resetData();
 
         void mainloop();

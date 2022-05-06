@@ -27,6 +27,7 @@ namespace Vltava {
                 resetData();
 
             ImGui::InputInt("Number of iterations", &nrOfIter);
+            ImGui::InputInt("Number of particles: ", &particleNr);
 
             ImGui::End();
 #endif
@@ -39,13 +40,13 @@ namespace Vltava {
 
     void StdWindow::runComp() {
         if (run) {
-            dispatchCompute(64, 1, 1);
+            dispatchCompute(nrOfP, 1, 1);
 
-            auto spheres = sBuffers[0].getData<Particle>();
+            auto spheres = sBuffers[1].getData<Particle>();
             std::cout << "Compute data - size: " << spheres.size() << std::endl;
             std::cout << "----------------------------------------------" << std::endl;
 
-            for (int i = 0; i < 64; i++) {
+            for (int i = 0; i < nrOfP; i++) {
                 std::cout << "Density: " << spheres[i].rho <<
                 "; Pressure: " << spheres[i].p <<
                 " ; Position: " << spheres[i].x.x << " " << spheres[i].x.y << " " << spheres[i].x.z <<
@@ -60,15 +61,35 @@ namespace Vltava {
     }
 
     void StdWindow::resetData() {
+        comp1.reset();
+        comp2.reset();
+        sBuffers.clear();
+        uBuffers.clear();
+        initCompute();
+        model->changeModel(nrOfP, &uBuffers, &sBuffers);
+    }
+
+    void StdWindow::setComputeData() {
         // Water rest density = 1 kg/m^3
         //
         // Particle h = 0.05 meter
         // Particle volume = 5.2359 * 10^-4 m^3 = 0.005236 m^3 (4/3 * 0.05^3 * PI)
         // Particle mass = volume * density = 0.005236 kg
         //
-        // Smoothing length := 2 * h = 0.1 meter (for now)
+        // Smoothing length := 3 * 2 * h = 0.1 * 3 meter (for now)
+        int pnrAlongAxis = round(pow(particleNr, 1.0/3.0));
 
-        int nrOfP = 64;
+        nrOfP = pnrAlongAxis * pnrAlongAxis * pnrAlongAxis;
+        particleNr = nrOfP;
+
+        SimProps props{
+                1.0f,
+                0.1f,
+                (float) nrOfP,
+                0.3f
+        };
+        uBuffers[0].writeToBuffer(&props, sizeof(props));
+
         float s=0.1;
         vk::DeviceSize size = sizeof(Particle) * nrOfP;
         auto* data = new Particle[nrOfP];
@@ -79,14 +100,13 @@ namespace Vltava {
         float mass = 0.005236f;
 
         for (int i = 0; i < nrOfP; i++) {
-            if (i%4 == 0)
+            if (i % pnrAlongAxis == 0)
                 r++;
 
-            if (i%16 == 0)
+            if (i % (pnrAlongAxis * pnrAlongAxis) == 0)
                 z++;
 
-            data[i].x = glm::vec3((i%4) * s,(r%4) * s, z * s);
-
+            data[i].x = glm::vec3((i%pnrAlongAxis) * s,(r%pnrAlongAxis) * s, z * s);
             data[i].h = 1;
             data[i].v = glm::vec3(0,0,0);
             data[i].m = mass;
@@ -105,54 +125,15 @@ namespace Vltava {
         delete[] data;
     }
 
-    void StdWindow::computeStuff() {
-        // density / pressure calculation
-        SimProps props{
-            1.0f,
-            0.1f,
-            64.0f,
-            0.1f
-        };
-
+    void StdWindow::initCompute() {
         Buffer UBO(
                 sizeof(SimProps),
                 vk::BufferUsageFlagBits::eUniformBuffer,
                 vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible
          );
-        UBO.writeToBuffer(&props, sizeof(SimProps));
-
         uBuffers.push_back(std::move(UBO));
 
-        int nrOfP = 64;
-        float s=0.1;
         vk::DeviceSize size = sizeof(Particle) * nrOfP;
-        auto* data = new Particle[nrOfP];
-
-        int r = -1;
-        int z = -1;
-
-        float mass = 0.005236f;
-
-        for (int i = 0; i < nrOfP; i++) {
-            if (i%4 == 0)
-                r++;
-
-            if (i%16 == 0)
-                z++;
-
-            data[i].x = glm::vec3((i%4) * s,(r%4) * s, z * s);
-
-            data[i].h = 1;
-            data[i].v = glm::vec3(0,0,0);
-            data[i].m = mass;
-            //data[i].m = 1.0f;
-
-            data[i].rho = 0;
-            data[i].p = 0;
-
-            data[i].padding1 = 0;
-            data[i].padding2 = 0;
-        }
 
         Buffer inBuffer(
                 size,
@@ -169,11 +150,10 @@ namespace Vltava {
         outBuffer.setSize(nrOfP * sizeof(Particle));
         outBuffer.bind(0);
 
-        inBuffer.writeToBuffer(data, size);
-        delete[] data;
-
         sBuffers.push_back(std::move(inBuffer));
         sBuffers.push_back(std::move(outBuffer));
+
+        setComputeData();
 
         comp1 = std::make_unique<ComputeShader>("shaders/comp.spv");
         comp1->setBuffers(&uBuffers, &sBuffers);
@@ -288,7 +268,7 @@ namespace Vltava {
         createCommandBuffers();
         createSyncObjects();
 
-        computeStuff();
+        initCompute();
 
         loadModel();
     }

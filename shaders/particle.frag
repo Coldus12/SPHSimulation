@@ -35,7 +35,6 @@ layout(set = 0, binding = 1) uniform SimulationProperties {
     float k;                    // normalization constant / stiffness constant
     float nr_of_particles;
     float kernelh;
-    float aspect;
 } SimProps;
 
 // Storage buffers

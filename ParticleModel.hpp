@@ -38,8 +38,10 @@ namespace Vltava {
         ParticleModel(std::vector<Buffer>* simPropsBuffer, std::vector<Buffer>* storageBuffers);
 
         void loadModel(const std::string& path) override;
+        void changeModel(int nrOfParticles, std::vector<Buffer>* simPropsBuffers, std::vector<Buffer>* storageBuffers);
         void draw(const vk::CommandBuffer& buffer, uint32_t currentFrame) override;
     private:
+        int nr = 64;
         std::vector<glm::vec2> vertexBufferData;
 
         //Buffer* simProps = nullptr;

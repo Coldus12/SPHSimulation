@@ -16,6 +16,8 @@ namespace Vltava {
 
         template<typename T>
         void uploadVertexData(std::vector<T> vertices) {
+            vertexBuffer.reset();
+
             vk::DeviceSize bufferSize = sizeof(T) * vertices.size();
             nrOfVertices = vertices.size();
 

@@ -34,7 +34,6 @@ layout(set = 0, binding = 1) uniform SimulationProperties {
     float k;                    // normalization constant / stiffness constant
     float nr_of_particles;
     float kernelh;
-    float aspect;
 } SimProps;
 
 // Storage buffers
@@ -75,7 +74,7 @@ void main() {
         default: break;
     }
 
-    c = gl_VertexIndex / (64.0 * 4);
+    c = gl_VertexIndex / (SimProps.nr_of_particles * 4);
 
     int currentParticleNr = int(floor(gl_VertexIndex / 4));
     Particle p = storage_in.p[currentParticleNr];

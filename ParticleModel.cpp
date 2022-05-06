@@ -42,6 +42,24 @@ namespace Vltava {
         loadModel("");
     }
 
+    void ParticleModel::changeModel(int nrOfParticles, std::vector<Buffer>* simPropsBuffers, std::vector<Buffer>* storageBuffers) {
+        this->simPropsBuffers = simPropsBuffers;
+        this->storageBuffers = storageBuffers;
+
+        mat.reset();
+
+        uniformBuffersU.clear();
+        storageBuffersU.clear();
+
+        uniformBuffers.clear();
+        vertexBufferData.clear();
+        indices.clear();
+
+        nr = nrOfParticles;
+
+        loadModel("");
+    }
+
     void ParticleModel::loadModel(const std::string &path) {
         createUniformBuffers();
         for (int i = 0; i < uniformBuffers.size(); i++)
@@ -49,7 +67,6 @@ namespace Vltava {
 
         mat = std::make_unique<Material>("shaders/vert_p.spv", "shaders/frag_p.spv");
 
-        int nr = 64;
         vertexBufferData.reserve(nr * 4);
         indices.clear();
         for (uint16_t i = 0; i < nr; i++) {
@@ -114,10 +131,15 @@ namespace Vltava {
         mvp.proj = glm::perspective(glm::radians(45.0f), aspect, 0.1f, 40.0f);
         mvp.proj[1][1] *= -1;
 
-        mvp.localPos1 = vertexBufferData[0];
+        /*mvp.localPos1 = vertexBufferData[0];
         mvp.localPos2 = vertexBufferData[1];
         mvp.localPos3 = vertexBufferData[2];
-        mvp.localPos4 = vertexBufferData[3];
+        mvp.localPos4 = vertexBufferData[3];*/
+
+        mvp.localPos1 = glm::vec2(-0.2f, -0.2f);
+        mvp.localPos2 = glm::vec2(0.2f, -0.2f);
+        mvp.localPos3 = glm::vec2(0.2f, 0.2f);
+        mvp.localPos4 = glm::vec2(-0.2f, 0.2f);
 
         uniformBuffers[currentImage].writeToBuffer(&mvp, sizeof(mvp));
     }

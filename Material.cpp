@@ -18,6 +18,8 @@ namespace Vltava {
     }
 
     void Material::uploadIndexData(std::vector<uint16_t> indices) {
+        indexBuffer.reset();
+
         vk::DeviceSize bufferSize = sizeof(uint16_t) * indices.size();
         nrOfIndices = indices.size();
 
