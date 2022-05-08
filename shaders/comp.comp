@@ -1,5 +1,5 @@
 #version 450
-layout (local_size_x = 1024) in;
+layout (local_size_x = 1) in;
 precision highp float;
 
 #define PI 3.1415926538
@@ -13,8 +13,8 @@ struct Particle {
     float rho;                  // density
     float p;                    // pressure
 
-    float padding1;
-    float padding2;
+    float staticP;               // is particle static
+    float padding;
 };
 
 layout(set = 0, binding = 0) uniform UBO {
@@ -59,8 +59,8 @@ void copyData(uint gID) {
     out_data.p[gID].rho = in_data.p[gID].rho;
     out_data.p[gID].p = in_data.p[gID].p;
 
-    out_data.p[gID].padding1 = 1;
-    out_data.p[gID].padding2 = 1;
+    out_data.p[gID].staticP = in_data.p[gID].staticP;
+    out_data.p[gID].padding = 1;
 }
 
 void calculateRhoAndP(uint gID) {
@@ -84,6 +84,8 @@ void main()
     //grab global ID
     uint gID = gl_GlobalInvocationID.x;
 
-    copyData(gID);
-    calculateRhoAndP(gID);
+    if (gID < ubo.nr_of_particles) {
+        copyData(gID);
+        calculateRhoAndP(gID);
+    }
 }

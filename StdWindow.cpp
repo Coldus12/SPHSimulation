@@ -160,9 +160,10 @@ namespace Vltava {
         sBuffers.clear();
         uBuffers.clear();
         initCompute();
-        model->changeModel(nrOfP, &uBuffers, &sBuffers);
+        model->changeModel(all_particle_nr, &uBuffers, &sBuffers);
     }
 
+    // Try changing data to std::vec, and only allocate gpu memory after you are done filling said vector.
     void StdWindow::setComputeData() {
         // Water rest density = 1 kg/m^3
         //
@@ -172,62 +173,104 @@ namespace Vltava {
         //
         // Smoothing length := 3 * 2 * h = 0.1 * 3 meter (for now)
         int pnrAlongAxis = round(pow(particleNr, 1.0/3.0));
+        std::vector<Particle> particles;
 
         nrOfP = pnrAlongAxis * pnrAlongAxis * pnrAlongAxis;
         particleNr = nrOfP;
 
-        SimProps props{
-                1.0f,
-                0.1f,
-                (float) nrOfP,
-                0.3f
-        };
-        uBuffers[0].writeToBuffer(&props, sizeof(props));
+        // Solid box
+        int bsize = 16;
 
         float s=0.1;
-        vk::DeviceSize size = sizeof(Particle) * nrOfP;
-        auto* data = new Particle[nrOfP];
+        //vk::DeviceSize size = sizeof(Particle) * nrOfP * bsize * bsize;
+        //auto* data = new Particle[nrOfP + bsize * bsize];
 
         int r = -1;
         int z = -1;
 
         float mass = 0.005236f;
 
+        // Actual simulated particles
+        //--------------------------------------------------------------------------------------------------------------
         for (int i = 0; i < nrOfP; i++) {
+            Particle data;
+
             if (i % pnrAlongAxis == 0)
                 r++;
 
             if (i % (pnrAlongAxis * pnrAlongAxis) == 0)
                 z++;
 
-            data[i].x = glm::vec3((i%pnrAlongAxis) * s,(r%pnrAlongAxis) * s, z * s);
-            data[i].h = 1;
-            data[i].v = glm::vec3(0,0,0);
-            data[i].m = mass;
+            data.x = glm::vec3((i%pnrAlongAxis) * s,(r%pnrAlongAxis) * s, z * s);
+            data.h = 1;
+            data.v = glm::vec3(0,0,0);
+            data.m = mass;
             //data[i].m = 1.0f;
 
-            data[i].rho = 1;
-            data[i].p = 1;
+            data.rho = 1;
+            data.p = 1;
 
-            data[i].padding1 = 0;
-            data[i].padding2 = 0;
+            data.staticP = 0;
+            data.padding = 0;
+
+            particles.push_back(data);
         }
 
-        for (auto& b: sBuffers)
-            b.writeToBuffer(data, size);
+        float dist = 0.05;
+        r = -1;
+        z = -1;
 
-        delete[] data;
-    }
+        // Container
+        //--------------------------------------------------------------------------------------------------------------
+        for (int i = 0; i < bsize*bsize; i++) {
+            if (i%bsize == 0)
+                r++;
 
-    void StdWindow::initCompute() {
-        Buffer UBO(
-                sizeof(SimProps),
-                vk::BufferUsageFlagBits::eUniformBuffer,
-                vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible
-         );
-        uBuffers.push_back(std::move(UBO));
+            Particle data;
 
-        vk::DeviceSize size = sizeof(Particle) * nrOfP;
+            // Bottom
+            data.x = glm::vec3((i%bsize) * dist,(r%bsize) * dist, 0);
+            data.h = 1;
+            data.v = glm::vec3(0,0,0);
+            data.m = mass;
+            //data[i].m = 1.0f;
+
+            data.rho = 1;
+            data.p = 1;
+
+            data.staticP = 1;
+            data.padding = 0;
+
+            particles.push_back(data);
+
+            // Wall1
+            data.x = glm::vec3((i%bsize) * dist,-dist*0, (r%bsize) * dist);
+            particles.push_back(data);
+
+            // Wall2
+            data.x = glm::vec3(-dist*0,(i%bsize) * dist, (r%bsize) * dist);
+            particles.push_back(data);
+
+            // Wall3
+            data.x = glm::vec3((i%bsize) * dist, (bsize+1*0) * dist, (bsize - r%bsize) * dist);
+            particles.push_back(data);
+
+            // Wall4
+            data.x = glm::vec3((bsize+1*0) * dist, ( i%bsize) * dist, (r%bsize) * dist);
+            particles.push_back(data);
+        }
+
+        all_particle_nr = particles.size();
+
+        vk::DeviceSize size = sizeof(Particle) * all_particle_nr;
+
+        SimProps props{
+                1.0f,
+                0.1f,
+                (float) all_particle_nr,
+                0.1f
+        };
+        uBuffers[0].writeToBuffer(&props, sizeof(props));
 
         Buffer inBuffer(
                 size,
@@ -241,11 +284,25 @@ namespace Vltava {
                 vk::BufferUsageFlagBits::eStorageBuffer,
                 vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
         );
-        outBuffer.setSize(nrOfP * sizeof(Particle));
+        outBuffer.setSize(all_particle_nr * sizeof(Particle));
         outBuffer.bind(0);
 
         sBuffers.push_back(std::move(inBuffer));
         sBuffers.push_back(std::move(outBuffer));
+
+        for (auto& b: sBuffers)
+            b.writeToBuffer(particles.data(), size);
+
+        //delete[] data;
+    }
+
+    void StdWindow::initCompute() {
+        Buffer UBO(
+                sizeof(SimProps),
+                vk::BufferUsageFlagBits::eUniformBuffer,
+                vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible
+        );
+        uBuffers.push_back(std::move(UBO));
 
         setComputeData();
 
@@ -311,7 +368,7 @@ namespace Vltava {
         );
 
         VulkanResources::getInstance().computeQueue->submit(submitInfo);
-        VulkanResources::getInstance().logDev->getHandle().waitIdle();
+        //VulkanResources::getInstance().logDev->getHandle().waitIdle();
     }
 
     //------------------------------------------------------------------------------------------------------------------
@@ -742,7 +799,8 @@ namespace Vltava {
 #if IMGUI_ENABLED
         ImGui::Render();
 #endif
-        VulkanResources::getInstance().logDev->getHandle().waitForFences(inFlightFences[currentFrame], true, UINT64_MAX);
+        //VulkanResources::getInstance().logDev->getHandle().waitForFences(inFlightFences[currentFrame], true, UINT64_MAX);
+        VulkanResources::getInstance().logDev->getHandle().waitForFences(inFlightFences[currentFrame], true, 10);
 
         vk::Result result;
         uint32_t imageIndex;

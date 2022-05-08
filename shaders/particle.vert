@@ -12,8 +12,8 @@ struct Particle {
     float rho;                  // density
     float p;                    // pressure
 
-    float padding1;
-    float padding2;
+    float staticP;
+    float padding;
 };
 
 // Uniform Buffer Objects
@@ -55,6 +55,7 @@ layout(location = 0) in vec2 inPosition;
 layout(location = 0) out vec2 localPos;
 layout(location = 1) out float r;
 layout(location = 2) out float c;
+layout(location = 3) out float staticP;
 
 mat4 translateTo(vec3 p) {
     return mat4(
@@ -81,6 +82,8 @@ void main() {
 
     vec3 particlePos = p.x;
     r = 0.2;
+
+    staticP = storage_in.p[currentParticleNr].staticP;
 
     gl_Position = mvp.projection * mvp.view * mvp.model * translateTo(particlePos) * vec4(inPosition, 0.0, 1.0);
 }

@@ -12,10 +12,14 @@ namespace Vltava {
         //
         // Smoothing length := 2 * h = 0.1 meter (for now)
 
-        int nrOfP = 64;
+        int nrOfP = 512;
         particles1.reserve(nrOfP);
         particles2.reserve(nrOfP);
         float s=0.1; // meter
+
+        int pnrAlongAxis = round(pow(nrOfP, 1.0/3.0));
+
+        nrOfP = pnrAlongAxis * pnrAlongAxis * pnrAlongAxis;
 
         int r = -1;
         int z = -1;
@@ -24,13 +28,13 @@ namespace Vltava {
 
         for (int i = 0; i < nrOfP; i++) {
             Particle data;
-            if (i % 4 == 0)
+            if (i % pnrAlongAxis == 0)
                 r++;
 
-            if (i % 16 == 0)
+            if (i % (pnrAlongAxis * pnrAlongAxis) == 0)
                 z++;
 
-            data.x = glm::vec3((i % 4) * s, (r % 4) * s, z * s);
+            data.x = glm::vec3((i % pnrAlongAxis) * s, (r % pnrAlongAxis) * s, z * s);
 
             data.h = 1;
             data.v = glm::vec3(0, 0, 0);
@@ -55,7 +59,7 @@ namespace Vltava {
     void CPUSim::setSimProps() {
         simProps.desired_density = 1.0f;
         simProps.k = 0.1f;
-        simProps.nr_of_particles = 64;
+        simProps.nr_of_particles = 512;
         simProps.kernelh = 0.1f;
     }
 
@@ -116,7 +120,10 @@ namespace Vltava {
                 pressure += val * gradKernel(i, j);
 
                 glm::vec3 xij = p1[i].x - p1[j].x;
-                float pval = (p1[j].m / p1[j].rho) * (dot(xij, gradKernel(i, j)) /  (dot(xij, xij) + 0.01 * simProps.kernelh));
+                float pval = 0;
+                if (p1[j].rho != 0)
+                    float pval = (p1[j].m / p1[j].rho) * (dot(xij, gradKernel(i, j)) /  (dot(xij, xij) + 0.01 * simProps.kernelh));
+
                 glm::vec3 vij = p1[i].v - p1[j].v;
                 viscosity += pval * vij;
             }

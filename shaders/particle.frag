@@ -13,8 +13,8 @@ struct Particle {
     float rho;                  // density
     float p;                    // pressure
 
-    float padding1;
-    float padding2;
+    float staticP;
+    float padding;
 };
 
 // Uniform Buffer Objects
@@ -52,6 +52,7 @@ layout(set = 0, binding = 3, std430) buffer outBuffer {
 layout(location = 0) in vec2 localPos;
 layout(location = 1) in float r;
 layout(location = 2) in float c;
+layout(location = 3) in float staticP;
 
 // Output data
 //--------------------------
@@ -59,7 +60,12 @@ layout(location = 0) out vec4 outColor;
 
 void main() {
     vec3 i = (1 - smoothstep(r - SMOOTHL, r, length(localPos))) * vec3(c,3*c/2,2*c/3);
-    outColor = vec4(i, 1);
+
+    if (staticP == 0)
+        outColor = vec4(i, 1);
+    else
+        outColor = vec4(0.5, 0.75, 0.5, 0.10);
+
     if ((1 - smoothstep(r - SMOOTHL, r, length(localPos))) < 0.1)
         discard;
 }

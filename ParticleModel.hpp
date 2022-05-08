@@ -18,8 +18,8 @@ namespace Vltava {
         float rho;
         float p;
 
-        float padding1 = 0;
-        float padding2 = 0;
+        float staticP = 0;
+        float padding = 0;
 
         static std::vector<vk::VertexInputBindingDescription> getBindingDescription();
         static std::vector<vk::VertexInputAttributeDescription> getAttributeDescription();

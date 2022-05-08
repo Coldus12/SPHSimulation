@@ -1,5 +1,5 @@
 #version 450
-layout (local_size_x = 1024) in;
+layout (local_size_x = 1) in;
 precision highp float;
 
 #define PI 3.1415926538
@@ -13,8 +13,8 @@ struct Particle {
     float rho;                  // density
     float p;                    // pressure
 
-    float padding1;
-    float padding2;
+    float staticP;
+    float padding;
 };
 
 layout(set = 0, binding = 0) uniform SimulationProperties {
@@ -63,8 +63,8 @@ void copyData(uint gID) {
     storage_out.p[gID].rho = storage_in.p[gID].rho;
     storage_out.p[gID].p = storage_in.p[gID].p;
 
-    storage_out.p[gID].padding1 = 1;
-    storage_out.p[gID].padding2 = 1;
+    storage_out.p[gID].staticP = storage_in.p[gID].staticP;
+    storage_out.p[gID].padding = 1;
 }
 
 void iterate(uint i) {
@@ -85,7 +85,11 @@ void iterate(uint i) {
         pressure += val * gradKernel(i, j);
 
         vec3 xij = storage_in.p[i].x - storage_in.p[j].x;
-        float pval = (storage_in.p[j].m / storage_in.p[j].rho) * (dot(xij, gradKernel(i, j)) /  (dot(xij, xij) + 0.01 * SimProps.kernelh));
+
+        float pval = 0;
+        if (storage_in.p[j].rho != 0)
+            pval = (storage_in.p[j].m / storage_in.p[j].rho) * (dot(xij, gradKernel(i, j)) /  (dot(xij, xij) + 0.01 * SimProps.kernelh));
+
         vec3 vij = storage_in.p[i].v - storage_in.p[j].v;
         viscosity += pval * vij;
     }
@@ -111,6 +115,10 @@ void iterate(uint i) {
 
 void main() {
     uint gID = gl_GlobalInvocationID.x;
-    copyData(gID);
-    iterate(gID);
+
+    if (gID < SimProps.nr_of_particles) {
+        copyData(gID);
+        if (storage_in.p[gID].staticP == 0)
+            iterate(gID);
+    }
 }
