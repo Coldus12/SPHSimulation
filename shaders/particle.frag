@@ -64,7 +64,7 @@ void main() {
     if (staticP == 0)
         outColor = vec4(i, 1);
     else
-        outColor = vec4(0.5, 0.75, 0.5, 0.10);
+        outColor = vec4(0.5, 0.75, 0.5, 0.005);
 
     if ((1 - smoothstep(r - SMOOTHL, r, length(localPos))) < 0.1)
         discard;

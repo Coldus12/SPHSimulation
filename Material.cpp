@@ -341,9 +341,9 @@ namespace Vltava {
         );
 
         vk::PipelineColorBlendAttachmentState colorBlendAttachment(
-                false,
-                vk::BlendFactor::eOne,
-                vk::BlendFactor::eZero,
+                true,
+                vk::BlendFactor::eSrcAlpha,
+                vk::BlendFactor::eOneMinusSrcAlpha,
                 vk::BlendOp::eAdd,
                 vk::BlendFactor::eOne,
                 vk::BlendFactor::eZero,

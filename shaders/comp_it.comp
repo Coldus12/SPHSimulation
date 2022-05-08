@@ -98,8 +98,10 @@ void iterate(uint i) {
 
     float nu = 0.00001;
     viscosity *= 2 * nu * storage_in.p[i].m;
+
+    vec3 gravity = vec3(0, 0, -9.81) * storage_in.p[i].m;
     
-    vec3 acc = (pressure + viscosity) / storage_in.p[i].m;
+    vec3 acc = (pressure + viscosity + gravity) / storage_in.p[i].m;
 
     float dt = 0.01;
     vec3 viNext = storage_in.p[i].v;

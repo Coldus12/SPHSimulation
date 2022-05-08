@@ -163,6 +163,57 @@ namespace Vltava {
         model->changeModel(all_particle_nr, &uBuffers, &sBuffers);
     }
 
+    std::vector<Particle> StdWindow::createContainerAt(glm::vec3 pos, float dist, int sideLength) {
+        std::vector<Particle> container;
+        container.reserve(sideLength * sideLength * 5);
+
+        float mass = 0.005236f;
+
+        float m = (sideLength * dist) / 2.0f;
+        glm::vec3 middle = glm::vec3(pos.x - m, pos.y - m, pos.z);
+
+        int r = -1;
+        for (int i = 0; i < sideLength * sideLength; i++) {
+            if (i%sideLength == 0)
+                r++;
+
+            Particle data;
+
+            // Bottom
+            data.x = glm::vec3((i % sideLength) * dist + middle.x,(r % sideLength) * dist + middle.y, middle.z);
+            data.h = 1;
+            data.v = glm::vec3(0,0,0);
+            data.m = mass;
+            //data[i].m = 1.0f;
+
+            data.rho = 1;
+            data.p = 1;
+
+            data.staticP = 1;
+            data.padding = 0;
+
+            container.push_back(data);
+
+            // Wall1
+            data.x = glm::vec3((i % sideLength) * dist + middle.x,-dist*0 + middle.y, (r % sideLength) * dist + middle.z);
+            container.push_back(data);
+
+            // Wall2
+            data.x = glm::vec3(-dist*0 + middle.x,(i % sideLength) * dist + middle.y, (r % sideLength) * dist + middle.z);
+            container.push_back(data);
+
+            // Wall3
+            data.x = glm::vec3((i % sideLength) * dist + middle.x, (sideLength + 1*0) * dist + middle.y, (sideLength - r % sideLength) * dist + middle.z);
+            container.push_back(data);
+
+            // Wall4
+            data.x = glm::vec3((sideLength + 1*0) * dist + middle.x, (i % sideLength) * dist + middle.y, (r % sideLength) * dist + middle.z);
+            container.push_back(data);
+        }
+
+        return container;
+    }
+
     // Try changing data to std::vec, and only allocate gpu memory after you are done filling said vector.
     void StdWindow::setComputeData() {
         // Water rest density = 1 kg/m^3
@@ -216,13 +267,15 @@ namespace Vltava {
             particles.push_back(data);
         }
 
-        float dist = 0.05;
+        float dist = 0.1;
         r = -1;
         z = -1;
 
         // Container
         //--------------------------------------------------------------------------------------------------------------
-        for (int i = 0; i < bsize*bsize; i++) {
+        auto container = createContainerAt(glm::vec3(0.1,0.1,-0.1), dist, bsize);
+        particles.insert(particles.end(), std::begin(container), std::end(container));
+        /*for (int i = 0; i < bsize*bsize; i++) {
             if (i%bsize == 0)
                 r++;
 
@@ -258,7 +311,7 @@ namespace Vltava {
             // Wall4
             data.x = glm::vec3((bsize+1*0) * dist, ( i%bsize) * dist, (r%bsize) * dist);
             particles.push_back(data);
-        }
+        }*/
 
         all_particle_nr = particles.size();
 

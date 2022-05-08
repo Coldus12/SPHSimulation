@@ -52,6 +52,7 @@ namespace Vltava {
         bool console_log = false;
 
         void runComp();
+        std::vector<Particle> createContainerAt(glm::vec3 pos, float dist, int sideLength);
 
         uint32_t currentFrame = 0;
         uint32_t graphicsQueueFamily = (uint32_t) -1;
