@@ -340,6 +340,19 @@ namespace Vltava {
                 false
         );
 
+        vk::PipelineDepthStencilStateCreateInfo depthStencil(
+                {},
+                true,
+                true,
+                vk::CompareOp::eLess,
+                false,
+                false,
+                {},
+                {},
+                0.0f,
+                1.0f
+        );
+
         vk::PipelineColorBlendAttachmentState colorBlendAttachment(
                 true,
                 vk::BlendFactor::eSrcAlpha,
@@ -386,7 +399,7 @@ namespace Vltava {
                 &viewportState,
                 &rasterizer,
                 &multisampling,
-                nullptr,
+                &depthStencil,
                 &colorBlending,
                 nullptr,
                 pipelineLayout,

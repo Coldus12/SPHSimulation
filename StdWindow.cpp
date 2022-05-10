@@ -91,6 +91,7 @@ namespace Vltava {
     // Main loop
     //------------------------------------------------------------------------------------------------------------------
     void StdWindow::mainloop() {
+        resetData();
         while (!glfwWindowShouldClose(window)) {
             glfwPollEvents();
 #if IMGUI_ENABLED
@@ -275,43 +276,6 @@ namespace Vltava {
         //--------------------------------------------------------------------------------------------------------------
         auto container = createContainerAt(glm::vec3(0.1,0.1,-0.1), dist, bsize);
         particles.insert(particles.end(), std::begin(container), std::end(container));
-        /*for (int i = 0; i < bsize*bsize; i++) {
-            if (i%bsize == 0)
-                r++;
-
-            Particle data;
-
-            // Bottom
-            data.x = glm::vec3((i%bsize) * dist,(r%bsize) * dist, 0);
-            data.h = 1;
-            data.v = glm::vec3(0,0,0);
-            data.m = mass;
-            //data[i].m = 1.0f;
-
-            data.rho = 1;
-            data.p = 1;
-
-            data.staticP = 1;
-            data.padding = 0;
-
-            particles.push_back(data);
-
-            // Wall1
-            data.x = glm::vec3((i%bsize) * dist,-dist*0, (r%bsize) * dist);
-            particles.push_back(data);
-
-            // Wall2
-            data.x = glm::vec3(-dist*0,(i%bsize) * dist, (r%bsize) * dist);
-            particles.push_back(data);
-
-            // Wall3
-            data.x = glm::vec3((i%bsize) * dist, (bsize+1*0) * dist, (bsize - r%bsize) * dist);
-            particles.push_back(data);
-
-            // Wall4
-            data.x = glm::vec3((bsize+1*0) * dist, ( i%bsize) * dist, (r%bsize) * dist);
-            particles.push_back(data);
-        }*/
 
         all_particle_nr = particles.size();
 
@@ -345,8 +309,6 @@ namespace Vltava {
 
         for (auto& b: sBuffers)
             b.writeToBuffer(particles.data(), size);
-
-        //delete[] data;
     }
 
     void StdWindow::initCompute() {
@@ -467,14 +429,80 @@ namespace Vltava {
         createSwapChain();
         createImageViews();
         createRenderPass();
-        createFramebuffers();
         createCommandPool();
+        createDepthResources();
+        createFramebuffers();
         createCommandBuffers();
         createSyncObjects();
 
         initCompute();
 
         loadModel();
+    }
+
+    // DepthBuffering and related functions
+    //------------------------------------------------------------------------------------------------------------------
+    void StdWindow::createImage(uint32_t width,
+                                uint32_t height,
+                                vk::Format format,
+                                vk::ImageTiling tiling,
+                                vk::ImageUsageFlags usage,
+                                vk::MemoryPropertyFlags properties,
+                                vk::Image& image,
+                                vk::DeviceMemory& imageMemory) {
+
+        vk::ImageCreateInfo imageInfo(
+                {},
+                vk::ImageType::e2D,
+                format,
+                vk::Extent3D(width, height, 1),
+                1,
+                1,
+                vk::SampleCountFlagBits::e1,
+                tiling,
+                usage,
+                vk::SharingMode::eExclusive,
+                {},
+                vk::ImageLayout::eUndefined
+        );
+
+        image = VulkanResources::getInstance().logDev->getHandle().createImage(imageInfo);
+
+        vk::MemoryRequirements memReq = VulkanResources::getInstance().logDev->getHandle().getImageMemoryRequirements(image);
+        vk::MemoryAllocateInfo allocInfo(memReq.size, findMemoryType(memReq.memoryTypeBits, properties));
+        imageMemory = VulkanResources::getInstance().logDev->getHandle().allocateMemory(allocInfo);
+        VulkanResources::getInstance().logDev->getHandle().bindImageMemory(image, imageMemory, 0);
+    }
+
+    vk::ImageView StdWindow::createImageView(vk::Image image, vk::Format format, vk::ImageAspectFlags aspectFlags) {
+        vk::ImageViewCreateInfo viewInfo(
+                {},
+                image,
+                vk::ImageViewType::e2D,
+                format,
+                {},
+                vk::ImageSubresourceRange(aspectFlags,0,1,0,1)
+        );
+
+        vk::ImageView ret = VulkanResources::getInstance().logDev->getHandle().createImageView(viewInfo);
+        return ret;
+    }
+
+    void StdWindow::createDepthResources() {
+        vk::Format depthFormat = vk::Format::eD32Sfloat;
+
+        createImage(
+                VulkanResources::getInstance().extent.width,
+                VulkanResources::getInstance().extent.height,
+                depthFormat,
+                vk::ImageTiling::eOptimal,
+                vk::ImageUsageFlagBits::eDepthStencilAttachment,
+                vk::MemoryPropertyFlagBits::eDeviceLocal,
+                depthImage,
+                depthImageMemory
+        );
+
+        depthImageView = createImageView(depthImage, depthFormat, vk::ImageAspectFlagBits::eDepth);
     }
 
     // Cleaning up
@@ -690,10 +718,15 @@ namespace Vltava {
         createImageViews();
         createRenderPass();
         model->recreatePipeline();
+        createDepthResources();
         createFramebuffers();
     }
 
     void StdWindow::cleanupSwapChain() {
+        VulkanResources::getInstance().logDev->getHandle().destroyImageView(depthImageView);
+        VulkanResources::getInstance().logDev->getHandle().destroyImage(depthImage);
+        VulkanResources::getInstance().logDev->getHandle().freeMemory(depthImageMemory);
+
         for (auto framebuffer : swapChainFramebuffers) {
             VulkanResources::getInstance().logDev->getHandle().destroyFramebuffer(framebuffer);
         }
@@ -743,10 +776,10 @@ namespace Vltava {
         vk::SubpassDependency dependency(
                 VK_SUBPASS_EXTERNAL,
                 0,
-                vk::PipelineStageFlagBits::eColorAttachmentOutput,
-                vk::PipelineStageFlagBits::eColorAttachmentOutput,
+                vk::PipelineStageFlagBits::eColorAttachmentOutput | vk::PipelineStageFlagBits::eEarlyFragmentTests,
+                vk::PipelineStageFlagBits::eColorAttachmentOutput | vk::PipelineStageFlagBits::eEarlyFragmentTests,
                 {},
-                vk::AccessFlagBits::eColorAttachmentWrite
+                vk::AccessFlagBits::eColorAttachmentWrite | vk::AccessFlagBits::eDepthStencilAttachmentWrite
         );
 
         vk::AttachmentDescription colorAttachment(
@@ -763,11 +796,26 @@ namespace Vltava {
 
         vk::AttachmentReference colorReference(0, vk::ImageLayout::eColorAttachmentOptimal);
 
-        vk::SubpassDescription subpass({}, vk::PipelineBindPoint::eGraphics, {}, colorReference);
+        vk::AttachmentDescription depthAttachment(
+                {},
+                vk::Format::eD32Sfloat,
+                vk::SampleCountFlagBits::e1,
+                vk::AttachmentLoadOp::eClear,
+                vk::AttachmentStoreOp::eDontCare,
+                vk::AttachmentLoadOp::eDontCare,
+                vk::AttachmentStoreOp::eDontCare,
+                vk::ImageLayout::eUndefined,
+                vk::ImageLayout::eDepthStencilAttachmentOptimal
+        );
+
+        vk::AttachmentReference depthReference(1, vk::ImageLayout::eDepthStencilAttachmentOptimal);
+
+        vk::SubpassDescription subpass({}, vk::PipelineBindPoint::eGraphics, {}, colorReference, {}, &depthReference);
+        std::array<vk::AttachmentDescription, 2> attachments = {colorAttachment, depthAttachment};
         vk::RenderPassCreateInfo createInfo(
                 {},
-                1,
-                &colorAttachment,
+                static_cast<uint32_t>(attachments.size()),
+                attachments.data(),
                 1,
                 &subpass,
                 1,
@@ -785,11 +833,16 @@ namespace Vltava {
         swapChainFramebuffers.reserve(imageViews.size());
 
         for (int i = 0; i < imageViews.size(); i++) {
+            std::array<vk::ImageView, 2> attachemnts = {
+                    imageViews[i],
+                    depthImageView
+            };
+
             vk::FramebufferCreateInfo framebufferInfo(
                     {},
                     *VulkanResources::getInstance().renderPass,
-                    1,
-                    &imageViews[i],
+                    static_cast<uint32_t>(attachemnts.size()),
+                    attachemnts.data(),
                     VulkanResources::getInstance().extent.width,
                     VulkanResources::getInstance().extent.height,
                     1
@@ -918,14 +971,17 @@ namespace Vltava {
         vk::CommandBufferBeginInfo beginInfo({}, nullptr);
         commandBuffers[currentFrame].begin(beginInfo);
 
+        std::array<vk::ClearValue, 2> clearValues{};
         std::array<float, 4> color = {0.0f, 0.0f, 0.0f, 1.0f};
-        vk::ClearValue clrVal((vk::ClearColorValue(color)));
+        clearValues[0].color = vk::ClearColorValue(color);
+        clearValues[1].depthStencil = vk::ClearDepthStencilValue(1.0f, 0);
 
         vk::RenderPassBeginInfo renderPassInfo(
                 *VulkanResources::getInstance().renderPass,
                 swapChainFramebuffers[imageIndex],
                 {{0, 0}, VulkanResources::getInstance().extent},
-                1, &clrVal
+                static_cast<uint32_t>(clearValues.size()),
+                clearValues.data()
         );
 
         commandBuffers[currentFrame].beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);

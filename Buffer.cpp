@@ -42,12 +42,12 @@ namespace Vltava {
         vk::Buffer localBuffer = VulkanResources::getInstance().logDev->getHandle().createBuffer(bufferInfo);
 
         vk::MemoryRequirements memReq = VulkanResources::getInstance().logDev->getHandle().getBufferMemoryRequirements(localBuffer);
-        vk::PhysicalDeviceMemoryProperties memProperties = VulkanResources::getInstance().physDev->getHandle().getMemoryProperties();
+        //vk::PhysicalDeviceMemoryProperties memProperties = VulkanResources::getInstance().physDev->getHandle().getMemoryProperties();
 
         vk::MemoryAllocateInfo memAllocInfo(memReq.size, {});
         memAllocInfo.memoryTypeIndex = findMemoryType(
                 memReq.memoryTypeBits,
-                memProperties,
+                //memProperties,
                 memFlags
         );
 

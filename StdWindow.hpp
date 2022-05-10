@@ -54,6 +54,22 @@ namespace Vltava {
         void runComp();
         std::vector<Particle> createContainerAt(glm::vec3 pos, float dist, int sideLength);
 
+        vk::Image depthImage;
+        vk::DeviceMemory depthImageMemory;
+        vk::ImageView depthImageView;
+        void createDepthResources();
+        vk::ImageView createImageView(vk::Image image, vk::Format format, vk::ImageAspectFlags aspectFlags);
+        void createImage(
+                uint32_t width,
+                uint32_t height,
+                vk::Format format,
+                vk::ImageTiling tiling,
+                vk::ImageUsageFlags usage,
+                vk::MemoryPropertyFlags properties,
+                vk::Image& image,
+                vk::DeviceMemory& imagememory
+        );
+
         uint32_t currentFrame = 0;
         uint32_t graphicsQueueFamily = (uint32_t) -1;
         uint32_t presentQueueFamily = (uint32_t) -1;

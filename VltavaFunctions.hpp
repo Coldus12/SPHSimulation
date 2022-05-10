@@ -49,7 +49,7 @@ namespace Vltava {
         VulkanResources() = default;
     };
 
-    uint32_t findMemoryType(uint32_t typeFilter, const vk::PhysicalDeviceMemoryProperties &properties, vk::MemoryPropertyFlags flags);
+    uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags flags);
     std::vector<char> readFile(const std::string &filename);
     void sanityCheck(const std::string &str);
 }

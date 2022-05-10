@@ -1,7 +1,9 @@
 #include "VltavaFunctions.hpp"
 
 namespace Vltava {
-    uint32_t findMemoryType(uint32_t typeFilter, const vk::PhysicalDeviceMemoryProperties &properties, vk::MemoryPropertyFlags flags) {
+    uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags flags) {
+        vk::PhysicalDeviceMemoryProperties properties = VulkanResources::getInstance().physDev->getHandle().getMemoryProperties();
+
         for (uint32_t i = 0; i < properties.memoryTypeCount; i++) {
             if ((typeFilter & (1 << i)) && (properties.memoryTypes[i].propertyFlags & flags) == flags) {
                 return i;
