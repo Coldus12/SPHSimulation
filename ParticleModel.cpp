@@ -127,7 +127,7 @@ namespace Vltava {
         } else {
             mvp.model = glm::identity<glm::mat4>();
         }
-        mvp.view = glm::lookAt(glm::vec3(0.0f, 10.0f, 10.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        mvp.view = glm::lookAt(glm::vec3(0.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
         mvp.proj = glm::perspective(glm::radians(45.0f), aspect, 0.1f, 40.0f);
         mvp.proj[1][1] *= -1;
 

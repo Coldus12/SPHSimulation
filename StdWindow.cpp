@@ -92,8 +92,31 @@ namespace Vltava {
     //------------------------------------------------------------------------------------------------------------------
     void StdWindow::mainloop() {
         resetData();
+        start = std::chrono::high_resolution_clock::now();
+
         while (!glfwWindowShouldClose(window)) {
             glfwPollEvents();
+
+            if (realTime) {
+                auto now = std::chrono::high_resolution_clock::now();
+                float time = std::chrono::duration<float, std::chrono::milliseconds::period>(now - start).count();
+                //std::string str = "Time passed: ";
+
+                int actualTime = (int) round(time/10);
+
+                //str += std::to_string(actualTime);
+                //ImGui::Text(str.c_str());
+                if (actualTime > 15) {
+                    if (actualTime > 50)
+                        actualTime = 50;
+
+                    nrOfIter = actualTime;
+                    dispatchCompute(nrOfP, 1, 1);
+                    //std::cout << str << std::endl;
+                    start = std::chrono::high_resolution_clock::now();
+                }
+            }
+
 #if IMGUI_ENABLED
             ImGui_ImplVulkan_NewFrame();
             ImGui_ImplGlfw_NewFrame();
@@ -111,6 +134,12 @@ namespace Vltava {
             ImGui::Checkbox("Show log?", &show_log);
             ImGui::Checkbox("Write log?", &write_log);
             ImGui::Checkbox("Write log into cli?", &console_log);
+            //ImGui::Checkbox("Real time?", &realTime);
+
+            if (ImGui::Button("Real time flip")) {
+                realTime = !realTime;
+                start = std::chrono::high_resolution_clock::now();
+            }
 
             if (show_log)
                 my_log.draw("Sup");
@@ -180,9 +209,9 @@ namespace Vltava {
 
             Particle data;
 
-            // Bottom
+            // Bottom first
             data.x = glm::vec3((i % sideLength) * dist + middle.x,(r % sideLength) * dist + middle.y, middle.z);
-            data.h = 1;
+            data.h = 0.05f;
             data.v = glm::vec3(0,0,0);
             data.m = mass;
             //data[i].m = 1.0f;
@@ -195,20 +224,34 @@ namespace Vltava {
 
             container.push_back(data);
 
+            // Second bottom
+            data.x = glm::vec3((i % sideLength) * dist + middle.x,(r % sideLength) * dist + middle.y, middle.z - 1 * dist);
+            container.push_back(data);
+
             // Wall1
             data.x = glm::vec3((i % sideLength) * dist + middle.x,-dist*0 + middle.y, (r % sideLength) * dist + middle.z);
+            container.push_back(data);
+
+            data.x = glm::vec3((i % sideLength) * dist + middle.x,-dist*1 + middle.y, (r % sideLength) * dist + middle.z);
             container.push_back(data);
 
             // Wall2
             data.x = glm::vec3(-dist*0 + middle.x,(i % sideLength) * dist + middle.y, (r % sideLength) * dist + middle.z);
             container.push_back(data);
 
+            data.x = glm::vec3(-dist*1 + middle.x,(i % sideLength) * dist + middle.y, (r % sideLength) * dist + middle.z);
+            container.push_back(data);
+
             // Wall3
             data.x = glm::vec3((i % sideLength) * dist + middle.x, (sideLength + 1*0) * dist + middle.y, (sideLength - r % sideLength) * dist + middle.z);
+            container.push_back(data);
+            data.x = glm::vec3((i % sideLength) * dist + middle.x, (sideLength - 1)* 1 * dist + middle.y, (sideLength - r % sideLength) * dist + middle.z);
             container.push_back(data);
 
             // Wall4
             data.x = glm::vec3((sideLength + 1*0) * dist + middle.x, (i % sideLength) * dist + middle.y, (r % sideLength) * dist + middle.z);
+            container.push_back(data);
+            data.x = glm::vec3((sideLength + 1) * 1 * dist + middle.x, (i % sideLength) * dist + middle.y, (r % sideLength) * dist + middle.z);
             container.push_back(data);
         }
 
@@ -231,7 +274,7 @@ namespace Vltava {
         particleNr = nrOfP;
 
         // Solid box
-        int bsize = 16;
+        int bsize = 32;
 
         float s=0.1;
         //vk::DeviceSize size = sizeof(Particle) * nrOfP * bsize * bsize;
@@ -241,6 +284,8 @@ namespace Vltava {
         int z = -1;
 
         float mass = 0.005236f;
+
+        float distAxis = s * pnrAlongAxis / 2.0f;
 
         // Actual simulated particles
         //--------------------------------------------------------------------------------------------------------------
@@ -253,8 +298,8 @@ namespace Vltava {
             if (i % (pnrAlongAxis * pnrAlongAxis) == 0)
                 z++;
 
-            data.x = glm::vec3((i%pnrAlongAxis) * s,(r%pnrAlongAxis) * s, z * s);
-            data.h = 1;
+            data.x = glm::vec3((i%pnrAlongAxis) * s - distAxis,(r%pnrAlongAxis) * s - distAxis, z * s);
+            data.h = 0.05;
             data.v = glm::vec3(0,0,0);
             data.m = mass;
             //data[i].m = 1.0f;
@@ -274,7 +319,7 @@ namespace Vltava {
 
         // Container
         //--------------------------------------------------------------------------------------------------------------
-        auto container = createContainerAt(glm::vec3(0.1,0.1,-0.1), dist, bsize);
+        auto container = createContainerAt(glm::vec3(0.0,0.0,-0.2), dist, bsize);
         particles.insert(particles.end(), std::begin(container), std::end(container));
 
         all_particle_nr = particles.size();

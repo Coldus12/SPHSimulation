@@ -21,6 +21,7 @@
 #include <memory>
 #include <set>
 #include <fstream>
+#include <chrono>
 
 namespace Vltava {
     class StdWindow {
@@ -50,6 +51,8 @@ namespace Vltava {
         bool show_log = false;
         bool write_log = false;
         bool console_log = false;
+        bool realTime = false;
+        std::chrono::time_point<std::chrono::high_resolution_clock> start;
 
         void runComp();
         std::vector<Particle> createContainerAt(glm::vec3 pos, float dist, int sideLength);

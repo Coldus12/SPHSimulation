@@ -62,9 +62,9 @@ void main() {
     vec3 i = (1 - smoothstep(r - SMOOTHL, r, length(localPos))) * vec3(c,3*c/2,2*c/3);
 
     if (staticP == 0)
-        outColor = vec4(i, 1);
+        outColor = vec4(0.1, 0.1, 1, 1);
     else
-        outColor = vec4(0.0, 0.0, 0.75, 0.005);
+        outColor = vec4(0.3, 0.3, 0.3, 0.01);
 
     if ((1 - smoothstep(r - SMOOTHL, r, length(localPos))) < 0.1)
         discard;

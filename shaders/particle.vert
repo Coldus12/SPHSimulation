@@ -83,7 +83,24 @@ void main() {
     vec3 particlePos = p.x;
     r = 0.2;
 
-    staticP = storage_in.p[currentParticleNr].staticP;
+    vec3 eye = vec3(0, 10, 10);
+    vec3 forward = normalize(particlePos - eye);
+    vec3 right = normalize(cross(vec3(0,0,1),forward));
+    vec3 up = normalize(cross(forward, right));
+    vec3 pos;
 
-    gl_Position = mvp.projection * mvp.view * mvp.model * translateTo(particlePos) * vec4(inPosition, 0.0, 1.0);
+    switch(int(mod(gl_VertexIndex, 4))) {
+        case 0: pos =  - up - right; break;
+        case 1: pos =  + up - right; break;
+        case 2: pos =  + up + right; break;
+        case 3: pos =  - up + right; break;
+        default: break;
+    }
+
+    pos *= storage_in.p[currentParticleNr].h;
+    //pos *= 0.1;
+
+    staticP = storage_in.p[currentParticleNr].staticP;
+    //gl_Position = mvp.projection * mvp.view * mvp.model * translateTo(particlePos) * vec4(inPosition, 0.0, 1.0);
+    gl_Position = mvp.projection * mvp.view * mvp.model * vec4(particlePos.xyz, 1.0) + mvp.projection * mvp.view * vec4(pos.xyz, 1.0);
 }

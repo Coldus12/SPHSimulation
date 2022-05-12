@@ -40,15 +40,19 @@ vec3 gradKernel(uint i, uint j) {
     vec3 dir = (storage_in.p[i].x - storage_in.p[j].x) / xijlength;
     float val = 0;
     float q = xijlength/SimProps.kernelh;
+
     if (0 <= q && q < 1) {
         val = 3.0/2.0 * pow(q,2) - 2 * q;
+        //val = 18 * pow(q, 2) - 12 * q;
     } else if (1 <= q && q < 2) {
         val = -pow(2 - q, 2)/2.0;
+        //val = -6 * pow(1 - q, 2);
     } else {
         val = 0;
     }
 
     val *= 3.0/(2*PI) * 1.0/(pow(SimProps.kernelh, 3));
+    //val *= 8.0 / (PI * pow(SimProps.kernelh, 3));
     dir *= val;
 
     return dir;
@@ -98,6 +102,7 @@ void iterate(uint i) {
 
     float nu = 0.00001;
     viscosity *= 2 * nu * storage_in.p[i].m;
+    //pressure *= 0.1;
 
     vec3 gravity = vec3(0, 0, -9.81) * storage_in.p[i].m;
     

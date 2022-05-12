@@ -12,10 +12,10 @@ namespace Vltava {
         //
         // Smoothing length := 2 * h = 0.1 meter (for now)
 
-        int nrOfP = 512;
+        int nrOfP = 64;
         particles1.reserve(nrOfP);
         particles2.reserve(nrOfP);
-        float s=0.1; // meter
+        float s=0.2; // meter
 
         int pnrAlongAxis = round(pow(nrOfP, 1.0/3.0));
 
@@ -59,7 +59,7 @@ namespace Vltava {
     void CPUSim::setSimProps() {
         simProps.desired_density = 1.0f;
         simProps.k = 0.1f;
-        simProps.nr_of_particles = 512;
+        simProps.nr_of_particles = 64;
         simProps.kernelh = 0.1f;
     }
 
@@ -133,7 +133,8 @@ namespace Vltava {
             float nu = 0.00001;
             viscosity *= 2 * nu * p1[i].m;
 
-            glm::vec3 acc = (pressure + viscosity) / p1[i].m;
+            glm::vec3 gravity(0,0,-9.81 * p1[i].m);
+            glm::vec3 acc = (pressure + viscosity + gravity) / p1[i].m;
 
             float dt = 0.01;
             glm::vec3 viNext = p1[i].v;
