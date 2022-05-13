@@ -128,8 +128,8 @@ namespace Vltava {
             if (ImGui::Button("Yes"))
                 resetData();
 
-            ImGui::InputInt("Number of iterations", &nrOfIter);
-            ImGui::InputInt("Number of particles: ", &particleNr);
+            ImGui::Text("Number of iterations: "); ImGui::SameLine(); ImGui::InputInt("##", &nrOfIter);
+            ImGui::Text("Number of particles: "); ImGui::SameLine(); ImGui::InputInt("###", &particleNr);
 
             ImGui::Checkbox("Show log?", &show_log);
             ImGui::Checkbox("Write log?", &write_log);
@@ -139,6 +139,13 @@ namespace Vltava {
             if (ImGui::Button("Real time flip")) {
                 realTime = !realTime;
                 start = std::chrono::high_resolution_clock::now();
+            }
+
+            ImGui::Checkbox("Create container?", &makeContainer);
+            if (makeContainer) {
+                //ImGui::InputFloat3("Container pos: ", {containerPos.x, containerPos.y, containerPos.z});
+                //float data[3] = {containerPos.x, containerPos.y, containerPos.z};
+                ImGui::Text("Container position: "); ImGui::SameLine(); ImGui::InputFloat3("##", (float*)&containerPos);
             }
 
             if (show_log)
@@ -229,29 +236,29 @@ namespace Vltava {
             container.push_back(data);
 
             // Wall1
+            data.x = glm::vec3((i % sideLength) * dist + middle.x,dist + middle.y, (r % sideLength) * dist + middle.z);
+            container.push_back(data);
+
             data.x = glm::vec3((i % sideLength) * dist + middle.x,-dist*0 + middle.y, (r % sideLength) * dist + middle.z);
             container.push_back(data);
 
-            data.x = glm::vec3((i % sideLength) * dist + middle.x,-dist*1 + middle.y, (r % sideLength) * dist + middle.z);
+            // Wall2
+            data.x = glm::vec3(dist*1 + middle.x,(i % sideLength) * dist + middle.y, (r % sideLength) * dist + middle.z);
             container.push_back(data);
 
-            // Wall2
             data.x = glm::vec3(-dist*0 + middle.x,(i % sideLength) * dist + middle.y, (r % sideLength) * dist + middle.z);
             container.push_back(data);
 
-            data.x = glm::vec3(-dist*1 + middle.x,(i % sideLength) * dist + middle.y, (r % sideLength) * dist + middle.z);
-            container.push_back(data);
-
             // Wall3
-            data.x = glm::vec3((i % sideLength) * dist + middle.x, (sideLength + 1*0) * dist + middle.y, (sideLength - r % sideLength) * dist + middle.z);
+            data.x = glm::vec3((i % sideLength) * dist + middle.x, (sideLength - 1) * dist + middle.y, (r % sideLength) * dist + middle.z);
             container.push_back(data);
-            data.x = glm::vec3((i % sideLength) * dist + middle.x, (sideLength - 1)* 1 * dist + middle.y, (sideLength - r % sideLength) * dist + middle.z);
+            data.x = glm::vec3((i % sideLength) * dist + middle.x, (sideLength - 2)* 1 * dist + middle.y, (r % sideLength) * dist + middle.z);
             container.push_back(data);
 
             // Wall4
             data.x = glm::vec3((sideLength + 1*0) * dist + middle.x, (i % sideLength) * dist + middle.y, (r % sideLength) * dist + middle.z);
             container.push_back(data);
-            data.x = glm::vec3((sideLength + 1) * 1 * dist + middle.x, (i % sideLength) * dist + middle.y, (r % sideLength) * dist + middle.z);
+            data.x = glm::vec3((sideLength - 1) * 1 * dist + middle.x, (i % sideLength) * dist + middle.y, (r % sideLength) * dist + middle.z);
             container.push_back(data);
         }
 
@@ -274,7 +281,7 @@ namespace Vltava {
         particleNr = nrOfP;
 
         // Solid box
-        int bsize = 32;
+        int bsize = 16;
 
         float s=0.1;
         //vk::DeviceSize size = sizeof(Particle) * nrOfP * bsize * bsize;
@@ -319,8 +326,10 @@ namespace Vltava {
 
         // Container
         //--------------------------------------------------------------------------------------------------------------
-        auto container = createContainerAt(glm::vec3(0.0,0.0,-0.2), dist, bsize);
-        particles.insert(particles.end(), std::begin(container), std::end(container));
+        if (makeContainer) {
+            auto container = createContainerAt(containerPos, dist, bsize);
+            particles.insert(particles.end(), std::begin(container), std::end(container));
+        }
 
         all_particle_nr = particles.size();
 

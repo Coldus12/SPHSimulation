@@ -32,12 +32,62 @@ layout(set = 0, binding = 2, std430) buffer outBuffer {
     Particle p[];
 } storage_in;
 
-vec3 gradKernel(uint i, uint j) {
-    float xijlength = length(storage_in.p[i].x - storage_in.p[j].x);
+// SDF stuff
+//----------------------------------------------------------------------------------------------------------------------
+
+vec4 sphere = vec4(0,0,-0.2,1);
+Particle phantomNeighbors[64];
+int actualNr = 0;
+int sampleSize = 4;
+
+// Returns smallest distance to sphere s
+float sphMap(vec3 p, vec4 s) {
+    float d = distance(p, s.xyz) - s.w;
+    return d;
+}
+
+vec3 getClosestPoint(vec3 particlePos) {
+    float d = sphMap(particlePos, sphere);
+    return (sphere.xyz - particlePos) * d;
+}
+
+void getNeighbours(Particle p) {
+    vec3 closestP = getClosestPoint(p.x);
+    float dist = 0.1;
+    vec3 start = closestP - vec3(-sampleSize*dist,-sampleSize*dist, -sampleSize*dist);
+
+    for (int i = 0; i < 2*sampleSize; i++) {
+        for (int j = 0; j < 2*sampleSize; j++) {
+            for (int k = 0; k < 2*sampleSize; k++) {
+                vec3 current = start + vec3(i * dist, j * dist, k * dist);
+
+                if (-sphMap(current, sphere) < 0) {
+                    actualNr += 1;
+
+                    phantomNeighbors[actualNr-1].x = current;
+                    phantomNeighbors[actualNr-1].h = 0.05;
+                    phantomNeighbors[actualNr-1].v = vec3(0);
+                    phantomNeighbors[actualNr-1].m = 0.005236;
+
+                    phantomNeighbors[actualNr-1].rho = 1;
+                    phantomNeighbors[actualNr-1].p = 0;
+
+                    phantomNeighbors[actualNr-1].staticP = 1;
+                    phantomNeighbors[actualNr-1].padding = 0;
+                }
+            }
+        }
+    }
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+vec3 gradKernel(vec3 i, vec3 j) {
+    float xijlength = length(i - j);
     if (xijlength == 0)
         return vec3(0);
 
-    vec3 dir = (storage_in.p[i].x - storage_in.p[j].x) / xijlength;
+    vec3 dir = (i - j) / xijlength;
     float val = 0;
     float q = xijlength/SimProps.kernelh;
 
@@ -72,6 +122,7 @@ void copyData(uint gID) {
 }
 
 void iterate(uint i) {
+    //getNeighbours(storage_in.p[i]);
     vec3 pressure = vec3(0);
     vec3 viscosity = vec3(0);
 
@@ -85,18 +136,37 @@ void iterate(uint i) {
         if (storage_in.p[j].rho != 0 && storage_in.p[i].rho != 0)
             val = storage_in.p[j].m * ((storage_in.p[i].p / pow(storage_in.p[i].rho, 2)) + (storage_in.p[j].p / pow(storage_in.p[j].rho, 2)));
 
-        vec3 k = gradKernel(i, j);
-        pressure += val * gradKernel(i, j);
+        vec3 k = gradKernel(storage_in.p[i].x, storage_in.p[j].x);
+        pressure += val * gradKernel(storage_in.p[i].x, storage_in.p[j].x);
 
         vec3 xij = storage_in.p[i].x - storage_in.p[j].x;
 
         float pval = 0;
         if (storage_in.p[j].rho != 0)
-            pval = (storage_in.p[j].m / storage_in.p[j].rho) * (dot(xij, gradKernel(i, j)) /  (dot(xij, xij) + 0.01 * SimProps.kernelh));
+            pval = (storage_in.p[j].m / storage_in.p[j].rho) * (dot(xij, gradKernel(storage_in.p[i].x, storage_in.p[j].x)) /  (dot(xij, xij) + 0.01 * SimProps.kernelh));
 
         vec3 vij = storage_in.p[i].v - storage_in.p[j].v;
         viscosity += pval * vij;
     }
+
+    // Phantom neighbours
+    /*for (int j = 0; j < actualNr; j++) {
+        float val = 0;
+        if (phantomNeighbors[j].rho != 0 && storage_in.p[i].rho != 0)
+            val = phantomNeighbors[j].m * ((storage_in.p[i].p / pow(storage_in.p[i].rho, 2)) + (phantomNeighbors[j].p / pow(phantomNeighbors[j].rho, 2)));
+
+        vec3 k = gradKernel(storage_in.p[i].x, phantomNeighbors[j].x);
+        pressure += val * gradKernel(storage_in.p[i].x, phantomNeighbors[j].x);
+
+        vec3 xij = storage_in.p[i].x - phantomNeighbors[j].x;
+
+        float pval = 0;
+        if (phantomNeighbors[j].rho != 0)
+            pval = (storage_in.p[j].m / phantomNeighbors[j].rho) * (dot(xij, gradKernel(storage_in.p[i].x, phantomNeighbors[j].x)) /  (dot(xij, xij) + 0.01 * SimProps.kernelh));
+
+        vec3 vij = storage_in.p[i].v - storage_in.p[j].v;
+        viscosity += pval * vij;
+    }*/
 
     pressure *= -storage_in.p[i].m;
 

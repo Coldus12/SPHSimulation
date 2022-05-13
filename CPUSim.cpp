@@ -3,6 +3,56 @@
 #define PI 3.1415926538
 
 namespace Vltava {
+    // SDF stuff
+    //------------------------------------------------------------------------------------------------------------------
+
+    /*glm::vec4 sphere = glm::vec4(0,0,0,1);
+    Particle phantomNeighbors[64];
+    int actualNr = 0;
+    int sampleSize = 4;
+
+    // Returns smallest distance to sphere s
+    float sphMap(glm::vec3 p, glm::vec4 s) {
+        float d = distance(p, glm::vec3(s.x, s.y, s.z)) - s.w;
+        return d;
+    }
+
+    glm::vec3 getClosestPoint(glm::vec3 particlePos) {
+        float d = sphMap(particlePos, sphere);
+        return (glm::vec3(sphere.x, sphere.y, sphere.z) - particlePos) * d;
+    }
+
+    void getNeighbours(Particle p) {
+        glm::vec3 closestP = getClosestPoint(p.x);
+        float dist = 0.1;
+        glm::vec3 start = p.x - glm::vec3(-sampleSize*dist,-sampleSize*dist, -sampleSize*dist);
+
+        for (int i = 0; i < 2*sampleSize; i++) {
+            for (int j = 0; j < 2*sampleSize; j++) {
+                for (int k = 0; k < 2*sampleSize; k++) {
+                    glm::vec3 current = start + glm::vec3(i * dist, j * dist, k * dist);
+
+                    if (sphMap(current, sphere) < 0) {
+                        actualNr += 1;
+
+                        phantomNeighbors[actualNr-1].x = current;
+                        phantomNeighbors[actualNr-1].h = 0.05;
+                        phantomNeighbors[actualNr-1].v = glm::vec3(0);
+                        phantomNeighbors[actualNr-1].m = 0.005236;
+
+                        phantomNeighbors[actualNr-1].rho = 1;
+                        phantomNeighbors[actualNr-1].p = 0;
+
+                        phantomNeighbors[actualNr-1].staticP = 1;
+                        phantomNeighbors[actualNr-1].padding = 0;
+                    }
+                }
+            }
+        }
+    }*/
+
+//----------------------------------------------------------------------------------------------------------------------
+
     CPUSim::CPUSim() {
         // Water rest density = 1 kg/m^3
         //

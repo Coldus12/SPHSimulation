@@ -32,8 +32,58 @@ layout(set = 0, binding = 2, std430) buffer outBuffer {
     Particle p[];
 } out_data;
 
-float kernel(uint i, uint j) {
-    float q = length(in_data.p[i].x - in_data.p[j].x) / ubo.kernelh;
+                             // SDF stuff
+//----------------------------------------------------------------------------------------------------------------------
+
+vec4 sphere = vec4(0,0,-0.2,1);
+Particle phantomNeighbors[64];
+int actualNr = 0;
+int sampleSize = 4;
+
+// Returns smallest distance to sphere s
+float sphMap(vec3 p, vec4 s) {
+    float d = distance(p, s.xyz) - s.w;
+    return d;
+}
+
+vec3 getClosestPoint(vec3 particlePos) {
+    float d = sphMap(particlePos, sphere);
+    return (sphere.xyz - particlePos) * d;
+}
+
+void getNeighbours(Particle p) {
+    vec3 closestP = getClosestPoint(p.x);
+    float dist = 0.1;
+    vec3 start = closestP - vec3(-sampleSize*dist,-sampleSize*dist, -sampleSize*dist);
+
+    for (int i = 0; i < 2*sampleSize; i++) {
+        for (int j = 0; j < 2*sampleSize; j++) {
+            for (int k = 0; k < 2*sampleSize; k++) {
+                vec3 current = start + vec3(i * dist, j * dist, k * dist);
+
+                if (-sphMap(current, sphere) < 0) {
+                    actualNr += 1;
+
+                    phantomNeighbors[actualNr-1].x = current;
+                    phantomNeighbors[actualNr-1].h = 0.05;
+                    phantomNeighbors[actualNr-1].v = vec3(0);
+                    phantomNeighbors[actualNr-1].m = 0.005236;
+
+                    phantomNeighbors[actualNr-1].rho = 1;
+                    phantomNeighbors[actualNr-1].p = 0;
+
+                    phantomNeighbors[actualNr-1].staticP = 1;
+                    phantomNeighbors[actualNr-1].padding = 0;
+                }
+            }
+        }
+    }
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+float kernel(vec3 i, vec3 j) {
+    float q = length(i - j) / ubo.kernelh;
     float oneoverhd = 1.0/(pow(ubo.kernelh, 3));
     float val = 0;
 
@@ -72,18 +122,23 @@ void copyData(uint gID) {
 
 void calculateRhoAndP(uint gID) {
     float density = 0.0;
+    //getNeighbours(in_data.p[gID]);
 
     for (int j = 0; j < ubo.nr_of_particles; j++) {
         if (gID == j)
             continue;
 
-        density += in_data.p[gID].m * kernel(gID, j);
+        density += in_data.p[gID].m * kernel(in_data.p[gID].x, in_data.p[j].x);
     }
+
+    /*for (int j = 0; j < actualNr; j++) {
+        density += in_data.p[gID].m * kernel(in_data.p[gID].x, phantomNeighbors[j].x);
+    }*/
 
     out_data.p[gID].rho = density;
 
     float ratio = density / ubo.desired_density;
-    out_data.p[gID].p = ubo.k * (pow(ratio, 7) - 1.0);
+    out_data.p[gID].p = 0.1 * (pow(ratio, 7) - 1.0);
     //out_data.p[gID].p = 0.001 * (pow(ratio, 7) - 1.0);
 }
 
