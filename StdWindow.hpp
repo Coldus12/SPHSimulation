@@ -53,6 +53,7 @@ namespace Vltava {
         bool console_log = false;
         bool realTime = false;
         bool makeContainer = false;
+        int containerSize = 16;
         glm::vec3 containerPos = glm::vec3(0.0f,0.0f,-0.2f);
         std::chrono::time_point<std::chrono::high_resolution_clock> start;
 

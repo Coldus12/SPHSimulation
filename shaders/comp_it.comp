@@ -65,7 +65,7 @@ void getNeighbours(Particle p) {
                     actualNr += 1;
 
                     phantomNeighbors[actualNr-1].x = current;
-                    phantomNeighbors[actualNr-1].h = 0.05;
+                    phantomNeighbors[actualNr-1].h = 0.1;
                     phantomNeighbors[actualNr-1].v = vec3(0);
                     phantomNeighbors[actualNr-1].m = 0.005236;
 
@@ -181,7 +181,7 @@ void iterate(uint i) {
     float dt = 0.01;
     vec3 viNext = storage_in.p[i].v;
     vec3 xiNext = storage_in.p[i].x;
-    viNext += acc * dt/2.0f;
+    viNext += acc * dt;
     xiNext += viNext * dt;
     
     storage_out.p[i].x = xiNext;

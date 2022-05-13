@@ -106,7 +106,7 @@ namespace Vltava {
 
                 //str += std::to_string(actualTime);
                 //ImGui::Text(str.c_str());
-                if (actualTime > 15) {
+                //if (actualTime > 15) {
                     if (actualTime > 50)
                         actualTime = 50;
 
@@ -114,7 +114,7 @@ namespace Vltava {
                     dispatchCompute(nrOfP, 1, 1);
                     //std::cout << str << std::endl;
                     start = std::chrono::high_resolution_clock::now();
-                }
+                //}
             }
 
 #if IMGUI_ENABLED
@@ -146,6 +146,7 @@ namespace Vltava {
                 //ImGui::InputFloat3("Container pos: ", {containerPos.x, containerPos.y, containerPos.z});
                 //float data[3] = {containerPos.x, containerPos.y, containerPos.z};
                 ImGui::Text("Container position: "); ImGui::SameLine(); ImGui::InputFloat3("##", (float*)&containerPos);
+                ImGui::Text("Container size: "); ImGui::SameLine(); ImGui::InputInt("s", &containerSize);
             }
 
             if (show_log)
@@ -218,7 +219,7 @@ namespace Vltava {
 
             // Bottom first
             data.x = glm::vec3((i % sideLength) * dist + middle.x,(r % sideLength) * dist + middle.y, middle.z);
-            data.h = 0.05f;
+            data.h = 0.1f;
             data.v = glm::vec3(0,0,0);
             data.m = mass;
             //data[i].m = 1.0f;
@@ -281,9 +282,9 @@ namespace Vltava {
         particleNr = nrOfP;
 
         // Solid box
-        int bsize = 16;
+        //int bsize = 16;
 
-        float s=0.1;
+        float s=0.11;
         //vk::DeviceSize size = sizeof(Particle) * nrOfP * bsize * bsize;
         //auto* data = new Particle[nrOfP + bsize * bsize];
 
@@ -306,7 +307,7 @@ namespace Vltava {
                 z++;
 
             data.x = glm::vec3((i%pnrAlongAxis) * s - distAxis,(r%pnrAlongAxis) * s - distAxis, z * s);
-            data.h = 0.05;
+            data.h = 0.1;
             data.v = glm::vec3(0,0,0);
             data.m = mass;
             //data[i].m = 1.0f;
@@ -327,7 +328,7 @@ namespace Vltava {
         // Container
         //--------------------------------------------------------------------------------------------------------------
         if (makeContainer) {
-            auto container = createContainerAt(containerPos, dist, bsize);
+            auto container = createContainerAt(containerPos, dist, containerSize);
             particles.insert(particles.end(), std::begin(container), std::end(container));
         }
 
@@ -339,7 +340,7 @@ namespace Vltava {
                 1.0f,
                 0.1f,
                 (float) all_particle_nr,
-                0.1f
+                0.2f
         };
         uBuffers[0].writeToBuffer(&props, sizeof(props));
 

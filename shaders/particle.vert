@@ -97,7 +97,7 @@ void main() {
         default: break;
     }
 
-    pos *= storage_in.p[currentParticleNr].h;
+    pos *= storage_in.p[currentParticleNr].h / 2.0;
     //pos *= 0.1;
 
     staticP = storage_in.p[currentParticleNr].staticP;
