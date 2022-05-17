@@ -59,6 +59,7 @@ namespace Vltava {
 
         void runComp();
         std::vector<Particle> createContainerAt(glm::vec3 pos, float dist, int sideLength);
+        void log();
 
         vk::Image depthImage;
         vk::DeviceMemory depthImageMemory;
@@ -104,6 +105,8 @@ namespace Vltava {
         std::vector<vk::Semaphore> imageAvailableSemaphores;
         std::vector<vk::Semaphore> renderFinishedSemaphores;
         std::vector<vk::Fence> inFlightFences;
+
+        vk::Fence compFence;
 
         bool enableValidationLayers = false;
 

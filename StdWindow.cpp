@@ -72,6 +72,7 @@ struct ImLog
             }
         }
         clipper.End();
+
         ImGui::PopStyleVar();
 
         if (autoScroll && ImGui::GetScrollY() >= ImGui::GetScrollMaxY())
@@ -99,22 +100,23 @@ namespace Vltava {
 
             if (realTime) {
                 auto now = std::chrono::high_resolution_clock::now();
-                float time = std::chrono::duration<float, std::chrono::milliseconds::period>(now - start).count();
-                //std::string str = "Time passed: ";
 
-                int actualTime = (int) round(time/10);
+                // "If timeout is zero, then vkWaitForFences does not wait, but simply returns the current state of the fences."
+                if (VulkanResources::getInstance().logDev->getHandle().waitForFences(compFence, false, 0) != vk::Result::eTimeout) {
+                    float time = std::chrono::duration<float, std::chrono::milliseconds::period>(now - start).count();
+                    std::cout << "Time: " << time << std::endl;
 
-                //str += std::to_string(actualTime);
-                //ImGui::Text(str.c_str());
-                //if (actualTime > 15) {
-                    if (actualTime > 50)
-                        actualTime = 50;
+                    time /= 10;
+                    if (time < 1) time = 1;
 
-                    nrOfIter = actualTime;
+                    if (time > 10)
+                        time = 10;
+
+                    nrOfIter = time;
                     dispatchCompute(nrOfP, 1, 1);
-                    //std::cout << str << std::endl;
+                    log();
                     start = std::chrono::high_resolution_clock::now();
-                //}
+                }
             }
 
 #if IMGUI_ENABLED
@@ -161,33 +163,33 @@ namespace Vltava {
         VulkanResources::getInstance().logDev->getHandle().waitIdle();
     }
 
+    void StdWindow::log() {
+        if (write_log) {
+            auto spheres = sBuffers[1].getData<Particle>();
+            std::string str = "";
+            str += "Compute data - size: " + std::to_string(spheres.size()) + "\n";
+            str += "----------------------------------------------\n";
+
+            for (int i = 0; i < nrOfP; i++) {
+                str += "Density: " + std::to_string(spheres[i].rho) +
+                       "; Pressure: " + std::to_string(spheres[i].p) +
+                       " ; Position: " + std::to_string(spheres[i].x.x) + " " + std::to_string(spheres[i].x.y) + " " + std::to_string(spheres[i].x.z) +
+                       " ; Mass: " + std::to_string(spheres[i].m) +
+                       " ; Velocity: " + std::to_string(spheres[i].v.x) + " " + std::to_string(spheres[i].v.y) + " " + std::to_string(spheres[i].v.z) + ";\n";
+            }
+            str += "\n----------------------------------------------\n";
+
+            my_log.addLog(str.c_str());
+
+            if (console_log)
+                std::cout << str << std::endl;
+        }
+    }
+
     void StdWindow::runComp() {
         if (run) {
             dispatchCompute(nrOfP, 1, 1);
-
-            if (write_log) {
-                auto spheres = sBuffers[1].getData<Particle>();
-                std::string str = "";
-                str += "Compute data - size: " + std::to_string(spheres.size()) + "\n";
-                str += "----------------------------------------------\n";
-
-                for (int i = 0; i < nrOfP; i++) {
-                    str += "Density: " + std::to_string(spheres[i].rho) +
-                           "; Pressure: " + std::to_string(spheres[i].p) +
-                           " ; Position: " + std::to_string(spheres[i].x.x) + " " + std::to_string(spheres[i].x.y) +
-                           " " + std::to_string(spheres[i].x.z) +
-                           " ; Mass: " + std::to_string(spheres[i].m) +
-                           " ; Velocity: " + std::to_string(spheres[i].v.x) + " " + std::to_string(spheres[i].v.y) +
-                           " " + std::to_string(spheres[i].v.z) + ";\n";
-                }
-                str += "\n----------------------------------------------\n";
-
-                my_log.addLog(str.c_str());
-
-                if (console_log)
-                    std::cout << str << std::endl;
-            }
-
+            log();
             run = false;
         }
     }
@@ -284,7 +286,7 @@ namespace Vltava {
         // Solid box
         //int bsize = 16;
 
-        float s=0.11;
+        float s=0.10;
         //vk::DeviceSize size = sizeof(Particle) * nrOfP * bsize * bsize;
         //auto* data = new Particle[nrOfP + bsize * bsize];
 
@@ -437,7 +439,7 @@ namespace Vltava {
                 {}
         );
 
-        VulkanResources::getInstance().computeQueue->submit(submitInfo);
+        VulkanResources::getInstance().computeQueue->submit(submitInfo, compFence);
         //VulkanResources::getInstance().logDev->getHandle().waitIdle();
     }
 
@@ -579,6 +581,7 @@ namespace Vltava {
             VulkanResources::getInstance().logDev->getHandle().destroySemaphore(imageAvailableSemaphores[i]);
             VulkanResources::getInstance().logDev->getHandle().destroyFence(inFlightFences[i]);
         }
+        VulkanResources::getInstance().logDev->getHandle().destroyFence(compFence);
 
         VulkanResources::getInstance().logDev->getHandle().destroyCommandPool(*VulkanResources::getInstance().graphicalCmdPool);
         VulkanResources::getInstance().logDev->getHandle().destroyCommandPool(*VulkanResources::getInstance().computeCmdPool);
@@ -941,6 +944,7 @@ namespace Vltava {
         vk::FenceCreateInfo fenceInfo(vk::FenceCreateFlagBits::eSignaled);
         vk::SemaphoreCreateInfo semaphoreCreateInfo;
 
+       compFence =  VulkanResources::getInstance().logDev->getHandle().createFence(fenceInfo);
         for (int i = 0; i < VulkanResources::getInstance().FRAMES_IN_FLIGHT; i++) {
             imageAvailableSemaphores.push_back(VulkanResources::getInstance().logDev->getHandle().createSemaphore(semaphoreCreateInfo));
             renderFinishedSemaphores.push_back(VulkanResources::getInstance().logDev->getHandle().createSemaphore(semaphoreCreateInfo));
@@ -960,8 +964,9 @@ namespace Vltava {
 #if IMGUI_ENABLED
         ImGui::Render();
 #endif
+        VulkanResources::getInstance().logDev->getHandle().waitForFences(inFlightFences[currentFrame], true, UINT64_MAX);
         //VulkanResources::getInstance().logDev->getHandle().waitForFences(inFlightFences[currentFrame], true, UINT64_MAX);
-        VulkanResources::getInstance().logDev->getHandle().waitForFences(inFlightFences[currentFrame], true, 10);
+        //VulkanResources::getInstance().logDev->getHandle().waitForFences(inFlightFences[currentFrame], true, 10);
 
         vk::Result result;
         uint32_t imageIndex;
