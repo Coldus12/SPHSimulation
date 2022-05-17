@@ -54,6 +54,8 @@ layout(location = 1) in float r;
 layout(location = 2) in float c;
 layout(location = 3) in float staticP;
 
+layout(location = 4) in vec3 velocity;
+
 // Output data
 //--------------------------
 layout(location = 0) out vec4 outColor;
@@ -61,8 +63,12 @@ layout(location = 0) out vec4 outColor;
 void main() {
     vec3 i = (1 - smoothstep(r - SMOOTHL, r, length(localPos))) * vec3(c,3*c/2,2*c/3);
 
+    float col = length(velocity) / 15.0;
+    //float col = 0.1;
+
     if (staticP == 0)
-        outColor = vec4(0.1, 0.1, 1, 1);
+        //outColor = vec4(0.1, 0.1, 1, 1);
+        outColor = vec4(col, col, 1, 1);
     else
         outColor = vec4(0.3, 0.3, 0.3, 0.01);
 

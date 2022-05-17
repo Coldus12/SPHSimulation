@@ -82,29 +82,42 @@ void getNeighbours(Particle p) {
 
 //----------------------------------------------------------------------------------------------------------------------
 
+float m_k = 8.0 / (PI * pow(ubo.kernelh, 3));
+float m_l = 1.0/(pow(ubo.kernelh, 3)) * 3.0/(2.0*PI);
+
+
+
 float kernel(vec3 i, vec3 j) {
     float q = length(i - j) / ubo.kernelh;
-    float oneoverhd = 1.0/(pow(ubo.kernelh, 3));
-    float val = 0;
 
-    if (0 <= q && q < 1) {
-        val = 2.0/3.0 - pow(q, 2) + pow(q,3)/2;
-        //val = 6 * (pow(q, 3) - pow(q, 2)) + 1;
-    } else if (1 <= q && q < 2) {
-        val = pow(2-q, 3)/6.0;
-        //val = 2 * pow(1 - q, 3);
-    } else {
-        val = 0;
+
+    float ret = 0;
+    if (q <= 1.0) {
+        if (q <= 0.5) {
+            ret = m_k * (6.0 * (pow(q, 3.0) - pow(q, 2.0)) + 1.0);
+        } else {
+            ret = m_k * (2.0 * pow(1 - q, 3));
+        }
     }
 
-    val *= 3.0/(2.0*PI);
-    //val *= 8.0 / (PI * pow(ubo.kernelh, 3));
-    val *= oneoverhd;
+    return ret;
+
+    /*float val = 0;
+
+    if (q <= 2.0) {
+        if (q <= 1.0) {
+            val = 2.0/3.0 - pow(q, 2) + pow(q,3)/2;
+        } else {
+            val = pow(2 - q, 3)/6.0;
+        }
+    }
 
     if (val < 0.001)
         val = 0;
 
-    return val;
+    val *= m_l;
+
+    return val;*/
 }
 
 void copyData(uint gID) {
@@ -138,8 +151,8 @@ void calculateRhoAndP(uint gID) {
     out_data.p[gID].rho = density;
 
     float ratio = density / ubo.desired_density;
-    out_data.p[gID].p = ubo.k * (pow(ratio, 7) - 1.0);
-    //out_data.p[gID].p = 0.001 * (pow(ratio, 7) - 1.0);
+    //out_data.p[gID].p = ubo.k * (pow(ratio, 7) - 1.0);
+    out_data.p[gID].p = 0.001 * (pow(ratio, 7) - 1.0);
 }
 
 void main()

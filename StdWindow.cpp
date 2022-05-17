@@ -286,7 +286,7 @@ namespace Vltava {
         // Solid box
         //int bsize = 16;
 
-        float s=0.10;
+        float s=0.101;
         //vk::DeviceSize size = sizeof(Particle) * nrOfP * bsize * bsize;
         //auto* data = new Particle[nrOfP + bsize * bsize];
 
@@ -440,7 +440,7 @@ namespace Vltava {
         );
 
         VulkanResources::getInstance().computeQueue->submit(submitInfo, compFence);
-        //VulkanResources::getInstance().logDev->getHandle().waitIdle();
+        VulkanResources::getInstance().logDev->getHandle().waitIdle();
     }
 
     //------------------------------------------------------------------------------------------------------------------

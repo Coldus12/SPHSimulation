@@ -57,6 +57,8 @@ layout(location = 1) out float r;
 layout(location = 2) out float c;
 layout(location = 3) out float staticP;
 
+layout(location = 4) out vec3 velocity;
+
 mat4 translateTo(vec3 p) {
     return mat4(
         vec4(1, 0, 0, 0),
@@ -79,6 +81,7 @@ void main() {
 
     int currentParticleNr = int(floor(gl_VertexIndex / 4));
     Particle p = storage_in.p[currentParticleNr];
+    velocity = p.v;
 
     vec3 particlePos = p.x;
     r = 0.2;
