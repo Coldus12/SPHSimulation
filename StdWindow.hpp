@@ -45,7 +45,7 @@ namespace Vltava {
 
         static bool run;
         int nrOfIter = 100;
-        int particleNr = 64;
+        int particleNr = 512;
         int nrOfP = particleNr;
         int all_particle_nr = particleNr; // TODO rename all variations of "particle nr" to reflect what the difference is between them
         bool show_log = false;

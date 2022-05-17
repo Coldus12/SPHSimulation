@@ -103,6 +103,8 @@ namespace Vltava {
 
                 // "If timeout is zero, then vkWaitForFences does not wait, but simply returns the current state of the fences."
                 if (VulkanResources::getInstance().logDev->getHandle().waitForFences(compFence, false, 0) != vk::Result::eTimeout) {
+                    // Sadly the fence does not seem to work the way i hoped it would
+                    VulkanResources::getInstance().logDev->getHandle().resetFences(compFence);
                     float time = std::chrono::duration<float, std::chrono::milliseconds::period>(now - start).count();
                     std::cout << "Time: " << time << std::endl;
 
@@ -130,6 +132,9 @@ namespace Vltava {
             if (ImGui::Button("Yes"))
                 resetData();
 
+            if (ImGui::Button("Toggle rotation"))
+                rot = !rot;
+
             ImGui::Text("Number of iterations: "); ImGui::SameLine(); ImGui::InputInt("##", &nrOfIter);
             ImGui::Text("Number of particles: "); ImGui::SameLine(); ImGui::InputInt("###", &particleNr);
 
@@ -152,7 +157,7 @@ namespace Vltava {
             }
 
             if (show_log)
-                my_log.draw("Sup");
+                my_log.draw("Log");
 
             ImGui::End();
 #endif
