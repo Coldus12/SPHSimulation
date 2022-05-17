@@ -189,7 +189,7 @@ void iterate(uint i) {
 
     pressure *= -storage_in.p[i].m;
 
-    float nu = 0.00001;
+    float nu = 0.01;
     //float nu = 0;
     viscosity *= 2 * nu * storage_in.p[i].m;
     //pressure *= 0.1;
@@ -202,6 +202,13 @@ void iterate(uint i) {
     vec3 viNext = storage_in.p[i].v;
     vec3 xiNext = storage_in.p[i].x;
     viNext += acc * dt;
+
+    float vil = length(viNext);
+    /*if (vil > 5) {
+        viNext /= vil;
+        viNext *= 1.1;
+    }*/
+
     xiNext += viNext * dt;
     
     storage_out.p[i].x = xiNext;
