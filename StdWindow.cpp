@@ -104,20 +104,22 @@ namespace Vltava {
                 // "If timeout is zero, then vkWaitForFences does not wait, but simply returns the current state of the fences."
                 if (VulkanResources::getInstance().logDev->getHandle().waitForFences(compFence, false, 0) != vk::Result::eTimeout) {
                     // Sadly the fence does not seem to work the way i hoped it would
-                    VulkanResources::getInstance().logDev->getHandle().resetFences(compFence);
                     float time = std::chrono::duration<float, std::chrono::milliseconds::period>(now - start).count();
-                    std::cout << "Time: " << time << std::endl;
 
                     time /= 10;
-                    if (time < 1) time = 1;
+                    //if (time < 1) time = 1;
+                    if (time > 1) {
+                        VulkanResources::getInstance().logDev->getHandle().resetFences(compFence);
+                        if (time > 10)
+                            time = 10;
 
-                    if (time > 10)
-                        time = 10;
+                        std::cout << "dispatch nr: " << time << std::endl;
 
-                    nrOfIter = time;
-                    dispatchCompute(nrOfP, 1, 1);
-                    log();
-                    start = std::chrono::high_resolution_clock::now();
+                        nrOfIter = time;
+                        dispatchCompute(nrOfP, 1, 1);
+                        log();
+                        start = std::chrono::high_resolution_clock::now();
+                    }
                 }
             }
 
@@ -180,7 +182,7 @@ namespace Vltava {
                        "; Pressure: " + std::to_string(spheres[i].p) +
                        " ; Position: " + std::to_string(spheres[i].x.x) + " " + std::to_string(spheres[i].x.y) + " " + std::to_string(spheres[i].x.z) +
                        " ; Mass: " + std::to_string(spheres[i].m) +
-                       " ; Velocity: " + std::to_string(spheres[i].v.x) + " " + std::to_string(spheres[i].v.y) + " " + std::to_string(spheres[i].v.z) + ";\n";
+                       " ; Velocity: " + std::to_string(spheres[i].v.x) + " " + std::to_string(spheres[i].v.y) + " " + std::to_string(spheres[i].v.z) +";\n";
             }
             str += "\n----------------------------------------------\n";
 
