@@ -291,7 +291,7 @@ namespace Vltava {
         // Solid box
         //int bsize = 16;
 
-        float s=0.101;
+        float s=0.10;
         //vk::DeviceSize size = sizeof(Particle) * nrOfP * bsize * bsize;
         //auto* data = new Particle[nrOfP + bsize * bsize];
 

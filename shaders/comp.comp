@@ -1,5 +1,5 @@
 #version 450
-layout (local_size_x = 1) in;
+layout (local_size_x = 32) in;
 precision highp float;
 
 #define PI 3.1415926538
@@ -152,7 +152,9 @@ void calculateRhoAndP(uint gID) {
 
     float ratio = density / ubo.desired_density;
     //out_data.p[gID].p = ubo.k * (pow(ratio, 7) - 1.0);
-    out_data.p[gID].p = 0.001 * (pow(ratio, 7) - 1.0);
+    //float p = 0.001 * (pow(ratio, 7) - 1.0);
+    float p = 0.001 * (pow(ratio, 7) - 1.0);
+    out_data.p[gID].p = p < 0 ? 0 : p;
 }
 
 void main()
