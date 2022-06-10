@@ -1,6 +1,6 @@
 #include "StdWindow.hpp"
 #include "Managed/Managed.hpp"
-#include "CPUSim.h"
+#include "CPUSim.hpp"
 
 #define cpuTest false
 

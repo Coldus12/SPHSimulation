@@ -1,4 +1,4 @@
-#include "CPUSim.h"
+#include "CPUSim.hpp"
 
 #define PI 3.1415926538
 

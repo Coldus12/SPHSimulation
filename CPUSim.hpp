@@ -1,5 +1,5 @@
-#ifndef SPHSIMULATION_CPUSIM_H
-#define SPHSIMULATION_CPUSIM_H
+#ifndef SPHSIMULATION_CPUSIM_HPP
+#define SPHSIMULATION_CPUSIM_HPP
 
 #include "ParticleModel.hpp"
 
@@ -26,4 +26,4 @@ namespace Vltava {
 }
 
 
-#endif //SPHSIMULATION_CPUSIM_H
+#endif //SPHSIMULATION_CPUSIM_HPP
