@@ -5,8 +5,8 @@ Vltava is a work-in-progress SPH-based fluid simulation program. The goal of thi
 
 # Pictures (WIP)
 
-![Pic1]([http://url/to/img.png](https://github.com/Coldus12/SPHSimulation/blob/master/2744particle32container.png))
-![Pic2]([http://url/to/img.png](https://github.com/Coldus12/SPHSimulation/blob/master/2744particle32container-2.png))
+![Pic1](https://github.com/Coldus12/SPHSimulation/blob/master/2744particle32container.png)
+![Pic2](https://github.com/Coldus12/SPHSimulation/blob/master/2744particle32container-2.png)
 
 # To-do list
 
