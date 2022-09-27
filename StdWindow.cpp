@@ -12,6 +12,7 @@ static Vltava::ImLog my_log;
 namespace Vltava {
     bool StdWindow::run = false;
     bool StdWindow::rot = true;
+    bool StdWindow::runcomp3 = false;
 
     // Constructor
     //------------------------------------------------------------------------------------------------------------------
@@ -453,6 +454,20 @@ namespace Vltava {
 
         setComputeData();
 
+        Buffer inBuffer(
+                512*sizeof(int),
+                vk::BufferUsageFlagBits::eStorageBuffer,
+                vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
+        );
+        inBuffer.bind(0);
+
+        std::vector<int> val;
+        for (int i = 0; i < 512; i++)
+            val.push_back(0);
+
+        comp3Buffer.push_back(std::move(inBuffer));
+        comp3Buffer[0].writeToBuffer(val.data(), 512*sizeof(int));
+
         comp1 = std::make_unique<ComputeShader>("shaders/comp.spv");
         comp1->setBuffers(&uBuffers, &sBuffers);
         comp1->createPipeline();
@@ -460,6 +475,10 @@ namespace Vltava {
         comp2 = std::make_unique<ComputeShader>("shaders/comp_it.spv");
         comp2->setBuffers(&uBuffers, &sBuffers);
         comp2->createPipeline();
+
+        comp3 = std::make_unique<ComputeShader>("shaders/atomic.spv");
+        comp3->setBuffers(nullptr, &comp3Buffer);
+        comp3->createPipeline();
     }
 
     // Try changing data to std::vec, and only allocate gpu memory after you are done filling said vector.
@@ -642,6 +661,49 @@ namespace Vltava {
             log();
             run = false;
         }
+
+        if (runcomp3) {
+            sanityCheck("got here");
+            comp3func();
+            logcomp3();
+            runcomp3 = false;
+        }
+    }
+
+    void StdWindow::comp3func() {
+        vk::CommandBufferBeginInfo beginInfo({}, nullptr);
+        computeCmdBuffer.begin(beginInfo);
+
+        comp3->bindPipelineAndDescriptors(computeCmdBuffer);
+        computeCmdBuffer.dispatch(512, 1, 1);
+
+        computeCmdBuffer.end();
+
+        vk::SubmitInfo submitInfo(
+                {},
+                {},
+                computeCmdBuffer,
+                {}
+        );
+
+        //VulkanResources::getInstance().computeQueue->submit(submitInfo, compFence);
+        VulkanResources::getInstance().computeQueue->submit(submitInfo);
+    }
+
+    void StdWindow::logcomp3() {
+        sanityCheck("log comp3");
+        auto data = comp3Buffer[0].getData<int>();
+        std::cout << data.size() << std::endl;
+        for (auto it: data) {
+            std::cout << it <<std::endl;
+            std::string str = "";
+            str += "" + std::to_string(it);
+
+            my_log.addLog(str.c_str());
+
+            if (console_log)
+                std::cout << str << std::endl;
+        }
     }
 
     void StdWindow::dispatchCompute(int groupCountX, int groupCountY, int groupCountZ) {
@@ -813,6 +875,11 @@ namespace Vltava {
 
         if (key == GLFW_KEY_Q && action == GLFW_PRESS) {
             rot = !rot;
+        }
+
+        if (key == GLFW_KEY_E && action == GLFW_PRESS) {
+            runcomp3 = true;
+            std::cout << "pressssseddd" << std::endl;
         }
     }
 

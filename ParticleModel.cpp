@@ -65,7 +65,7 @@ namespace Vltava {
         for (int i = 0; i < uniformBuffers.size(); i++)
             uniformBuffers[i].setSize(sizeof(MVP));
 
-        mat = std::make_unique<Material>("shaders/vert_p.spv", "shaders/frag_p.spv");
+        mat = std::make_unique<Material>("shaders/particle_vert.spv", "shaders/particle_frag.spv");
 
         vertexBufferData.reserve(nr * 4);
         indices.clear();

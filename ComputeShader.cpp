@@ -55,18 +55,36 @@ namespace Vltava {
         VulkanResources::getInstance().logDev->getHandle().destroyShaderModule(compModule);
     }
 
+    // TODO --> csinalni valamit uniformBuffer->size()-al? Valtozo ezek helyett, ami a nullok eseten mas erteket kap??
     void ComputeShader::setBuffers(const std::vector<Buffer>* uniformBuffers, const std::vector<Buffer>* storageBuffers) {
+        size_t size = 0;
+        bool uNull = (uniformBuffers == nullptr);
+        bool sNull = (storageBuffers == nullptr);
+
+        if (!uNull)
+            size += uniformBuffers->size();
+
+        if (!sNull)
+            size += storageBuffers->size();
+
         // Descriptor set layout creation
         //---------------------------------
         std::vector<vk::DescriptorSetLayoutBinding> bindings;
-        bindings.reserve(storageBuffers->size() + uniformBuffers->size());
+        bindings.reserve(size);
 
-        for (int i = 0; i < uniformBuffers->size(); i++) {
-            bindings.emplace_back(i, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eCompute);
+        if (!uNull) {
+            for (int i = 0; i < uniformBuffers->size(); i++) {
+                bindings.emplace_back(i, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eCompute);
+            }
         }
 
-        for (int i = uniformBuffers->size(); i < uniformBuffers->size() + storageBuffers->size(); i++) {
-            bindings.emplace_back(i, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eCompute);
+        if (!sNull) {
+            int start = 0;
+            if (!uNull) start = uniformBuffers->size();
+
+            for (int i = start; i < size; i++) {
+                bindings.emplace_back(i, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eCompute);
+            }
         }
 
         vk::DescriptorSetLayoutCreateInfo layoutInfo({}, bindings);
@@ -74,9 +92,12 @@ namespace Vltava {
 
         // Descriptor pool creation
         //---------------------------------
+        int us = uNull ? 0 : uniformBuffers->size();
+        int ss = sNull ? 0 : storageBuffers->size();
+
         std::vector<vk::DescriptorPoolSize> sizes = {
-                {vk::DescriptorType::eUniformBuffer, static_cast<uint32_t>(uniformBuffers->size())},
-                {vk::DescriptorType::eStorageBuffer, static_cast<uint32_t>(storageBuffers->size())}
+                {vk::DescriptorType::eUniformBuffer, static_cast<uint32_t>(us)},
+                {vk::DescriptorType::eStorageBuffer, static_cast<uint32_t>(ss)}
         };
 
         vk::DescriptorPoolCreateInfo poolInfo(
@@ -94,10 +115,10 @@ namespace Vltava {
 
         std::vector<vk::DescriptorBufferInfo> bufferInfos;
         std::vector<vk::WriteDescriptorSet> writeSets;
-        bufferInfos.reserve(storageBuffers->size() + uniformBuffers->size());
-        writeSets.reserve(storageBuffers->size() + uniformBuffers->size());
+        bufferInfos.reserve(size);
+        writeSets.reserve(size);
 
-        for (int i = 0; i < uniformBuffers->size(); i++) {
+        for (int i = 0; i < us; i++) {
             bufferInfos.emplace_back(
                     uniformBuffers->at(i).getBufferHandle(),
                     0,
@@ -116,7 +137,7 @@ namespace Vltava {
             );
         }
 
-        for (int i = 0; i < storageBuffers->size(); i++) {
+        for (int i = 0; i < ss; i++) {
             bufferInfos.emplace_back(
                     storageBuffers->at(i).getBufferHandle(),
                     0,
@@ -125,12 +146,12 @@ namespace Vltava {
 
             writeSets.emplace_back(
                     set,
-                    i + uniformBuffers->size(),
+                    i + us,
                     0,
                     1,
                     vk::DescriptorType::eStorageBuffer,
                     nullptr,
-                    &bufferInfos[i + uniformBuffers->size()],
+                    &bufferInfos[i + us],
                     nullptr
             );
         }

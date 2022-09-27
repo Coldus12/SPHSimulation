@@ -44,7 +44,7 @@ void Vltava::Model::loadModel(const std::string &path) {
             //,4, 5, 7, 7, 5, 6
     };
 
-    mat = std::make_unique<Material>("shaders/vert.spv", "shaders/frag.spv");
+    mat = std::make_unique<Material>("shaders/vertex_shader.spv", "shaders/fragment_shader.spv");
     mat->uploadVertexData<Vertex>(vertices);
     mat->uploadIndexData(indices);
     mat->setBuffers(&uniformBuffers, nullptr, vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment);
