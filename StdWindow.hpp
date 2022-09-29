@@ -44,6 +44,9 @@ namespace Vltava {
         GLFWwindow *window;
 
         static bool run;
+
+        static bool logB;
+
         int nrOfIter = 100;
         int particleNr = 512;
         int nrOfP = particleNr;
@@ -96,11 +99,10 @@ namespace Vltava {
         std::vector<Buffer> sBuffers;
         std::vector<Buffer> uBuffers;
 
-        std::vector<Buffer> comp3Buffer;
-
         std::unique_ptr<ComputeShader> comp1;
         std::unique_ptr<ComputeShader> comp2;
         std::unique_ptr<ComputeShader> comp3;
+        std::unique_ptr<ComputeShader> comp4;
 
         vk::Format swapChainImageFormat;
 
@@ -159,11 +161,6 @@ namespace Vltava {
         static void frameBufferResizeCallback(GLFWwindow *window, int width, int height);
 
         static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
-
-
-        void comp3func();
-        void logcomp3();
-        static bool runcomp3;
     };
 }
 

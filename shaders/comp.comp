@@ -4,6 +4,8 @@ precision highp float;
 
 #define PI 3.1415926538
 
+#define list_size 12
+
 struct Particle {
     vec3 x;                     // position
     float h;                    // radius
@@ -22,6 +24,9 @@ layout(set = 0, binding = 0) uniform UBO {
     float k;                    // normalization constant / stiffness constant
     float nr_of_particles;
     float kernelh;
+
+    vec4 gridA;
+    vec4 gridB;
 } ubo;
 
 layout(set = 0, binding = 1, std430)  buffer inBuffer {
@@ -32,60 +37,60 @@ layout(set = 0, binding = 2, std430) buffer outBuffer {
     Particle p[];
 } out_data;
 
-                             // SDF stuff
+layout(set = 0, binding = 3, std430) buffer gridBuffer {
+    int numbers[];
+} grid_data;
+
 //----------------------------------------------------------------------------------------------------------------------
+struct Neighbourhood {
+    vec3 neighbour[27]; // 3^3
+};
 
-vec4 sphere = vec4(0,0,-0.2,1);
-Particle phantomNeighbors[64];
-int actualNr = 0;
-int sampleSize = 4;
+int cellx = int(ceil(abs((ubo.gridB.x - ubo.gridA.x)/ubo.kernelh))); // Number of cells in x direction
+int celly = int(ceil(abs((ubo.gridB.y - ubo.gridA.y)/ubo.kernelh))); // Number of cells in y direction
+int cellz = int(ceil(abs((ubo.gridB.z - ubo.gridA.z)/ubo.kernelh))); // Number of cells in z direction
 
-// Returns smallest distance to sphere s
-float sphMap(vec3 p, vec4 s) {
-    float d = distance(p, s.xyz) - s.w;
-    return d;
+vec3 determineGridTuple(int particleIdx) {
+    vec3 diff = ubo.gridA.xyz - in_data.p[particleIdx].x;
+    diff /= ubo.kernelh;
+
+    return floor(abs(diff));
 }
 
-vec3 getClosestPoint(vec3 particlePos) {
-    float d = sphMap(particlePos, sphere);
-    return (sphere.xyz - particlePos) * d;
+int getStartIdxOfCell(vec3 tuple) {
+    return int((tuple.x * cellz * celly + tuple.y * cellz + tuple.z)*list_size);
 }
 
-void getNeighbours(Particle p) {
-    vec3 closestP = getClosestPoint(p.x);
-    float dist = 0.1;
-    vec3 start = closestP - vec3(-sampleSize*dist,-sampleSize*dist, -sampleSize*dist);
+Neighbourhood getNeighbouringCells(vec3 cellTuple) {
+    Neighbourhood ret;
 
-    for (int i = 0; i < 2*sampleSize; i++) {
-        for (int j = 0; j < 2*sampleSize; j++) {
-            for (int k = 0; k < 2*sampleSize; k++) {
-                vec3 current = start + vec3(i * dist, j * dist, k * dist);
-
-                if (-sphMap(current, sphere) < 0) {
-                    actualNr += 1;
-
-                    phantomNeighbors[actualNr-1].x = current;
-                    phantomNeighbors[actualNr-1].h = 0.1;
-                    phantomNeighbors[actualNr-1].v = vec3(0);
-                    phantomNeighbors[actualNr-1].m = 0.005236;
-
-                    phantomNeighbors[actualNr-1].rho = 1;
-                    phantomNeighbors[actualNr-1].p = 0;
-
-                    phantomNeighbors[actualNr-1].staticP = 1;
-                    phantomNeighbors[actualNr-1].padding = 0;
-                }
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            for (int k = 0; k < 3; k++) {
+                ret.neighbour[i * 9 + j * 3 + k] = vec3(cellTuple.x + (i-1), cellTuple.y + (j-1), cellTuple.z + (k-1));
             }
         }
     }
+
+    return ret;
 }
 
+bool checkBounds(vec3 tuple) {
+    if (tuple.x < 0 || tuple.x >= cellx)
+        return false;
+
+    if (tuple.y < 0 || tuple.y >= celly)
+        return false;
+
+    if (tuple.z < 0 || tuple.z >= cellz)
+        return false;
+
+    return true;
+}
 //----------------------------------------------------------------------------------------------------------------------
 
 float m_k = 8.0 / (PI * pow(ubo.kernelh, 3));
 float m_l = 1.0/(pow(ubo.kernelh, 3)) * 3.0/(2.0*PI);
-
-
 
 float kernel(vec3 i, vec3 j) {
     float q = length(i - j) / ubo.kernelh;
@@ -101,23 +106,6 @@ float kernel(vec3 i, vec3 j) {
     }
 
     return ret;
-
-    /*float val = 0;
-
-    if (q <= 2.0) {
-        if (q <= 1.0) {
-            val = 2.0/3.0 - pow(q, 2) + pow(q,3)/2;
-        } else {
-            val = pow(2 - q, 3)/6.0;
-        }
-    }
-
-    if (val < 0.001)
-        val = 0;
-
-    val *= m_l;
-
-    return val;*/
 }
 
 void copyData(uint gID) {
@@ -135,24 +123,33 @@ void copyData(uint gID) {
 
 void calculateRhoAndP(uint gID) {
     float density = 0.0;
-    //getNeighbours(in_data.p[gID]);
 
-    for (int j = 0; j < ubo.nr_of_particles; j++) {
+    /*for (int j = 0; j < ubo.nr_of_particles; j++) {
         if (gID == j)
             continue;
 
         density += in_data.p[gID].m * kernel(in_data.p[gID].x, in_data.p[j].x);
-    }
-
-    /*for (int j = 0; j < actualNr; j++) {
-        density += in_data.p[gID].m * kernel(in_data.p[gID].x, phantomNeighbors[j].x);
     }*/
+
+    vec3 tuple = determineGridTuple(int(gID));
+    Neighbourhood n = getNeighbouringCells(tuple);
+    for (int i = 0; i < 27; i++) {
+        vec3 current = n.neighbour[i];
+        if (!checkBounds(current)) continue;
+
+        int size = grid_data.numbers[getStartIdxOfCell(current)];
+        int iterIdx = 0;
+        for (int j = 1; j < size; j++) {
+            iterIdx = grid_data.numbers[j];
+            if (gID == iterIdx) continue;
+
+            density += in_data.p[gID].m * kernel(in_data.p[gID].x, in_data.p[iterIdx].x);
+        }
+    }
 
     out_data.p[gID].rho = density;
 
     float ratio = density / ubo.desired_density;
-    //out_data.p[gID].p = ubo.k * (pow(ratio, 7) - 1.0);
-    //float p = 0.001 * (pow(ratio, 7) - 1.0);
     float p = 0.001 * (pow(ratio, 7) - 1.0);
     out_data.p[gID].p = p < 0 ? 0 : p;
 }

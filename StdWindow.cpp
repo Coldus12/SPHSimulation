@@ -11,8 +11,8 @@ static Vltava::ImLog my_log;
 
 namespace Vltava {
     bool StdWindow::run = false;
-    bool StdWindow::rot = true;
-    bool StdWindow::runcomp3 = false;
+    bool StdWindow::rot = false;
+    bool StdWindow::logB = false;
 
     // Constructor
     //------------------------------------------------------------------------------------------------------------------
@@ -454,20 +454,6 @@ namespace Vltava {
 
         setComputeData();
 
-        Buffer inBuffer(
-                512*sizeof(int),
-                vk::BufferUsageFlagBits::eStorageBuffer,
-                vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
-        );
-        inBuffer.bind(0);
-
-        std::vector<int> val;
-        for (int i = 0; i < 512; i++)
-            val.push_back(0);
-
-        comp3Buffer.push_back(std::move(inBuffer));
-        comp3Buffer[0].writeToBuffer(val.data(), 512*sizeof(int));
-
         comp1 = std::make_unique<ComputeShader>("shaders/comp.spv");
         comp1->setBuffers(&uBuffers, &sBuffers);
         comp1->createPipeline();
@@ -477,8 +463,12 @@ namespace Vltava {
         comp2->createPipeline();
 
         comp3 = std::make_unique<ComputeShader>("shaders/atomic.spv");
-        comp3->setBuffers(nullptr, &comp3Buffer);
+        comp3->setBuffers(&uBuffers, &sBuffers);
         comp3->createPipeline();
+
+        comp4 = std::make_unique<ComputeShader>("shaders/resetgrid.spv");
+        comp4->setBuffers(&uBuffers, &sBuffers);
+        comp4->createPipeline();
     }
 
     // Try changing data to std::vec, and only allocate gpu memory after you are done filling said vector.
@@ -555,7 +545,10 @@ namespace Vltava {
                 1.0f,
                 0.1f,
                 (float) all_particle_nr,
-                0.2f
+                0.2f,
+
+                glm::vec4(-1,-1,-1, 0),
+                glm::vec4(1, 1, 1, 0)
         };
         uBuffers[0].writeToBuffer(&props, sizeof(props));
 
@@ -574,16 +567,32 @@ namespace Vltava {
         outBuffer.setSize(all_particle_nr * sizeof(Particle));
         outBuffer.bind(0);
 
+        // (0.2/0.1)^3 * 1.5 = 12
+        Buffer gridBuffer(
+                12*10*10*10 * sizeof(int),
+                vk::BufferUsageFlagBits::eStorageBuffer,
+                vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
+        );
+        gridBuffer.bind(0);
+
+        std::vector<int> val;
+        for (int i = 0; i < 12*10*10*10; i++)
+            val.push_back(0);
+
         sBuffers.push_back(std::move(inBuffer));
         sBuffers.push_back(std::move(outBuffer));
 
         for (auto& b: sBuffers)
             b.writeToBuffer(particles.data(), size);
+
+        sBuffers.push_back(std::move(gridBuffer));
+        sBuffers[2].writeToBuffer(val.data(), val.size() * sizeof(int));
     }
 
     void StdWindow::resetData() {
         comp1.reset();
         comp2.reset();
+        comp3.reset();
         sBuffers.clear();
         uBuffers.clear();
         initCompute();
@@ -661,16 +670,9 @@ namespace Vltava {
             log();
             run = false;
         }
-
-        if (runcomp3) {
-            sanityCheck("got here");
-            comp3func();
-            logcomp3();
-            runcomp3 = false;
-        }
     }
 
-    void StdWindow::comp3func() {
+    /*void StdWindow::comp3func() {
         vk::CommandBufferBeginInfo beginInfo({}, nullptr);
         computeCmdBuffer.begin(beginInfo);
 
@@ -704,7 +706,7 @@ namespace Vltava {
             if (console_log)
                 std::cout << str << std::endl;
         }
-    }
+    }*/
 
     void StdWindow::dispatchCompute(int groupCountX, int groupCountY, int groupCountZ) {
         vk::CommandBufferBeginInfo beginInfo({}, nullptr);
@@ -724,6 +726,28 @@ namespace Vltava {
         }
 
         for (int i = 0; i < nrOfIter; i++) {
+            comp4->bindPipelineAndDescriptors(computeCmdBuffer);
+            computeCmdBuffer.dispatch(groupCountX, groupCountY, groupCountZ);
+            computeCmdBuffer.pipelineBarrier(
+                    vk::PipelineStageFlagBits::eComputeShader,
+                    vk::PipelineStageFlagBits::eComputeShader,
+                    {},
+                    {},
+                    membarriers,
+                    {}
+            );
+
+            comp3->bindPipelineAndDescriptors(computeCmdBuffer);
+            computeCmdBuffer.dispatch(groupCountX, groupCountY, groupCountZ);
+            computeCmdBuffer.pipelineBarrier(
+                    vk::PipelineStageFlagBits::eComputeShader,
+                    vk::PipelineStageFlagBits::eComputeShader,
+                    {},
+                    {},
+                    membarriers,
+                    {}
+            );
+
             comp1->bindPipelineAndDescriptors(computeCmdBuffer);
             computeCmdBuffer.dispatch(groupCountX, groupCountY, groupCountZ);
             computeCmdBuffer.pipelineBarrier(
@@ -763,7 +787,23 @@ namespace Vltava {
 
     void StdWindow::log() {
         if (write_log) {
+            auto nr = sBuffers[2].getData<int>();
             auto spheres = sBuffers[1].getData<Particle>();
+
+            std::cout << nr.size() << std::endl;
+            std::string str = "";
+
+            for (int i = 0; i < nr.size(); i++) {
+                str += std::to_string(i) + " " + std::to_string(nr[i]);
+                if (i < spheres.size()) str += " Position: " + std::to_string(spheres[i].x.x) + " " + std::to_string(spheres[i].x.y) + " " + std::to_string(spheres[i].x.z)+"\n";
+                else str += "\n";
+            }
+            my_log.addLog(str.c_str());
+
+            if (console_log)
+                std::cout << str << std::endl;
+
+            /*auto spheres = sBuffers[1].getData<Particle>();
             std::string str = "";
             str += "Compute data - size: " + std::to_string(spheres.size()) + "\n";
             str += "----------------------------------------------\n";
@@ -780,7 +820,7 @@ namespace Vltava {
             my_log.addLog(str.c_str());
 
             if (console_log)
-                std::cout << str << std::endl;
+                std::cout << str << std::endl;*/
         }
     }
 
@@ -792,6 +832,10 @@ namespace Vltava {
 
         while (!glfwWindowShouldClose(window)) {
             glfwPollEvents();
+            if (logB) {
+                logB = false;
+                log();
+            }
 
             if (realTime) {
                 auto now = std::chrono::high_resolution_clock::now();
@@ -878,8 +922,7 @@ namespace Vltava {
         }
 
         if (key == GLFW_KEY_E && action == GLFW_PRESS) {
-            runcomp3 = true;
-            std::cout << "pressssseddd" << std::endl;
+            logB = true;
         }
     }
 

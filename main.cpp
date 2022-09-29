@@ -3,6 +3,7 @@
 #include "CPUSim.hpp"
 
 #define cpuTest false
+#define random false
 
 int main(int, char**) {
 #if cpuTest
@@ -28,10 +29,16 @@ int main(int, char**) {
     std::cout << "----------------------------------------------------" << std::endl;
     cpuSim.run(1);
     cpuSim.printData();*/
+#elif random
+    int cellx = int(ceil(abs((ubo.gridB.x - ubo.gridA.x)/ubo.kernelh))); // Number of cells in x direction
+    int celly = int(ceil(abs((ubo.gridB.y - ubo.gridA.y)/ubo.kernelh))); // Number of cells in y direction
+    int cellz = int(ceil(abs((ubo.gridB.z - ubo.gridA.z)/ubo.kernelh))); // Number of cells in z direction
+
+
 #else
-    //try {
+    try {
         Vltava::StdWindow window(1280, 720);
-    /*} catch ( vk::SystemError & err )
+    } catch ( vk::SystemError & err )
     {
         std::cout << "vk::SystemError: " << err.what() << std::endl;
         exit( -1 );
@@ -45,7 +52,7 @@ int main(int, char**) {
     {
         std::cout << "unknown error\n";
         exit( -1 );
-    }*/
+    }
 #endif
     return 0;
 }

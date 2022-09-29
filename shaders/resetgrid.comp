@@ -1,0 +1,61 @@
+#version 450
+layout (local_size_x = 512) in;
+precision highp float;
+
+#define PI 3.1415926538
+
+// Hashing constants
+#define H1 73856093
+#define H2 19349663
+#define H3 83492791
+
+#define list_size 12
+
+struct Particle {
+    vec3 x;                     // position
+    float h;                    // radius
+    vec3 v;                     // velocity
+    float m;                    // mass
+
+    float rho;                  // density
+    float p;                    // pressure
+
+    float staticP;               // is particle static
+    float padding;
+};
+
+// SSBOs
+//----------------------------------------------------------------------------------------------------------------------
+layout(set = 0, binding = 0) uniform UBO {
+    float desired_density;
+    float k;                    // normalization constant / stiffness constant
+    float nr_of_particles;
+    float kernelh;
+
+    vec4 gridA;
+    vec4 gridB;
+} ubo;
+
+layout(set = 0, binding = 1, std430)  buffer inBuffer {
+    Particle p[];
+} in_data;
+
+layout(set = 0, binding = 2, std430) buffer outBuffer {
+    Particle p[];
+} out_data;
+
+layout(set = 0, binding = 3, std430) buffer gridBuffer {
+    int numbers[];
+} grid_data;
+
+// Main
+//----------------------------------------------------------------------------------------------------------------------
+void main()
+{
+    //grab global ID
+    uint gID = gl_GlobalInvocationID.x;
+
+    if (gID < 12*30*30*30) {
+        grid_data.numbers[int(gID)] = 0;
+    }
+}

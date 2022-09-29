@@ -31,6 +31,9 @@ namespace Vltava {
         float k;                    // normalization constant / stiffness constant
         float nr_of_particles;
         float kernelh;
+
+        glm::vec4 gridA;
+        glm::vec4 gridB;
     };
 
     class ParticleModel : public Model {
