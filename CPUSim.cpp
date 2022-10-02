@@ -51,6 +51,53 @@ namespace Vltava {
         }
     }*/
 
+//                       grid thingy
+//----------------------------------------------------------------------------------------------------------------------
+    /*struct Neighbourhood {
+        vec3 neighbour[27]; // 3^3
+    };
+
+    int cellx = int(ceil(abs((SimProps.gridB.x - SimProps.gridA.x)/SimProps.kernelh))); // Number of cells in x direction
+    int celly = int(ceil(abs((SimProps.gridB.y - SimProps.gridA.y)/SimProps.kernelh))); // Number of cells in y direction
+    int cellz = int(ceil(abs((SimProps.gridB.z - SimProps.gridA.z)/SimProps.kernelh))); // Number of cells in z direction
+
+    vec3 determineGridTuple(int particleIdx) {
+        vec3 diff = SimProps.gridA.xyz - storage_in.p[particleIdx].x;
+        diff /= SimProps.kernelh;
+
+        return floor(abs(diff));
+    }
+
+    int getStartIdxOfCell(vec3 tuple) {
+        return int((tuple.x * cellz * celly + tuple.y * cellz + tuple.z)*list_size);
+    }
+
+    Neighbourhood getNeighbouringCells(vec3 cellTuple) {
+        Neighbourhood ret;
+
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                for (int k = 0; k < 3; k++) {
+                    ret.neighbour[i * 9 + j * 3 + k] = vec3(cellTuple.x + (i-1), cellTuple.y + (j-1), cellTuple.z + (k-1));
+                }
+            }
+        }
+
+        return ret;
+    }
+
+    bool checkBounds(vec3 tuple) {
+        if (tuple.x < 0 || tuple.x >= cellx)
+            return false;
+
+        if (tuple.y < 0 || tuple.y >= celly)
+            return false;
+
+        if (tuple.z < 0 || tuple.z >= cellz)
+            return false;
+
+        return true;
+    }*/
 //----------------------------------------------------------------------------------------------------------------------
 
     CPUSim::CPUSim() {
