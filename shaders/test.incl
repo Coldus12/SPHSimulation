@@ -1,0 +1,12 @@
+struct Particle {
+    vec3 x;                     // position
+    float h;                    // radius
+    vec3 v;                     // velocity
+    float m;                    // mass
+
+    float rho;                  // density
+    float p;                    // pressure
+
+    float staticP;               // is particle static
+    float padding;
+};
