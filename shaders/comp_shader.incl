@@ -1,0 +1,108 @@
+precision highp float;
+
+#define PI 3.1415926538
+
+// Hashing constants
+#define H1 73856093
+#define H2 19349663
+#define H3 83492791
+
+#define list_size 12
+
+struct Particle {
+    vec3 x;                     // position
+    float h;                    // radius
+    vec3 v;                     // velocity
+    float m;                    // mass
+
+    float rho;                  // density
+    float p;                    // pressure
+
+    float staticP;               // is particle static
+    float padding;
+};
+
+// SSBOs
+//----------------------------------------------------------------------------------------------------------------------
+layout(set = 0, binding = 0) uniform UBO {
+    float desired_density;
+    float k;                    // normalization constant / stiffness constant
+    float nr_of_particles;
+    float kernelh;
+
+    vec4 gridA;
+    vec4 gridB;
+} ubo;
+
+layout(set = 0, binding = 1, std430)  buffer inBuffer {
+    Particle p[];
+} in_data;
+
+layout(set = 0, binding = 2, std430) buffer outBuffer {
+    Particle p[];
+} out_data;
+
+layout(set = 0, binding = 3, std430) buffer gridBuffer {
+    int numbers[];
+} grid_data;
+
+// Neighbourhood stuff
+//----------------------------------------------------------------------------------------------------------------------
+struct Neighbourhood {
+    vec3 neighbour[27]; // 3^3
+};
+
+int cellx = int(ceil(abs((ubo.gridB.x - ubo.gridA.x)/ubo.kernelh))); // Number of cells in x direction
+int celly = int(ceil(abs((ubo.gridB.y - ubo.gridA.y)/ubo.kernelh))); // Number of cells in y direction
+int cellz = int(ceil(abs((ubo.gridB.z - ubo.gridA.z)/ubo.kernelh))); // Number of cells in z direction
+
+vec3 determineGridTuple(int particleIdx) {
+    vec3 diff = ubo.gridA.xyz - in_data.p[particleIdx].x;
+    diff /= ubo.kernelh;
+
+    return floor(abs(diff));
+}
+
+int getStartIdxOfCell(vec3 tuple) {
+    return int((tuple.x * cellz * celly + tuple.y * cellz + tuple.z)*list_size);
+}
+
+Neighbourhood getNeighbouringCells(vec3 cellTuple) {
+    Neighbourhood ret;
+
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            for (int k = 0; k < 3; k++) {
+                ret.neighbour[i * 9 + j * 3 + k] = vec3(cellTuple.x + (i-1), cellTuple.y + (j-1), cellTuple.z + (k-1));
+            }
+        }
+    }
+
+    return ret;
+}
+
+bool checkBounds(vec3 tuple) {
+    if (tuple.x < 0 || tuple.x >= cellx)
+        return false;
+
+    if (tuple.y < 0 || tuple.y >= celly)
+        return false;
+
+    if (tuple.z < 0 || tuple.z >= cellz)
+        return false;
+
+    return true;
+}
+
+void placeParticleIntoCell(int particleIdx) {
+    vec3 cellTuple = determineGridTuple(particleIdx);
+
+    int startIdx = getStartIdxOfCell(cellTuple);
+    uint realIdx = atomicAdd(grid_data.numbers[startIdx], 1);
+    realIdx += startIdx + 1;
+
+    // Placing particleIdx into cell
+    grid_data.numbers[realIdx] = particleIdx;
+    //grid_data.numbers[particleIdx] = int(realIdx);
+}
+//----------------------------------------------------------------------------------------------------------------------

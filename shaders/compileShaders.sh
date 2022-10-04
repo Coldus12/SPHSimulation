@@ -7,22 +7,22 @@
 #done
 
 for files in *.comp *.frag *.vert; do
- file=$(cat $files);
- extension="${files##*.}";
+  file=$(cat $files);
+  extension="${files##*.}";
 
- while read line;
-   do
+  while read line;
+  do
     if [[ "$line" =~ "#include" ]]; then
-     filename=${line/"#include "/""};
-     incl="#include $filename";
-     loaded=$(cat "$filename");
-     file=${file/"$incl"/"$loaded"};
+      filename=${line/"#include "/""};
+      incl="#include $filename";
+      loaded=$(cat "$filename");
+      file=${file/"$incl"/"$loaded"};
     fi
-   done <<< "$file"
+  done <<< "$file"
 
-    echo "$file" >> tmp.$extension;
+  echo "$file" >> tmp.$extension;
 
-   glslc tmp.$extension -o ../cmake-build-debug/shaders/"${files%.*}".spv;
-   rm tmp.$extension;
+  glslc tmp.$extension -o ../cmake-build-debug/shaders/"${files%.*}".spv;
+  rm tmp.$extension;
   #glslc "$file" -o "${file%.*}".spv
 done
