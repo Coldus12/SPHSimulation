@@ -53,10 +53,12 @@ void calculateRhoAndP(uint gID) {
         vec3 current = n.neighbour[i];
         if (!checkBounds(current)) continue;
 
-        int size = grid_data.numbers[getStartIdxOfCell(current)];
+        int idx = getStartIdxOfCell(current);
+        int size = grid_data.numbers[idx];
+
         int iterIdx = 0;
-        for (int j = 1; j < size; j++) {
-            iterIdx = grid_data.numbers[j];
+        for (int j = 1; j < size+1; j++) {
+            iterIdx = grid_data.numbers[idx + j];
             if (gID == iterIdx) continue;
 
             density += in_data.p[gID].m * kernel(in_data.p[gID].x, in_data.p[iterIdx].x);

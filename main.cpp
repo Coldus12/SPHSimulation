@@ -2,21 +2,24 @@
 #include "Managed/Managed.hpp"
 #include "CPUSim.hpp"
 
-#define cpuTest true
+#define cpuTest false
 
 int main(int, char**) {
 #if cpuTest
     Vltava::CPUSim cpuSim;
     cpuSim.setSimProps();
-    /*for (int i = 0; i < 2; i++) {
+    /*cpuSim.printData();
+    std::cout << "------------------------------------------------------" << std::endl;
+    cpuSim.debugNeighbour();*/
+    for (int i = 0; i < 10; i++) {
         cpuSim.run(50);
         //cpuSim.printData();
 
         std::cout << i <<std::endl;
         std::cout << "----------------------------------------------------" << std::endl;
-    }*/
-    cpuSim.run(3);
-    cpuSim.run(1);
+    }
+    //cpuSim.run(3);
+    //cpuSim.run(1);
     cpuSim.printData();
     /*std::cout << "--------------------------------------" << std::endl;
     cpuSim.run(1);

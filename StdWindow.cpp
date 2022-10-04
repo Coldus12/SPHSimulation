@@ -787,7 +787,7 @@ namespace Vltava {
 
     void StdWindow::log() {
         if (write_log) {
-            auto nr = sBuffers[2].getData<int>();
+            /*auto nr = sBuffers[2].getData<int>();
             auto spheres = sBuffers[1].getData<Particle>();
 
             std::cout << nr.size() << std::endl;
@@ -801,9 +801,9 @@ namespace Vltava {
             my_log.addLog(str.c_str());
 
             if (console_log)
-                std::cout << str << std::endl;
+                std::cout << str << std::endl;*/
 
-            /*auto spheres = sBuffers[1].getData<Particle>();
+            auto spheres = sBuffers[1].getData<Particle>();
             std::string str = "";
             str += "Compute data - size: " + std::to_string(spheres.size()) + "\n";
             str += "----------------------------------------------\n";
@@ -820,7 +820,7 @@ namespace Vltava {
             my_log.addLog(str.c_str());
 
             if (console_log)
-                std::cout << str << std::endl;*/
+                std::cout << str << std::endl;
         }
     }
 
