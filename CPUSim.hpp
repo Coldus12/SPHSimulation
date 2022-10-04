@@ -13,6 +13,8 @@ namespace Vltava {
         void printData();
         void setSimProps();
     private:
+        int cellx, celly, cellz;
+
         bool first = true;
         std::vector<Particle> particles1;
         std::vector<Particle> particles2;
