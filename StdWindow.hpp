@@ -16,6 +16,7 @@
 #include "ComputeShader.hpp"
 #include "Managed/Managed.hpp"
 #include "CPUSim.hpp"
+#include "VulkanWrapper.h"
 
 #include <iostream>
 #include <limits>
@@ -65,48 +66,21 @@ namespace Vltava {
         std::vector<Particle> createContainerAt(glm::vec3 pos, float dist, int sideLength);
         void log();
 
-        vk::Image depthImage;
-        vk::DeviceMemory depthImageMemory;
-        vk::ImageView depthImageView;
-        void createDepthResources();
-        vk::ImageView createImageView(vk::Image image, vk::Format format, vk::ImageAspectFlags aspectFlags);
-        void createImage(
-                uint32_t width,
-                uint32_t height,
-                vk::Format format,
-                vk::ImageTiling tiling,
-                vk::ImageUsageFlags usage,
-                vk::MemoryPropertyFlags properties,
-                vk::Image& image,
-                vk::DeviceMemory& imagememory
-        );
-
         uint32_t currentFrame = 0;
-        uint32_t graphicsQueueFamily = (uint32_t) -1;
-        uint32_t presentQueueFamily = (uint32_t) -1;
-        uint32_t computeQueueFamily = (uint32_t) -1;
-
-        std::vector<vk::CommandBuffer> commandBuffers;
-        vk::CommandBuffer computeCmdBuffer;
-
-        //vk::Extent2D swapChainExtent;
-        std::vector<vk::Image> swapChainImages;
-        std::vector<vk::ImageView> imageViews;
-        std::vector<vk::Framebuffer> swapChainFramebuffers;
 
         std::unique_ptr<CPUSim> cpusim;
         std::unique_ptr<ParticleModel> model;
+        std::unique_ptr<VulkanWrapper> vw;
+
         // For the compute shaders.
         // These contain the particle data.
         std::vector<Buffer> sBuffers;
         std::vector<Buffer> uBuffers;
 
-        std::unique_ptr<ComputeShader> comp1;
-        std::unique_ptr<ComputeShader> comp2;
-        std::unique_ptr<ComputeShader> comp3;
-        std::unique_ptr<ComputeShader> comp4;
-
-        vk::Format swapChainImageFormat;
+        std::unique_ptr<ComputeShader> densityComp;
+        std::unique_ptr<ComputeShader> particleIterComp;
+        std::unique_ptr<ComputeShader> gridPlacementComp;
+        std::unique_ptr<ComputeShader> cleanGridComp;
 
         // even the sample uses VkImage and not vk::Image (i guess because swapchain.getImages() returns a vector of VkImage and not vk::Image)
         std::vector<vk::Semaphore> imageAvailableSemaphores;
@@ -115,36 +89,13 @@ namespace Vltava {
 
         vk::Fence compFence;
 
-        bool enableValidationLayers = false;
-
-        const std::vector<const char *> deviceExtensions = {
-                VK_KHR_SWAPCHAIN_EXTENSION_NAME
-        };
-
-        const std::vector<const char *> validationLayers = {
-                "VK_LAYER_KHRONOS_validation"
-        };
-
         //IMGUI
         VkDescriptorPool imguiPool;
 
         // Functions
         //--------------------------------------------------------------------------------------------------------------
         void initImgui();
-
         virtual void initVulkan();
-        virtual void createInstance(std::string app_name);
-        virtual void createSurface();
-        virtual void selectPhysicalDevice();
-        virtual void selectQueues();
-        virtual void createLogicalDevice();
-        virtual void recreateSwapChain();
-        virtual void createSwapChain();
-        virtual void createImageViews();
-        virtual void createRenderPass();
-        virtual void createFramebuffers();
-        virtual void createCommandPool();
-        virtual void createCommandBuffers();
         virtual void createSyncObjects();
         virtual void drawFrame();
         virtual void recordCommandBuffer(uint32_t imageIndex);
@@ -158,10 +109,7 @@ namespace Vltava {
 
         void mainloop();
 
-        // Swapchain helper options
-        void cleanupSwapChain();
         static void frameBufferResizeCallback(GLFWwindow *window, int width, int height);
-
         static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
     };
 }
