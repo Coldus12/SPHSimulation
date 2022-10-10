@@ -15,6 +15,7 @@
 #include "ParticleModel.hpp"
 #include "ComputeShader.hpp"
 #include "Managed/Managed.hpp"
+#include "CPUSim.hpp"
 
 #include <iostream>
 #include <limits>
@@ -44,7 +45,7 @@ namespace Vltava {
         GLFWwindow *window;
 
         static bool run;
-
+        static bool cpu;
         static bool logB;
 
         int nrOfIter = 100;
@@ -93,6 +94,7 @@ namespace Vltava {
         std::vector<vk::ImageView> imageViews;
         std::vector<vk::Framebuffer> swapChainFramebuffers;
 
+        std::unique_ptr<CPUSim> cpusim;
         std::unique_ptr<ParticleModel> model;
         // For the compute shaders.
         // These contain the particle data.

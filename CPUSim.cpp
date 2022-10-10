@@ -1,7 +1,7 @@
 #include "CPUSim.hpp"
 
 #define PI 3.1415926538
-#define list_size 12
+#define list_size 20
 #define ppic false
 
 namespace Vltava {
@@ -13,8 +13,6 @@ namespace Vltava {
 
         glm::vec3 diff = glm::vec3(simProps.gridA.x, simProps.gridA.y, simProps.gridA.z) - particles.at(particleIdx).x;
         diff /= simProps.kernelh;
-
-        //std::cout << diff.x << " " << diff.y << " " << diff.z << std::endl;
 
         return floor(abs(diff));
     }
@@ -63,7 +61,6 @@ namespace Vltava {
 
             // Placing particleIdx into cell
             grid_data.at(realIdx) = particleIdx;
-            //grid_data.numbers[particleIdx] = int(realIdx);
         }
     }
 
@@ -96,8 +93,61 @@ namespace Vltava {
             std::cout << grid_data.at(idx + i) << " , ";
         }
         std::cout << "\n size of cell (5,5,5) -> " << size << std::endl;
+
+        std::cout << "----------------------------------------\n";
+        /*auto& particles = first ? particles1 : particles2;
+        for (int i = 0; i < 64; i++) {
+            float d1 = 0;
+            float d2 = 0;
+
+            for (int j = 0; j < particles.size(); j++) {
+                if (i == j)
+                    continue;
+
+                d1 += particles[j].m * kernel(i, j);
+            }
+
+            glm::vec3 tuple = determineGridTuple(i);
+            Neighbourhood n = getNeighbouringCells(tuple);
+            for (auto current: n.neighbour) {
+                if (!checkBounds(current)) continue;
+
+                idx = getStartIdxOfCell(current);
+                size = grid_data.at(idx);
+
+                int iterIdx = 0;
+                for (int j = 1; j < size + 1; j++) {
+                    iterIdx = grid_data.at(idx + j);
+                    if (i == iterIdx) continue;
+
+                    //density += in_data.p[gID].m * kernel(in_data.p[gID].x, in_data.p[iterIdx].x);
+                    d2 += particles[i].m * kernel(i, iterIdx);
+                }
+            }
+
+            std::cout << "d1 = " << d1 << "; d2 = " << d2 << ";\n";
+        }*/
     }
 //----------------------------------------------------------------------------------------------------------------------
+
+    void CPUSim::setSimProps(SimProps& props) {
+        this->simProps = props;
+
+        cellx = (int) ceil(abs((simProps.gridB.x - simProps.gridA.x)/simProps.kernelh)); // Number of cells in x direction
+        celly = (int) ceil(abs((simProps.gridB.y - simProps.gridA.y)/simProps.kernelh)); // Number of cells in y direction
+        cellz = (int) ceil(abs((simProps.gridB.z - simProps.gridA.z)/simProps.kernelh)); // Number of cells in z direction
+    }
+
+    void CPUSim::setData(const std::vector<Particle>& p) {
+        particles1.clear();
+        particles2.clear();
+
+        particles1.reserve(p.size());
+        particles2.reserve(p.size());
+
+        this->particles1 = p;
+        this->particles2 = p;
+    }
 
     CPUSim::CPUSim() {
         // Water rest density = 1 kg/m^3
@@ -148,9 +198,11 @@ namespace Vltava {
     void CPUSim::run(int iterNr) {
         for (int i = 0; i < iterNr; i++) {
             place();
+            //printGridData();
             calculateRhoAndP();
             iter();
         }
+        printData();
     }
 
     //TODO: replace k in real sim with 0.001f
@@ -170,16 +222,31 @@ namespace Vltava {
         std::cout << cellx << " " << celly << " " << cellz << std::endl;
     }
 
-    void CPUSim::printData() {
+    void CPUSim::printGridData() {
+        std::cout << "\ngrid_data:\n";
+        std::cout << "----------------------\n";
+        for (auto& i : grid_data) {
+            std::cout << i << std::endl;
+        }
+    }
+
+    void CPUSim::printData(int nr) {
         auto& particles = first ? particles1 : particles2;
 
-        for (auto& p: particles) {
+        for (int i = 0; i < nr; i++) {
+            auto& p = particles[i];
             std::cout << "Density: " << p.rho <<
                       "; Pressure: " << p.p <<
                       " ; Position: " << p.x.x << " " << p.x.y << " " << p.x.z <<
                       " ; Mass: " << p.m <<
-                      " ; Velocity: " << p.v.x << " " << p.v.y << " " << p.v.z << std::endl;
+                      " ; Velocity: " << p.v.x << " " << p.v.y << " " << p.v.z <<
+                      " ; padding: " << p.padding;
+                      if (p.rho - p.padding > 0)
+                        std::cout << " ; diff = " << p.rho - p.padding;
+
+                      std::cout << std::endl;
         }
+        std::cout << "----------\n";
     }
 
     void CPUSim::place() {
@@ -200,19 +267,22 @@ namespace Vltava {
         // Density calculation
         for (int i = 0; i < particles.size(); i++) {
             float density = 0.0f;
+            float ogd = 0.0f;
 
             // Original
-            /*for (int j = 0; j < particles.size(); j++) {
+            for (int j = 0; j < particles.size(); j++) {
                 if (i == j)
                     continue;
 
-                density += particles[j].m * kernel(i, j);
-            }*/
+                /*density*/ density += particles[j].m * kernel(i, j);
+            }
 
             // Neighbour
             glm::vec3 tuple = determineGridTuple(i);
             Neighbourhood n = getNeighbouringCells(tuple);
-            for (auto current : n.neighbour) {
+            //for (auto current : n.neighbour) {
+            for (int nr = 0; nr < 27; nr++) {
+                glm::vec3 current = n.neighbour[nr];
                 if (!checkBounds(current)) continue;
 
                 int idx = getStartIdxOfCell(current);
@@ -224,11 +294,12 @@ namespace Vltava {
                     if (i == iterIdx) continue;
 
                     //density += in_data.p[gID].m * kernel(in_data.p[gID].x, in_data.p[iterIdx].x);
-                    density += particles[i].m * kernel(i, iterIdx);
+                    ogd += particles[i].m * kernel(i, iterIdx);
                 }
             }
 
             particles[i].rho = density;
+            particles[i].padding = ogd;
 
             // Pressure calculation
             float ratio = density / simProps.desired_density;
@@ -240,86 +311,92 @@ namespace Vltava {
     void CPUSim::iter() {
         const auto& p1 = first ? particles1 : particles2;
         auto& p2 = first ? particles2 : particles1;
-
         for (int i = 0; i < p1.size(); i++) {
-            // Calculate pressure
-            glm::vec3 pressure = glm::vec3(0);
-            glm::vec3 viscosity = glm::vec3(0);
 
-            // Original
-            /*for (int j = 0; j < p1.size(); j++) {
-                if (j == i)
-                    continue;
+            if (p1.at(i).staticP == 0) {
 
-                // Note to self: as the particles get further and further from each other the density decreases which means rho --> 0
-                // whihc leads to something/0^2, which is either inf or -inf ----> nan or -nan
-                float val = 0;
-                if (p1[j].rho != 0 && p1[i].rho != 0)
-                    val = p1[j].m * ((p1[i].p / pow(p1[i].rho, 2)) + (p1[j].p / pow(p1[j].rho, 2)));
+                // Calculate pressure
+                glm::vec3 pressure = glm::vec3(0);
+                glm::vec3 viscosity = glm::vec3(0);
 
-                pressure += val * gradKernel(i, j);
-
-                glm::vec3 xij = p1[i].x - p1[j].x;
-
-                float pval = 0;
-                if (p1[j].rho != 0)
-                    pval = (p1[j].m / p1[j].rho) * (dot(xij, gradKernel(i, j)) /  (dot(xij, xij) + 0.01 * simProps.kernelh));
-
-                glm::vec3 vij = p1[i].v - p1[j].v;
-                viscosity += pval * vij;
-            }*/
-
-            // Neighbour
-            glm::vec3 tuple = determineGridTuple(i);
-            Neighbourhood n = getNeighbouringCells(tuple);
-            for (auto current : n.neighbour) {
-                if (!checkBounds(current)) continue;
-
-                int idx = getStartIdxOfCell(current);
-                int size = grid_data.at(idx);
-
-                int iterIdx = 0;
-                for (int j = 1; j < size+1; j++) {
-                    iterIdx = grid_data.at(idx + j);
-                    if (i == iterIdx) continue;
+                // Original
+                for (int j = 0; j < p1.size(); j++) {
+                    if (j == i)
+                        continue;
 
                     // Note to self: as the particles get further and further from each other the density decreases which means rho --> 0
                     // whihc leads to something/0^2, which is either inf or -inf ----> nan or -nan
                     float val = 0;
-                    if (p1[iterIdx].rho != 0 && p1[i].rho != 0)
-                        val = p1[iterIdx].m * ((p1[i].p / pow(p1[i].rho, 2)) + (p1[iterIdx].p / pow(p1[iterIdx].rho, 2)));
+                    if (p1[j].rho != 0 && p1[i].rho != 0)
+                        val = p1[j].m * ((p1[i].p / pow(p1[i].rho, 2)) + (p1[j].p / pow(p1[j].rho, 2)));
 
-                    pressure += val * gradKernel(i, iterIdx);
+                    pressure += val * gradKernel(i, j);
 
-                    glm::vec3 xij = p1[i].x - p1[iterIdx].x;
+                    glm::vec3 xij = p1[i].x - p1[j].x;
 
                     float pval = 0;
-                    if (p1[iterIdx].rho != 0)
-                        pval = (p1[iterIdx].m / p1[iterIdx].rho) * (dot(xij, gradKernel(i, iterIdx)) /  (dot(xij, xij) + 0.01 * simProps.kernelh));
+                    if (p1[j].rho != 0)
+                        pval = (p1[j].m / p1[j].rho) *
+                               (dot(xij, gradKernel(i, j)) / (dot(xij, xij) + 0.01 * simProps.kernelh));
 
-                    glm::vec3 vij = p1[i].v - p1[iterIdx].v;
+                    glm::vec3 vij = p1[i].v - p1[j].v;
                     viscosity += pval * vij;
                 }
+
+                // Neighbour
+                /*glm::vec3 tuple = determineGridTuple(i);
+                Neighbourhood n = getNeighbouringCells(tuple);
+                for (auto current : n.neighbour) {
+                    if (!checkBounds(current)) continue;
+
+                    int idx = getStartIdxOfCell(current);
+                    int size = grid_data.at(idx);
+
+                    int iterIdx = 0;
+                    for (int j = 1; j < size+1; j++) {
+                        iterIdx = grid_data.at(idx + j);
+                        if (i == iterIdx) continue;
+
+                        // Note to self: as the particles get further and further from each other the density decreases which means rho --> 0
+                        // whihc leads to something/0^2, which is either inf or -inf ----> nan or -nan
+                        float val = 0;
+                        if (p1[iterIdx].rho != 0 && p1[i].rho != 0)
+                            val = p1[iterIdx].m * ((p1[i].p / pow(p1[i].rho, 2)) + (p1[iterIdx].p / pow(p1[iterIdx].rho, 2)));
+
+                        pressure += val * gradKernel(i, iterIdx);
+
+                        glm::vec3 xij = p1[i].x - p1[iterIdx].x;
+
+                        float pval = 0;
+                        if (p1[iterIdx].rho != 0)
+                            pval = (p1[iterIdx].m / p1[iterIdx].rho) * (dot(xij, gradKernel(i, iterIdx)) /  (dot(xij, xij) + 0.01 * simProps.kernelh));
+
+                        glm::vec3 vij = p1[i].v - p1[iterIdx].v;
+                        viscosity += pval * vij;
+                    }
+                }*/
+
+                pressure *= -p1[i].m;
+
+                float nu = 0.01;
+                viscosity *= 2 * nu * p1[i].m;
+
+                glm::vec3 gravity(0, 0, -9.81 * p1[i].m);
+                glm::vec3 acc = (pressure + viscosity /*+ gravity*/) / p1[i].m;
+
+                float dt = 0.01;
+                glm::vec3 viNext = p1[i].v;
+                glm::vec3 xiNext = p1[i].x;
+                viNext += acc * (float) dt / 1.0f;
+                xiNext += viNext * dt;
+
+                p2[i].x = xiNext;
+                p2[i].v = viNext;
+                p2[i].rho = p1[i].rho;
+                p2[i].p = p1[i].p;
+            } else {
+                p2.at(i) = p1.at(i);
             }
-
-            pressure *= -p1[i].m;
-
-            float nu = 0.01;
-            viscosity *= 2 * nu * p1[i].m;
-
-            glm::vec3 gravity(0,0,-9.81 * p1[i].m);
-            glm::vec3 acc = (pressure + viscosity + gravity) / p1[i].m;
-
-            float dt = 0.01;
-            glm::vec3 viNext = p1[i].v;
-            glm::vec3 xiNext = p1[i].x;
-            viNext += acc * (float) dt/1.0f;
-            xiNext += viNext * dt;
-
-            p2[i].x = xiNext;
-            p2[i].v = viNext;
-            p2[i].rho = p1[i].rho;
-            p2[i].p = p1[i].p;
         }
 
         first = !first;

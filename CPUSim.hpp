@@ -14,8 +14,11 @@ namespace Vltava {
         void run(int iterNr);
         SimProps simProps;
 
-        void printData();
+        void printData(int nr = 64);
+        void printGridData();
         void setSimProps();
+        void setSimProps(SimProps& props);
+        void setData(const std::vector<Particle>& p);
 
         void debugNeighbour();
     private:

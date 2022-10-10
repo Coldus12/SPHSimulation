@@ -7,7 +7,7 @@ precision highp float;
 #define H2 19349663
 #define H3 83492791
 
-#define list_size 12
+#define list_size 25
 
 struct Particle {
     vec3 x;                     // position
@@ -97,12 +97,14 @@ bool checkBounds(vec3 tuple) {
 void placeParticleIntoCell(int particleIdx) {
     vec3 cellTuple = determineGridTuple(particleIdx);
 
-    int startIdx = getStartIdxOfCell(cellTuple);
-    uint realIdx = atomicAdd(grid_data.numbers[startIdx], 1);
-    realIdx += startIdx + 1;
+    if (checkBounds(cellTuple)) {
+        int startIdx = getStartIdxOfCell(cellTuple);
+        uint realIdx = atomicAdd(grid_data.numbers[startIdx], 1);
+        realIdx += startIdx + 1;
 
-    // Placing particleIdx into cell
-    grid_data.numbers[realIdx] = particleIdx;
+        // Placing particleIdx into cell
+        grid_data.numbers[realIdx] = particleIdx;
+    }
     //grid_data.numbers[particleIdx] = int(realIdx);
 }
 //----------------------------------------------------------------------------------------------------------------------

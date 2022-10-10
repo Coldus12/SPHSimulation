@@ -10,7 +10,7 @@ void main()
     //grab global ID
     uint gID = gl_GlobalInvocationID.x;
 
-    if (gID < 12*30*30*30) {
+    if (gID < 25*20*20*20) {
         grid_data.numbers[int(gID)] = 0;
     }
 }

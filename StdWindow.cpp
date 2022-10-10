@@ -13,6 +13,7 @@ namespace Vltava {
     bool StdWindow::run = false;
     bool StdWindow::rot = false;
     bool StdWindow::logB = false;
+    bool StdWindow::cpu = false;
 
     // Constructor
     //------------------------------------------------------------------------------------------------------------------
@@ -473,6 +474,8 @@ namespace Vltava {
 
     // Try changing data to std::vec, and only allocate gpu memory after you are done filling said vector.
     void StdWindow::setComputeData() {
+        cpusim = std::make_unique<CPUSim>();
+
         // Water rest density = 1 kg/m^3
         //
         // Particle h = 0.05 meter
@@ -543,13 +546,17 @@ namespace Vltava {
 
         SimProps props{
                 1.0f,
-                0.1f,
+                0.001f,
                 (float) all_particle_nr,
                 0.2f,
 
-                glm::vec4(-1,-1,-1, 0),
-                glm::vec4(1, 1, 1, 0)
+                glm::vec4(-2,-2,-2, 0),
+                glm::vec4(2, 2, 2, 0)
         };
+
+        cpusim->setSimProps(props);
+        cpusim->setData(particles);
+
         uBuffers[0].writeToBuffer(&props, sizeof(props));
 
         Buffer inBuffer(
@@ -569,14 +576,14 @@ namespace Vltava {
 
         // (0.2/0.1)^3 * 1.5 = 12
         Buffer gridBuffer(
-                12*10*10*10 * sizeof(int),
+                25*20*20*20 * sizeof(int),
                 vk::BufferUsageFlagBits::eStorageBuffer,
                 vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
         );
         gridBuffer.bind(0);
 
         std::vector<int> val;
-        for (int i = 0; i < 12*10*10*10; i++)
+        for (int i = 0; i < 25*20*20*20; i++)
             val.push_back(0);
 
         sBuffers.push_back(std::move(inBuffer));
@@ -672,43 +679,10 @@ namespace Vltava {
         }
     }
 
-    /*void StdWindow::comp3func() {
-        vk::CommandBufferBeginInfo beginInfo({}, nullptr);
-        computeCmdBuffer.begin(beginInfo);
-
-        comp3->bindPipelineAndDescriptors(computeCmdBuffer);
-        computeCmdBuffer.dispatch(512, 1, 1);
-
-        computeCmdBuffer.end();
-
-        vk::SubmitInfo submitInfo(
-                {},
-                {},
-                computeCmdBuffer,
-                {}
-        );
-
-        //VulkanResources::getInstance().computeQueue->submit(submitInfo, compFence);
-        VulkanResources::getInstance().computeQueue->submit(submitInfo);
-    }
-
-    void StdWindow::logcomp3() {
-        sanityCheck("log comp3");
-        auto data = comp3Buffer[0].getData<int>();
-        std::cout << data.size() << std::endl;
-        for (auto it: data) {
-            std::cout << it <<std::endl;
-            std::string str = "";
-            str += "" + std::to_string(it);
-
-            my_log.addLog(str.c_str());
-
-            if (console_log)
-                std::cout << str << std::endl;
-        }
-    }*/
-
     void StdWindow::dispatchCompute(int groupCountX, int groupCountY, int groupCountZ) {
+        if (cpu)
+            cpusim->run(1);
+
         vk::CommandBufferBeginInfo beginInfo({}, nullptr);
         computeCmdBuffer.begin(beginInfo);
 
@@ -787,22 +761,6 @@ namespace Vltava {
 
     void StdWindow::log() {
         if (write_log) {
-            /*auto nr = sBuffers[2].getData<int>();
-            auto spheres = sBuffers[1].getData<Particle>();
-
-            std::cout << nr.size() << std::endl;
-            std::string str = "";
-
-            for (int i = 0; i < nr.size(); i++) {
-                str += std::to_string(i) + " " + std::to_string(nr[i]);
-                if (i < spheres.size()) str += " Position: " + std::to_string(spheres[i].x.x) + " " + std::to_string(spheres[i].x.y) + " " + std::to_string(spheres[i].x.z)+"\n";
-                else str += "\n";
-            }
-            my_log.addLog(str.c_str());
-
-            if (console_log)
-                std::cout << str << std::endl;*/
-
             auto spheres = sBuffers[1].getData<Particle>();
             std::string str = "";
             str += "Compute data - size: " + std::to_string(spheres.size()) + "\n";
@@ -810,10 +768,10 @@ namespace Vltava {
 
             for (int i = 0; i < nrOfP; i++) {
                 str += "Density: " + std::to_string(spheres[i].rho) +
-                       "; Pressure: " + std::to_string(spheres[i].p) +
+                       /*"; Pressure: " + std::to_string(spheres[i].p) +
                        " ; Position: " + std::to_string(spheres[i].x.x) + " " + std::to_string(spheres[i].x.y) + " " + std::to_string(spheres[i].x.z) +
-                       " ; Mass: " + std::to_string(spheres[i].m) +
-                       " ; Velocity: " + std::to_string(spheres[i].v.x) + " " + std::to_string(spheres[i].v.y) + " " + std::to_string(spheres[i].v.z) +";\n";
+                       " ; Mass: " + std::to_string(spheres[i].m)*/ + " ; Padding = " + std::to_string(spheres[i].padding) + " ; diff = " + std::to_string(spheres[i].padding - spheres[i].rho) +
+                       /*" ; Velocity: " + std::to_string(spheres[i].v.x) + " " + std::to_string(spheres[i].v.y) + " " + std::to_string(spheres[i].v.z) +*/";\n";
             }
             str += "\n----------------------------------------------\n";
 
@@ -877,6 +835,13 @@ namespace Vltava {
             if (ImGui::Button("Toggle rotation"))
                 rot = !rot;
 
+            if (ImGui::Button("Iter"))
+                run = true;
+
+            if (ImGui::Button("CPU")) {
+                cpu = !cpu;
+            }
+
             ImGui::Text("Number of iterations: "); ImGui::SameLine(); ImGui::InputInt("##", &nrOfIter);
             ImGui::Text("Number of particles: "); ImGui::SameLine(); ImGui::InputInt("###", &particleNr);
 
@@ -923,6 +888,11 @@ namespace Vltava {
 
         if (key == GLFW_KEY_E && action == GLFW_PRESS) {
             logB = true;
+        }
+
+        if (key == GLFW_KEY_C && action == GLFW_PRESS) {
+            cpu = !cpu;
+            std::cout << "C HAS BEEN PRESSED!!!" << std::endl;
         }
     }
 
