@@ -1,11 +1,99 @@
 #version 450
-layout (local_size_x = 256) in;
+layout (local_size_x = 256) in; //256
 
 #include comp_shader.incl
 
 #define storage_in out_data
 #define storage_out in_data
 #define SimProps ubo
+
+#define vbound 4
+
+/*#define bottom -0.3
+#define left -2.0
+#define right 1.0
+#define front 1.0
+#define back -1.0*/
+
+// Solid environment as function?
+//----------------------------------------------------------------------------------------------------------------------
+void container(uint idx) {
+    float left = (SimProps.gridA.x < SimProps.gridB.x ? SimProps.gridA.x : SimProps.gridB.x) + 0.1;
+    float right = (SimProps.gridA.x > SimProps.gridB.x ? SimProps.gridA.x : SimProps.gridB.x) - 0.1;
+
+    float front = (SimProps.gridA.y > SimProps.gridB.y ? SimProps.gridA.y : SimProps.gridB.y) - 0.1;
+    float back = (SimProps.gridA.y < SimProps.gridB.y ? SimProps.gridA.y : SimProps.gridB.y) + 0.1;
+
+    //float bottom = (SimProps.gridA.z < SimProps.gridB.z ? SimProps.gridA.z : SimProps.gridB.z);
+    float bottom = -0.1;
+
+    // Bottom
+    if (storage_out.p[idx].x.z <= bottom) {
+        storage_out.p[idx].v.z = -storage_out.p[idx].v.z;
+    }
+
+    // Left
+    if (storage_out.p[idx].x.x <= left) {
+        storage_out.p[idx].v.x = -storage_out.p[idx].v.x;
+    }
+
+    // Right
+    if (storage_out.p[idx].x.x >= right) {
+        storage_out.p[idx].v.x = -storage_out.p[idx].v.x;
+    }
+
+    // Front
+    if (storage_out.p[idx].x.y >= front) {
+        storage_out.p[idx].v.y = -storage_out.p[idx].v.y;
+    }
+
+    // Back
+    if (storage_out.p[idx].x.y <= back) {
+        storage_out.p[idx].v.y = -storage_out.p[idx].v.y;
+    }
+
+    //-----------------------------------------------------
+
+    // Bottom
+    if (storage_out.p[idx].x.z <= bottom) {
+        storage_out.p[idx].x.z = bottom;
+    }
+
+    // Left
+    if (storage_out.p[idx].x.x <= left) {
+        storage_out.p[idx].x.x = left;
+    }
+
+    // Right
+    if (storage_out.p[idx].x.x >= right) {
+        storage_out.p[idx].x.x = right;
+    }
+
+    // Front
+    if (storage_out.p[idx].x.y >= front) {
+        storage_out.p[idx].x.y = front;
+    }
+
+    // Back
+    if (storage_out.p[idx].x.y <= back) {
+        storage_out.p[idx].x.y = back;
+    }
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+vec3 speedBound(vec3 velocity) {
+    if (velocity.x < -vbound) velocity.x = 0.1 * -vbound;
+    if (velocity.x > vbound) velocity.x = 0.1 * vbound;
+
+    if (velocity.y < -vbound) velocity.y = 0.1 * -vbound;
+    if (velocity.y > vbound) velocity.y = 0.1 * vbound;
+
+    if (velocity.z < -vbound) velocity.z = 0.1 * -vbound;
+    if (velocity.z > vbound) velocity.z = 0.1 * vbound;
+
+    return velocity;
+}
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -85,36 +173,39 @@ void iterate(uint gID) {
         if (!checkBounds(current)) continue;
 
         int idx = getStartIdxOfCell(current);
-        int size = grid_data.numbers[idx];
+        if (idx >= 0) {
+            int size = grid_data.numbers[idx];
 
-        int iterIdx = 0;
-        for (int j = 1; j < size + 1; j++) {
-            iterIdx = grid_data.numbers[idx + j];
-            if (gID == iterIdx) continue;
+            int iterIdx = 0;
+            for (int j = 1; j < size + 1; j++) {
+                iterIdx = grid_data.numbers[idx + j];
+                if (gID == iterIdx) continue;
 
-            // Note to self: as the particles get further and further from each other the density decreases which means rho --> 0
-            // which leads to something/0^2, which is either inf or -inf ----> nan or -nan
-            float val = 0;
-            if (storage_in.p[iterIdx].rho != 0 && storage_in.p[gID].rho != 0)
-            val = storage_in.p[iterIdx].m * ((storage_in.p[gID].p / pow(storage_in.p[gID].rho, 2)) + (storage_in.p[iterIdx].p / pow(storage_in.p[iterIdx].rho, 2)));
+                // Note to self: as the particles get further and further from each other the density decreases which means rho --> 0
+                // which leads to something/0^2, which is either inf or -inf ----> nan or -nan
+                float val = 0;
+                if (storage_in.p[iterIdx].rho != 0 && storage_in.p[gID].rho != 0)
+                    val = storage_in.p[iterIdx].m * ((storage_in.p[gID].p / pow(storage_in.p[gID].rho, 2)) + (storage_in.p[iterIdx].p / pow(storage_in.p[iterIdx].rho, 2)));
 
-            vec3 k = gradKernel(storage_in.p[gID].x, storage_in.p[iterIdx].x);
-            pressure += val * gradKernel(storage_in.p[gID].x, storage_in.p[iterIdx].x);
+                vec3 k = gradKernel(storage_in.p[gID].x, storage_in.p[iterIdx].x);
+                pressure += val * gradKernel(storage_in.p[gID].x, storage_in.p[iterIdx].x);
 
-            vec3 xij = storage_in.p[gID].x - storage_in.p[iterIdx].x;
+                vec3 xij = storage_in.p[gID].x - storage_in.p[iterIdx].x;
 
-            float pval = 0;
-            if (storage_in.p[iterIdx].rho != 0)
-            pval = (storage_in.p[iterIdx].m / storage_in.p[iterIdx].rho) * (dot(xij, gradKernel(storage_in.p[gID].x, storage_in.p[iterIdx].x)) /  (dot(xij, xij) + 0.01 * SimProps.kernelh));
+                float pval = 0;
+                if (storage_in.p[iterIdx].rho != 0)
+                    pval = (storage_in.p[iterIdx].m / storage_in.p[iterIdx].rho) * (dot(xij, gradKernel(storage_in.p[gID].x, storage_in.p[iterIdx].x)) /  (dot(xij, xij) + 0.01 * SimProps.kernelh));
 
-            vec3 vij = storage_in.p[gID].v - storage_in.p[iterIdx].v;
-            viscosity += pval * vij;
+                vec3 vij = storage_in.p[gID].v - storage_in.p[iterIdx].v;
+                viscosity += pval * vij;
+            }
         }
     }
 
     pressure *= -storage_in.p[gID].m;
 
     float nu = 0.01;
+    //float nu = 0.15;
     viscosity *= 2 * nu * storage_in.p[gID].m;
 
     vec3 gravity = vec3(0, 0, -9.81) * storage_in.p[gID].m;
@@ -125,6 +216,10 @@ void iterate(uint gID) {
     vec3 viNext = storage_in.p[gID].v;
     vec3 xiNext = storage_in.p[gID].x;
     viNext += acc * dt;
+    /*if ((abs(viNext.x) > 9) || (abs(viNext.y) > 9) || (abs(viNext.z) > 9)) {
+        viNext = vec3(0);
+    }*/
+    viNext = speedBound(viNext);
 
     //float vil = length(viNext);
     xiNext += viNext * dt;
@@ -133,6 +228,8 @@ void iterate(uint gID) {
     storage_out.p[gID].v = viNext;
     storage_out.p[gID].rho = storage_in.p[gID].rho;
     storage_out.p[gID].p = storage_in.p[gID].p;
+
+    container(gID);
 }
 
 void main() {

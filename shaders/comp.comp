@@ -1,5 +1,5 @@
 #version 450
-layout (local_size_x = 256) in;
+layout (local_size_x = 256) in; //256
 
 #include comp_shader.incl
 
@@ -41,12 +41,12 @@ void calculateRhoAndP(uint gID) {
     float density = 0.0;
     float d2 = 0.0;
 
-    for (int j = 0; j < ubo.nr_of_particles; j++) {
+    /*for (int j = 0; j < ubo.nr_of_particles; j++) {
         if (gID == j)
             continue;
 
         d2 += in_data.p[gID].m * kernel(in_data.p[gID].x, in_data.p[j].x);
-    }
+    }*/
 
     vec3 tuple = determineGridTuple(int(gID));
     Neighbourhood n = getNeighbouringCells(tuple);

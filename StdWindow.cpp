@@ -6,6 +6,7 @@
 #include "ImLog.hpp"
 
 #define IMGUI_ENABLED true
+#define list_size 25
 
 static Vltava::ImLog my_log;
 
@@ -103,12 +104,12 @@ namespace Vltava {
     // Vulkan-Compute related functions
     //------------------------------------------------------------------------------------------------------------------
     void StdWindow::initCompute() {
-        Buffer UBO(
+        Buffer props(
                 sizeof(SimProps),
                 vk::BufferUsageFlagBits::eUniformBuffer,
                 vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible
         );
-        uBuffers.push_back(std::move(UBO));
+        uBuffers.push_back(std::move(props));
 
         setComputeData();
 
@@ -207,7 +208,7 @@ namespace Vltava {
                 (float) all_particle_nr,
                 0.2f,
 
-                glm::vec4(-2,-2,-2, 0),
+                glm::vec4(-6,-1.5,-0.1, 0),
                 glm::vec4(2, 2, 2, 0)
         };
 
@@ -231,16 +232,20 @@ namespace Vltava {
         outBuffer.setSize(all_particle_nr * sizeof(Particle));
         outBuffer.bind(0);
 
+        int cellx = int(ceil(abs((props.gridB.x - props.gridA.x)/props.kernelh))); // Number of cells in x direction
+        int celly = int(ceil(abs((props.gridB.y - props.gridA.y)/props.kernelh))); // Number of cells in y direction
+        int cellz = int(ceil(abs((props.gridB.z - props.gridA.z)/props.kernelh))); // Number of cells in z direction
+        
         // (0.2/0.1)^3 * 1.5 = 12
         Buffer gridBuffer(
-                25*20*20*20 * sizeof(int),
+                list_size * cellx * celly * cellz * sizeof(int),
                 vk::BufferUsageFlagBits::eStorageBuffer,
                 vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
         );
         gridBuffer.bind(0);
 
         std::vector<int> val;
-        for (int i = 0; i < 25*20*20*20; i++)
+        for (int i = 0; i < list_size * cellx * celly * cellz; i++)
             val.push_back(0);
 
         sBuffers.push_back(std::move(inBuffer));
@@ -428,8 +433,9 @@ namespace Vltava {
                 str += "Density: " + std::to_string(spheres[i].rho) +
                        /*"; Pressure: " + std::to_string(spheres[i].p) +
                        " ; Position: " + std::to_string(spheres[i].x.x) + " " + std::to_string(spheres[i].x.y) + " " + std::to_string(spheres[i].x.z) +
-                       " ; Mass: " + std::to_string(spheres[i].m)*/ + " ; Padding = " + std::to_string(spheres[i].padding) + " ; diff = " + std::to_string(spheres[i].padding - spheres[i].rho) +
+                       " ; Mass: " + std::to_string(spheres[i].m) +*/ " ; Padding = " + std::to_string(spheres[i].padding) + " ; diff = " + std::to_string(spheres[i].padding - spheres[i].rho) +
                        /*" ; Velocity: " + std::to_string(spheres[i].v.x) + " " + std::to_string(spheres[i].v.y) + " " + std::to_string(spheres[i].v.z) +*/";\n";
+                //str += " length(velocity): " + std::to_string(glm::length(spheres[i].v)) + "\n";
             }
             str += "\n----------------------------------------------\n";
 

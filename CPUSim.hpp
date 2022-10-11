@@ -19,8 +19,6 @@ namespace Vltava {
         void setSimProps();
         void setSimProps(SimProps& props);
         void setData(const std::vector<Particle>& p);
-
-        void debugNeighbour();
     //private:
         int cellx, celly, cellz;
 
