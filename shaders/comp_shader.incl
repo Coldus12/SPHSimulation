@@ -56,14 +56,48 @@ int cellx = int(ceil(abs((ubo.gridB.x - ubo.gridA.x)/ubo.kernelh))); // Number o
 int celly = int(ceil(abs((ubo.gridB.y - ubo.gridA.y)/ubo.kernelh))); // Number of cells in y direction
 int cellz = int(ceil(abs((ubo.gridB.z - ubo.gridA.z)/ubo.kernelh))); // Number of cells in z direction
 
+bool checkBounds(vec3 tuple) {
+    if (tuple.x < 0 || tuple.x >= cellx)
+        return false;
+
+    if (tuple.y < 0 || tuple.y >= celly)
+        return false;
+
+    if (tuple.z < 0 || tuple.z >= cellz)
+        return false;
+
+    return true;
+}
+
 vec3 determineGridTuple(int particleIdx) {
-    vec3 diff = ubo.gridA.xyz - in_data.p[particleIdx].x;
+    vec3 ppos = in_data.p[particleIdx].x;
+
+    vec3 lower = vec3(
+            ubo.gridA.x < ubo.gridB.x ? ubo.gridA.x : ubo.gridB.x,
+            ubo.gridA.y < ubo.gridB.y ? ubo.gridA.y : ubo.gridB.y,
+            ubo.gridA.z < ubo.gridB.z ? ubo.gridA.z : ubo.gridB.z
+    );
+
+    vec3 upper = vec3(
+            ubo.gridA.x > ubo.gridB.x ? ubo.gridA.x : ubo.gridB.x,
+            ubo.gridA.y > ubo.gridB.y ? ubo.gridA.y : ubo.gridB.y,
+            ubo.gridA.z > ubo.gridB.z ? ubo.gridA.z : ubo.gridB.z
+    );
+
+    if ((ppos.x < lower.x) || (ppos.y < lower.y) || (ppos.z < lower.z) ||
+        (ppos.x > upper.x) || (ppos.y > upper.y) || (ppos.z > upper.z)) {
+        return vec3(-1,-1,-1);
+    }
+
+    vec3 diff = ubo.gridA.xyz - ppos;
     diff /= ubo.kernelh;
 
     return floor(abs(diff));
 }
 
 int getStartIdxOfCell(vec3 tuple) {
+    if (!checkBounds(tuple)) return -1;
+
     return int((tuple.x * cellz * celly + tuple.y * cellz + tuple.z)*list_size);
 }
 
@@ -81,30 +115,19 @@ Neighbourhood getNeighbouringCells(vec3 cellTuple) {
     return ret;
 }
 
-bool checkBounds(vec3 tuple) {
-    if (tuple.x < 0 || tuple.x >= cellx)
-        return false;
-
-    if (tuple.y < 0 || tuple.y >= celly)
-        return false;
-
-    if (tuple.z < 0 || tuple.z >= cellz)
-        return false;
-
-    return true;
-}
-
 void placeParticleIntoCell(int particleIdx) {
     vec3 cellTuple = determineGridTuple(particleIdx);
 
-    if (checkBounds(cellTuple)) {
+    //if (checkBounds(cellTuple)) {
         int startIdx = getStartIdxOfCell(cellTuple);
-        uint realIdx = atomicAdd(grid_data.numbers[startIdx], 1);
-        realIdx += startIdx + 1;
+        if (startIdx >= 0) {
+            uint realIdx = atomicAdd(grid_data.numbers[startIdx], 1);
+            realIdx += startIdx + 1;
 
-        // Placing particleIdx into cell
-        grid_data.numbers[realIdx] = particleIdx;
-    }
+            // Placing particleIdx into cell
+            grid_data.numbers[realIdx] = particleIdx;
+        }
+    //}
     //grid_data.numbers[particleIdx] = int(realIdx);
 }
 //----------------------------------------------------------------------------------------------------------------------

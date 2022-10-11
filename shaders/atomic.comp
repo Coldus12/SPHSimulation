@@ -12,10 +12,5 @@ void main()
 
     if (gID < ubo.nr_of_particles) {
         placeParticleIntoCell(int(gID));
-        //grid_data.numbers[gID] = int(gID);
     }
-    //grid_data.numbers[gID] = int(gID);
-
-    //uint my_index = atomicAdd(out_data.numbers[0], 1);
-    //out_data.numbers[my_index+1] = int(gID);
 }

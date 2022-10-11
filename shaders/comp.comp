@@ -55,14 +55,16 @@ void calculateRhoAndP(uint gID) {
         if (!checkBounds(current)) continue;
 
         int idx = getStartIdxOfCell(current);
-        int size = grid_data.numbers[idx];
+        if (idx >= 0) {
+            int size = grid_data.numbers[idx];
 
-        int iterIdx = 0;
-        for (int j = 1; j < size+1; j++) {
-            iterIdx = grid_data.numbers[idx + j];
-            if (gID == iterIdx) continue;
+            int iterIdx = 0;
+            for (int j = 1; j < size+1; j++) {
+                iterIdx = grid_data.numbers[idx + j];
+                if (gID == iterIdx) continue;
 
-            density += in_data.p[gID].m * kernel(in_data.p[gID].x, in_data.p[iterIdx].x);
+                density += in_data.p[gID].m * kernel(in_data.p[gID].x, in_data.p[iterIdx].x);
+            }
         }
     }
 

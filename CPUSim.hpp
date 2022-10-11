@@ -21,7 +21,7 @@ namespace Vltava {
         void setData(const std::vector<Particle>& p);
 
         void debugNeighbour();
-    private:
+    //private:
         int cellx, celly, cellz;
 
         bool first = true;

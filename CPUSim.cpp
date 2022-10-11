@@ -10,6 +10,25 @@ namespace Vltava {
 //----------------------------------------------------------------------------------------------------------------------
     glm::vec3 CPUSim::determineGridTuple(int particleIdx) {
         auto& particles = first ? particles1 : particles2;
+        auto& p = particles.at(particleIdx);
+
+        // Checking bounds
+        glm::vec3 lower(
+                simProps.gridA.x < simProps.gridB.x ? simProps.gridA.x : simProps.gridB.x,
+                simProps.gridA.y < simProps.gridB.y ? simProps.gridA.y : simProps.gridB.y,
+                simProps.gridA.z < simProps.gridB.z ? simProps.gridA.z : simProps.gridB.z
+        );
+
+        glm::vec3 upper(
+                simProps.gridA.x > simProps.gridB.x ? simProps.gridA.x : simProps.gridB.x,
+                simProps.gridA.y > simProps.gridB.y ? simProps.gridA.y : simProps.gridB.y,
+                simProps.gridA.z > simProps.gridB.z ? simProps.gridA.z : simProps.gridB.z
+        );
+
+        if ((p.x.x < lower.x) || (p.x.y < lower.y) || (p.x.z < lower.z) ||
+            (p.x.x > upper.x) || (p.x.y > upper.y) || (p.x.z > upper.z)) {
+            return {-1,-1,-1};
+        }
 
         glm::vec3 diff = glm::vec3(simProps.gridA.x, simProps.gridA.y, simProps.gridA.z) - particles.at(particleIdx).x;
         diff /= simProps.kernelh;
@@ -18,6 +37,8 @@ namespace Vltava {
     }
 
     int CPUSim::getStartIdxOfCell(glm::vec3 tuple) {
+        if (!checkBounds(tuple)) return -1;
+
         return int((tuple.x * cellz * celly + tuple.y * cellz + tuple.z)*list_size);
     }
 
@@ -53,15 +74,17 @@ namespace Vltava {
 #if ppic
         std::cout << "[ppic] particleIdx" << particleIdx << " placed into (" << cellTuple.x << "," << cellTuple.y << "," << cellTuple.z << ")\n";
 #endif
-        if (checkBounds(cellTuple)) {
+        //if (checkBounds(cellTuple)) {
             int startIdx = getStartIdxOfCell(cellTuple);
-            int realIdx = /*atomicAdd(*/grid_data.at(startIdx);
-            grid_data.at(startIdx) += 1;
-            realIdx += startIdx + 1;
+            if (startIdx >= 0) {
+                int realIdx = /*atomicAdd(*/grid_data.at(startIdx);
+                grid_data.at(startIdx) += 1;
+                realIdx += startIdx + 1;
 
-            // Placing particleIdx into cell
-            grid_data.at(realIdx) = particleIdx;
-        }
+                // Placing particleIdx into cell
+                grid_data.at(realIdx) = particleIdx;
+            }
+        //}
     }
 
     void CPUSim::printNeighbourhood(Neighbourhood nh) {
@@ -81,53 +104,6 @@ namespace Vltava {
         }
     }
 
-    void CPUSim::debugNeighbour() {
-        place();
-        glm::vec3 grid = determineGridTuple(31);
-        printNeighbourhood(getNeighbouringCells(grid));
-        std::cout << "\n\n-----------------------\n\n";
-
-        int idx = getStartIdxOfCell(glm::vec3(5,5,5));
-        int size = grid_data.at(idx);
-        for (int i = 1; i < size+1; i++) {
-            std::cout << grid_data.at(idx + i) << " , ";
-        }
-        std::cout << "\n size of cell (5,5,5) -> " << size << std::endl;
-
-        std::cout << "----------------------------------------\n";
-        /*auto& particles = first ? particles1 : particles2;
-        for (int i = 0; i < 64; i++) {
-            float d1 = 0;
-            float d2 = 0;
-
-            for (int j = 0; j < particles.size(); j++) {
-                if (i == j)
-                    continue;
-
-                d1 += particles[j].m * kernel(i, j);
-            }
-
-            glm::vec3 tuple = determineGridTuple(i);
-            Neighbourhood n = getNeighbouringCells(tuple);
-            for (auto current: n.neighbour) {
-                if (!checkBounds(current)) continue;
-
-                idx = getStartIdxOfCell(current);
-                size = grid_data.at(idx);
-
-                int iterIdx = 0;
-                for (int j = 1; j < size + 1; j++) {
-                    iterIdx = grid_data.at(idx + j);
-                    if (i == iterIdx) continue;
-
-                    //density += in_data.p[gID].m * kernel(in_data.p[gID].x, in_data.p[iterIdx].x);
-                    d2 += particles[i].m * kernel(i, iterIdx);
-                }
-            }
-
-            std::cout << "d1 = " << d1 << "; d2 = " << d2 << ";\n";
-        }*/
-    }
 //----------------------------------------------------------------------------------------------------------------------
 
     void CPUSim::setSimProps(SimProps& props) {
@@ -205,7 +181,6 @@ namespace Vltava {
         printData();
     }
 
-    //TODO: replace k in real sim with 0.001f
     void CPUSim::setSimProps() {
         simProps.desired_density = 1.0f;
         simProps.k = 0.001f;
@@ -286,15 +261,17 @@ namespace Vltava {
                 if (!checkBounds(current)) continue;
 
                 int idx = getStartIdxOfCell(current);
-                int size = grid_data.at(idx);
+                if (idx >= 0) {
+                    int size = grid_data.at(idx);
 
-                int iterIdx = 0;
-                for (int j = 1; j < size+1; j++) {
-                    iterIdx = grid_data.at(idx + j);
-                    if (i == iterIdx) continue;
+                    int iterIdx = 0;
+                    for (int j = 1; j < size + 1; j++) {
+                        iterIdx = grid_data.at(idx + j);
+                        if (i == iterIdx) continue;
 
-                    //density += in_data.p[gID].m * kernel(in_data.p[gID].x, in_data.p[iterIdx].x);
-                    ogd += particles[i].m * kernel(i, iterIdx);
+                        //density += in_data.p[gID].m * kernel(in_data.p[gID].x, in_data.p[iterIdx].x);
+                        ogd += particles[i].m * kernel(i, iterIdx);
+                    }
                 }
             }
 

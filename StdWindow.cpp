@@ -135,7 +135,7 @@ namespace Vltava {
 
         // Water rest density = 1 kg/m^3
         //
-        // Particle h = 0.05 meter
+        // Particle r = 0.05 meter
         // Particle volume = 5.2359 * 10^-4 m^3 = 0.005236 m^3 (4/3 * 0.05^3 * PI)
         // Particle mass = volume * density = 0.005236 kg
         //
@@ -172,7 +172,7 @@ namespace Vltava {
                 z++;
 
             data.x = glm::vec3((i%pnrAlongAxis) * s - distAxis,(r%pnrAlongAxis) * s - distAxis, z * s);
-            data.h = 0.1;
+            data.h = 0.1; // Only sets size for visualization atm
             data.v = glm::vec3(0,0,0);
             data.m = mass;
             //data[i].m = 1.0f;

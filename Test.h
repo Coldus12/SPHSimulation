@@ -1,7 +1,3 @@
-//
-// Created by PCF112021 on 10/9/2022.
-//
-
 #ifndef SPHSIMULATION_TEST_H
 #define SPHSIMULATION_TEST_H
 
@@ -10,9 +6,10 @@
 namespace Vltava {
     class Test {
     public:
-        void runTests();
-    private:
-        void testPlacefunc();
+        static void runTests();
+        static void basicPlaceTest();
+        static void tupleBoundsCheck();
+        static void basicNeighbourhoodTest();
     };
 }
 

@@ -1,6 +1,7 @@
 #include "StdWindow.hpp"
 #include "Managed/Managed.hpp"
 #include "CPUSim.hpp"
+#include "Test.h"
 
 #define cpuTest false
 #define test false
@@ -33,6 +34,7 @@ int main(int, char**) {
     cpuSim.run(1);
     cpuSim.printData();*/
 #elif test
+    Vltava::Test::runTests();
 #else
     //try {
         Vltava::StdWindow window(1280, 720);
