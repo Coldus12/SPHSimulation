@@ -1,10 +1,74 @@
 #include "CPUSim.hpp"
 
 #define PI 3.1415926538
-#define list_size 20
+#define list_size 25
 #define ppic false
 
 namespace Vltava {
+
+    void CPUSim::container(int idx) {
+        float left = (simProps.gridA.x < simProps.gridB.x ? simProps.gridA.x : simProps.gridB.x) + 0.1;
+        float right = (simProps.gridA.x > simProps.gridB.x ? simProps.gridA.x : simProps.gridB.x) - 0.1;
+
+        float front = (simProps.gridA.y > simProps.gridB.y ? simProps.gridA.y : simProps.gridB.y) - 0.1;
+        float back = (simProps.gridA.y < simProps.gridB.y ? simProps.gridA.y : simProps.gridB.y) + 0.1;
+
+        float bottom = (simProps.gridA.z < simProps.gridB.z ? simProps.gridA.z : simProps.gridB.z) + 0.1;
+        //float bottom = -0.1;
+        auto& particles = first ? particles2 : particles1;
+
+        // Bottom
+        if (particles[idx].x.z <= bottom) {
+            particles[idx].v.z = -particles[idx].v.z;
+        }
+
+        // Left
+        if (particles[idx].x.x <= left) {
+            particles[idx].v.x = -particles[idx].v.x;
+        }
+
+        // Right
+        if (particles[idx].x.x >= right) {
+            particles[idx].v.x = -particles[idx].v.x;
+        }
+
+        // Front
+        if (particles[idx].x.y >= front) {
+            particles[idx].v.y = -particles[idx].v.y;
+        }
+
+        // Back
+        if (particles[idx].x.y <= back) {
+            particles[idx].v.y = -particles[idx].v.y;
+        }
+
+        //-----------------------------------------------------
+
+        // Bottom
+        if (particles[idx].x.z <= bottom) {
+            particles[idx].x.z = bottom;
+        }
+
+        // Left
+        if (particles[idx].x.x <= left) {
+            particles[idx].x.x = left;
+        }
+
+        // Right
+        if (particles[idx].x.x >= right) {
+            particles[idx].x.x = right;
+        }
+
+        // Front
+        if (particles[idx].x.y >= front) {
+            particles[idx].x.y = front;
+        }
+
+        // Back
+        if (particles[idx].x.y <= back) {
+            particles[idx].x.y = back;
+        }
+    }
 
 // Neighbourhood stuff
 //----------------------------------------------------------------------------------------------------------------------
@@ -171,14 +235,15 @@ namespace Vltava {
         }
     }
 
-    void CPUSim::run(int iterNr) {
+    void CPUSim::run(int iterNr, bool log) {
         for (int i = 0; i < iterNr; i++) {
             place();
             //printGridData();
             calculateRhoAndP();
             iter();
         }
-        printData();
+        if (log)
+            printData();
     }
 
     void CPUSim::setSimProps() {
@@ -245,12 +310,12 @@ namespace Vltava {
             float ogd = 0.0f;
 
             // Original
-            for (int j = 0; j < particles.size(); j++) {
+            /*for (int j = 0; j < particles.size(); j++) {
                 if (i == j)
                     continue;
 
-                /*density*/ density += particles[j].m * kernel(i, j);
-            }
+                density += particles[j].m * kernel(i, j);
+            }*/
 
             // Neighbour
             glm::vec3 tuple = determineGridTuple(i);
@@ -270,7 +335,7 @@ namespace Vltava {
                         if (i == iterIdx) continue;
 
                         //density += in_data.p[gID].m * kernel(in_data.p[gID].x, in_data.p[iterIdx].x);
-                        ogd += particles[i].m * kernel(i, iterIdx);
+                        density += particles[i].m * kernel(i, iterIdx);
                     }
                 }
             }
@@ -297,7 +362,7 @@ namespace Vltava {
                 glm::vec3 viscosity = glm::vec3(0);
 
                 // Original
-                for (int j = 0; j < p1.size(); j++) {
+                /*for (int j = 0; j < p1.size(); j++) {
                     if (j == i)
                         continue;
 
@@ -318,10 +383,10 @@ namespace Vltava {
 
                     glm::vec3 vij = p1[i].v - p1[j].v;
                     viscosity += pval * vij;
-                }
+                }*/
 
                 // Neighbour
-                /*glm::vec3 tuple = determineGridTuple(i);
+                glm::vec3 tuple = determineGridTuple(i);
                 Neighbourhood n = getNeighbouringCells(tuple);
                 for (auto current : n.neighbour) {
                     if (!checkBounds(current)) continue;
@@ -351,7 +416,7 @@ namespace Vltava {
                         glm::vec3 vij = p1[i].v - p1[iterIdx].v;
                         viscosity += pval * vij;
                     }
-                }*/
+                }
 
                 pressure *= -p1[i].m;
 
@@ -359,7 +424,7 @@ namespace Vltava {
                 viscosity *= 2 * nu * p1[i].m;
 
                 glm::vec3 gravity(0, 0, -9.81 * p1[i].m);
-                glm::vec3 acc = (pressure + viscosity /*+ gravity*/) / p1[i].m;
+                glm::vec3 acc = (pressure + viscosity + gravity) / p1[i].m;
 
                 float dt = 0.01;
                 glm::vec3 viNext = p1[i].v;
@@ -371,6 +436,8 @@ namespace Vltava {
                 p2[i].v = viNext;
                 p2[i].rho = p1[i].rho;
                 p2[i].p = p1[i].p;
+
+                container(i);
             } else {
                 p2.at(i) = p1.at(i);
             }

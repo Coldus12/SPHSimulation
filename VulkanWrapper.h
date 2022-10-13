@@ -21,6 +21,8 @@ namespace Vltava {
         ~VulkanWrapper() { cleanup(); }
 
         virtual void createVulkanWindow(GLFWwindow* window);
+        virtual void createWindowless();
+
         void cleanupSwapChain();
         virtual void recreateSwapChain(GLFWwindow* window);
         void cleanup();
@@ -54,7 +56,7 @@ namespace Vltava {
         virtual void createInstance(std::string app_name);
         virtual void createSurface(GLFWwindow* window);
         virtual void selectPhysicalDevice();
-        virtual void selectQueues();
+        virtual void selectQueues(bool graphical = true);
         virtual void createLogicalDevice();
         virtual void createSwapChain(GLFWwindow* window);
         virtual void createImageViews();

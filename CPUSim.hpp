@@ -11,7 +11,7 @@ namespace Vltava {
     class CPUSim {
     public:
         CPUSim();
-        void run(int iterNr);
+        void run(int iterNr, bool log = false);
         SimProps simProps;
 
         void printData(int nr = 64);
@@ -30,6 +30,7 @@ namespace Vltava {
         void place();
         void calculateRhoAndP();
         void iter();
+        void container(int idx);
 
         float kernel(int i, int j);
         glm::vec3 gradKernel(int i, int j);

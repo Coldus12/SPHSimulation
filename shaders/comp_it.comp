@@ -24,8 +24,8 @@ void container(uint idx) {
     float front = (SimProps.gridA.y > SimProps.gridB.y ? SimProps.gridA.y : SimProps.gridB.y) - 0.1;
     float back = (SimProps.gridA.y < SimProps.gridB.y ? SimProps.gridA.y : SimProps.gridB.y) + 0.1;
 
-    //float bottom = (SimProps.gridA.z < SimProps.gridB.z ? SimProps.gridA.z : SimProps.gridB.z);
-    float bottom = -0.1;
+    float bottom = (SimProps.gridA.z < SimProps.gridB.z ? SimProps.gridA.z : SimProps.gridB.z) + 0.1;
+    //float bottom = -0.1;
 
     // Bottom
     if (storage_out.p[idx].x.z <= bottom) {
@@ -166,7 +166,7 @@ void iterate(uint gID) {
     }*/
 
     // Neighbourhood
-    vec3 tuple = determineGridTuple(int(gID));
+    vec3 tuple = determineGridTuple(int(gID), false);
     Neighbourhood n = getNeighbouringCells(tuple);
     for (int i = 0; i < 27; i++) {
         vec3 current = n.neighbour[i];
@@ -219,7 +219,7 @@ void iterate(uint gID) {
     /*if ((abs(viNext.x) > 9) || (abs(viNext.y) > 9) || (abs(viNext.z) > 9)) {
         viNext = vec3(0);
     }*/
-    viNext = speedBound(viNext);
+    //viNext = speedBound(viNext);
 
     //float vil = length(viNext);
     xiNext += viNext * dt;

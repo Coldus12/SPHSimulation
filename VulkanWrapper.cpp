@@ -16,6 +16,15 @@ namespace Vltava {
         createCommandBuffers();
     }
 
+    void VulkanWrapper::createWindowless() {
+        createInstance("Test");
+        selectPhysicalDevice();
+        selectQueues(false);
+        createLogicalDevice();
+        createCommandPool();
+        createCommandBuffers();
+    }
+
     // Instance creation
     //------------------------------------------------------------------------------------------------------------------
     void VulkanWrapper::createInstance(std::string app_name) {
@@ -45,17 +54,19 @@ namespace Vltava {
 
     // Selecting queue(s)
     //------------------------------------------------------------------------------------------------------------------
-    void VulkanWrapper::selectQueues() {
+    void VulkanWrapper::selectQueues(bool graphical) {
         std::vector<vk::QueueFamilyProperties> queueFamilies = VulkanResources::getInstance().physDev->getHandle().getQueueFamilyProperties();
 
         uint32_t i = 0;
         for (const auto &queueFamily: queueFamilies) {
-            if (VulkanResources::getInstance().physDev->getHandle().getSurfaceSupportKHR(i, VulkanResources::getInstance().surface->getHandle())) {
-                presentQueueFamily = i;
-            }
+            if (graphical) {
+                if (VulkanResources::getInstance().physDev->getHandle().getSurfaceSupportKHR(i,VulkanResources::getInstance().surface->getHandle())) {
+                    presentQueueFamily = i;
+                }
 
-            if (queueFamily.queueFlags & vk::QueueFlagBits::eGraphics) {
-                graphicsQueueFamily = i;
+                if (queueFamily.queueFlags & vk::QueueFlagBits::eGraphics) {
+                    graphicsQueueFamily = i;
+                }
             }
 
             if (queueFamily.queueFlags & vk::QueueFlagBits::eCompute) {
@@ -138,7 +149,8 @@ namespace Vltava {
         }
         swapChainFramebuffers.clear();
 
-        VulkanResources::getInstance().logDev->getHandle().destroyRenderPass(*VulkanResources::getInstance().renderPass);
+        if (VulkanResources::getInstance().renderPass != nullptr)
+            VulkanResources::getInstance().logDev->getHandle().destroyRenderPass(*VulkanResources::getInstance().renderPass);
 
         for (auto imgView: imageViews) {
             VulkanResources::getInstance().logDev->getHandle().destroyImageView(imgView);

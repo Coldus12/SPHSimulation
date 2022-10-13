@@ -66,6 +66,9 @@ namespace Vltava {
     // Initializing Vulkan environment
     //------------------------------------------------------------------------------------------------------------------
     void StdWindow::initVulkan() {
+        gridA = {-6,-1.5,-0.1};
+        gridB = {2, 2, 2};
+
         vw = std::make_unique<VulkanWrapper>();
         vw->createVulkanWindow(window);
         createSyncObjects();
@@ -202,14 +205,14 @@ namespace Vltava {
 
         vk::DeviceSize size = sizeof(Particle) * all_particle_nr;
 
-        SimProps props{
+        props = {
                 1.0f,
                 0.001f,
                 (float) all_particle_nr,
                 0.2f,
 
-                glm::vec4(-6,-1.5,-0.1, 0),
-                glm::vec4(2, 2, 2, 0)
+                glm::vec4(gridA, 0),
+                glm::vec4(gridB, 0)
         };
 
         cpusim->setSimProps(props);
@@ -519,12 +522,31 @@ namespace Vltava {
                 start = std::chrono::high_resolution_clock::now();
             }
 
+            ImGui::Checkbox("Set boundaries?", &setBoundaries);
+            if (setBoundaries) {
+                ImGui::Text("gridA: "); ImGui::SameLine(); ImGui::InputFloat3("##", (float*)&gridA);
+                ImGui::Text("gridB: "); ImGui::SameLine(); ImGui::InputFloat3("s", (float*)&gridB);
+
+
+            }
+
             ImGui::Checkbox("Create container?", &makeContainer);
             if (makeContainer) {
-                //ImGui::InputFloat3("Container pos: ", {containerPos.x, containerPos.y, containerPos.z});
-                //float data[3] = {containerPos.x, containerPos.y, containerPos.z};
                 ImGui::Text("Container position: "); ImGui::SameLine(); ImGui::InputFloat3("##", (float*)&containerPos);
                 ImGui::Text("Container size: "); ImGui::SameLine(); ImGui::InputInt("s", &containerSize);
+
+                props = {
+                        1.0f,
+                        0.001f,
+                        (float) all_particle_nr,
+                        0.2f,
+
+                        glm::vec4(gridA, 0),
+                        glm::vec4(gridB, 0)
+                };
+
+                cpusim->setSimProps(props);
+                uBuffers[0].writeToBuffer(&props, sizeof(props));
             }
 
             if (show_log)

@@ -69,8 +69,15 @@ bool checkBounds(vec3 tuple) {
     return true;
 }
 
-vec3 determineGridTuple(int particleIdx) {
-    vec3 ppos = in_data.p[particleIdx].x;
+// inout
+//    ->   true  -> in_data
+//    ->   false -> out_data
+vec3 determineGridTuple(int particleIdx, bool inOrOut) {
+    vec3 ppos = vec3(0);
+
+    if (inOrOut)
+        ppos = in_data.p[particleIdx].x;
+    else ppos = out_data.p[particleIdx].x;
 
     vec3 lower = vec3(
             ubo.gridA.x < ubo.gridB.x ? ubo.gridA.x : ubo.gridB.x,
@@ -116,7 +123,7 @@ Neighbourhood getNeighbouringCells(vec3 cellTuple) {
 }
 
 void placeParticleIntoCell(int particleIdx) {
-    vec3 cellTuple = determineGridTuple(particleIdx);
+    vec3 cellTuple = determineGridTuple(particleIdx, true);
 
     //if (checkBounds(cellTuple)) {
         int startIdx = getStartIdxOfCell(cellTuple);

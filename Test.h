@@ -10,6 +10,7 @@ namespace Vltava {
         static void basicPlaceTest();
         static void tupleBoundsCheck();
         static void basicNeighbourhoodTest();
+        static void cpuGpuPlaceCompare();
     };
 }
 
