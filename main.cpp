@@ -4,7 +4,7 @@
 #include "Test.h"
 
 #define cpuTest false
-#define test true
+#define test false
 
 int main(int, char**) {
 #if cpuTest

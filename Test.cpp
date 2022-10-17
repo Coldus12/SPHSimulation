@@ -1,9 +1,10 @@
+#include <thread>
 #include "Test.h"
 #include "CPUSim.hpp"
 #include "VulkanWrapper.h"
 #include "ComputeShader.hpp"
 
-#define log true
+#define log false
 
 namespace Vltava {
 
@@ -218,6 +219,7 @@ namespace Vltava {
     }
 
     // Seems to work with the old comp/comp_it shaders and CPUSim
+    // Also works with the new ones. NOTE: ALWAYS START MORE GRID-CLEANING "THREADS"
     void Test::cpuGpuPlaceCompare() {
         VulkanWrapper vw;
         vw.createWindowless();
@@ -381,11 +383,11 @@ namespace Vltava {
             );
         }
 
-        for (int i = 0; i < 4; i++) { /* Default: 150 */
+        for (int i = 0; i < 300; i++) { /* Default: 150 */
             sim.run(1);
 
             cleanGridComp.bindPipelineAndDescriptors(computeCmdBuffer);
-            computeCmdBuffer.dispatch(1, 1, 1);
+            computeCmdBuffer.dispatch(1000, 1, 1);
             computeCmdBuffer.pipelineBarrier(
                     vk::PipelineStageFlagBits::eComputeShader,
                     vk::PipelineStageFlagBits::eComputeShader,
@@ -442,24 +444,46 @@ namespace Vltava {
         //-----------------------------
         VulkanResources::getInstance().computeQueue->submit(submitInfo);
 
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+
         // Checking results
         //-----------------------------
         // grid data
         auto gpuGrid = sBuffers[2].getData<int>();
         auto cpuGrid = sim.grid_data;
 
+        // Checking grid sizes
         assert((gpuGrid.size() == cpuGrid.size()) && "Grid sizes are different!");
 
-        for (int i = 0; i < cpuGrid.size(); i++) {
-            if (gpuGrid[i] != cpuGrid[i]) std::cout << "pos: " << i << " cpu: " << cpuGrid[i] << "; gpu: " << gpuGrid[i] << std::endl;
-            //((gpuGrid[i] == cpuGrid[i]) && "GPU and CPU grid value differs!");
+        int cpuSize = 0;
+        int gpuSize = 0;
+        int startIdx = 0;
+
+        for (int i = 0; i < sim.cellx; i++) {
+            for (int j = 0; j < sim.celly; j++) {
+                for (int k = 0; k < sim.cellz; k++) {
+                    startIdx = sim.getStartIdxOfCell(glm::vec3(i,j,k));
+                    cpuSize = cpuGrid[startIdx];
+                    gpuSize = cpuGrid[startIdx];
+
+                    // Checking cell sizes
+                    assert((cpuSize == gpuSize) && "Number of particles in cell differs.");
+
+                    int sum = 0;
+                    for (int s = 0; s < cpuSize; s++) {
+                        sum += cpuGrid[startIdx + s + 1] - gpuGrid[startIdx + s + 1];
+                    }
+
+                    assert((sum == 0) && "Sum isn't zero. -> There are different particles contained in the cell in CPU vs GPU version.");
+                }
+            }
         }
 
         auto gpuParticles = sBuffers[1].getData<Particle>();
         auto cpuParticles = sim.particles2;
 
         assert((gpuParticles.size() == cpuParticles.size()) && "Particle list sizes are different!");
-        std::cout << "rhos" << std::endl;
+        //std::cout << "rhos" << std::endl;
         for (int i = 0; i < gpuParticles.size(); i++) {
 #if log
             std::cout << i << " gpu: " << gpuParticles[i].rho << "; cpu: " << cpuParticles[i].rho << ";" << std::endl;
@@ -468,7 +492,7 @@ namespace Vltava {
             std::cout << "GPU pos: " << gpuParticles[i].x.x << " " << gpuParticles[i].x.y << " " << gpuParticles[i].x.z <<
                   "; GPU velocity: " << gpuParticles[i].v.x << " " << gpuParticles[i].v.y << " " << gpuParticles[i].v.z <<std::endl << std::endl;
 #endif
-            //if (!errorMargin(gpuParticles[i].rho, cpuParticles[i].rho, 0.1)) std::cout << i << " gpu: " << gpuParticles[i].rho << "; cpu: " << cpuParticles[i].rho << ";" << std::endl;
+            if (!errorMargin(gpuParticles[i].rho, cpuParticles[i].rho, 0.1)) std::cout << i << " gpu: " << gpuParticles[i].rho << "; cpu: " << cpuParticles[i].rho << ";" << std::endl;
             //assert((errorMargin(gpuParticles[i].rho, cpuParticles[i].rho, 0.1)) && "Rhos are not within error margin");
         }
     }

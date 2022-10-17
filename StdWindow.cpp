@@ -235,9 +235,9 @@ namespace Vltava {
         outBuffer.setSize(all_particle_nr * sizeof(Particle));
         outBuffer.bind(0);
 
-        int cellx = int(ceil(abs((props.gridB.x - props.gridA.x)/props.kernelh))); // Number of cells in x direction
-        int celly = int(ceil(abs((props.gridB.y - props.gridA.y)/props.kernelh))); // Number of cells in y direction
-        int cellz = int(ceil(abs((props.gridB.z - props.gridA.z)/props.kernelh))); // Number of cells in z direction
+        cellx = int(ceil(abs((props.gridB.x - props.gridA.x)/props.kernelh))); // Number of cells in x direction
+        celly = int(ceil(abs((props.gridB.y - props.gridA.y)/props.kernelh))); // Number of cells in y direction
+        cellz = int(ceil(abs((props.gridB.z - props.gridA.z)/props.kernelh))); // Number of cells in z direction
         
         // (0.2/0.1)^3 * 1.5 = 12
         Buffer gridBuffer(
@@ -367,7 +367,7 @@ namespace Vltava {
 
         for (int i = 0; i < nrOfIter; i++) {
             cleanGridComp->bindPipelineAndDescriptors(computeCmdBuffer);
-            computeCmdBuffer.dispatch(groupCountX, groupCountY, groupCountZ);
+            computeCmdBuffer.dispatch(list_size * cellx * celly * cellz, groupCountY, groupCountZ);
             computeCmdBuffer.pipelineBarrier(
                     vk::PipelineStageFlagBits::eComputeShader,
                     vk::PipelineStageFlagBits::eComputeShader,

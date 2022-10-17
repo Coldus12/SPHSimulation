@@ -1,5 +1,5 @@
 #version 450
-layout (local_size_x = 256) in; //256
+layout (local_size_x = 128) in; //256
 
 #include comp_shader.incl
 
@@ -7,7 +7,7 @@ layout (local_size_x = 256) in; //256
 #define storage_out in_data
 #define SimProps ubo
 
-#define vbound 4
+#define vbound 6
 
 /*#define bottom -0.3
 #define left -2.0
@@ -219,7 +219,7 @@ void iterate(uint gID) {
     /*if ((abs(viNext.x) > 9) || (abs(viNext.y) > 9) || (abs(viNext.z) > 9)) {
         viNext = vec3(0);
     }*/
-    //viNext = speedBound(viNext);
+    viNext = speedBound(viNext);
 
     //float vil = length(viNext);
     xiNext += viNext * dt;

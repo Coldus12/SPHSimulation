@@ -67,6 +67,8 @@ namespace Vltava {
         glm::vec3 containerPos = glm::vec3(0.0f,0.0f,-0.2f);
         std::chrono::time_point<std::chrono::high_resolution_clock> start;
 
+        int cellx, celly, cellz;
+
         void runComp();
         std::vector<Particle> createContainerAt(glm::vec3 pos, float dist, int sideLength);
         void log();
