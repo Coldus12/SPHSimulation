@@ -2,6 +2,8 @@
 #define SPHSIMULATION_MSURFACE_HPP
 
 #define GLFW_INCLUDE_VULKAN
+
+#include <memory>
 #include "GLFW/glfw3.h"
 #include "vulkan/vulkan.hpp"
 

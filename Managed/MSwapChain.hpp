@@ -3,6 +3,7 @@
 
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.hpp>
+#include <memory>
 
 namespace Vltava {
     class MSwapChain {

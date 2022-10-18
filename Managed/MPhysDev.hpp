@@ -3,6 +3,7 @@
 
 
 #include <vulkan/vulkan.hpp>
+#include <memory>
 
 namespace Vltava {
     class MPhysDev {

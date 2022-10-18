@@ -66,7 +66,7 @@ namespace Vltava {
     // Initializing Vulkan environment
     //------------------------------------------------------------------------------------------------------------------
     void StdWindow::initVulkan() {
-        gridA = {-6,-1.5,-0.1};
+        gridA = {-6,-1.5,-0.2};
         gridB = {2, 2, 2};
 
         vw = std::make_unique<VulkanWrapper>();

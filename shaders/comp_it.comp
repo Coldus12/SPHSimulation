@@ -29,54 +29,32 @@ void container(uint idx) {
 
     // Bottom
     if (storage_out.p[idx].x.z <= bottom) {
+        storage_out.p[idx].x.z = bottom;
         storage_out.p[idx].v.z = -storage_out.p[idx].v.z;
     }
 
     // Left
     if (storage_out.p[idx].x.x <= left) {
-        storage_out.p[idx].v.x = -storage_out.p[idx].v.x;
-    }
-
-    // Right
-    if (storage_out.p[idx].x.x >= right) {
-        storage_out.p[idx].v.x = -storage_out.p[idx].v.x;
-    }
-
-    // Front
-    if (storage_out.p[idx].x.y >= front) {
-        storage_out.p[idx].v.y = -storage_out.p[idx].v.y;
-    }
-
-    // Back
-    if (storage_out.p[idx].x.y <= back) {
-        storage_out.p[idx].v.y = -storage_out.p[idx].v.y;
-    }
-
-    //-----------------------------------------------------
-
-    // Bottom
-    if (storage_out.p[idx].x.z <= bottom) {
-        storage_out.p[idx].x.z = bottom;
-    }
-
-    // Left
-    if (storage_out.p[idx].x.x <= left) {
         storage_out.p[idx].x.x = left;
+        storage_out.p[idx].v.x = -storage_out.p[idx].v.x;
     }
 
     // Right
     if (storage_out.p[idx].x.x >= right) {
         storage_out.p[idx].x.x = right;
+        storage_out.p[idx].v.x = -storage_out.p[idx].v.x;
     }
 
     // Front
     if (storage_out.p[idx].x.y >= front) {
         storage_out.p[idx].x.y = front;
+        storage_out.p[idx].v.y = -storage_out.p[idx].v.y;
     }
 
     // Back
     if (storage_out.p[idx].x.y <= back) {
         storage_out.p[idx].x.y = back;
+        storage_out.p[idx].v.y = -storage_out.p[idx].v.y;
     }
 }
 

@@ -79,7 +79,9 @@ namespace Vltava {
     // Creating a logical device
     //------------------------------------------------------------------------------------------------------------------
     void VulkanWrapper::createLogicalDevice() {
+        // Fun fact, on some architecture's (uint32_t) -1 = 4 294 967 295
         std::set<uint32_t> uniqueQueueFamilies({graphicsQueueFamily, presentQueueFamily, computeQueueFamily});
+        uniqueQueueFamilies.erase((uint32_t) -1);
 
         VulkanResources::getInstance().logDev = std::make_unique<MLogDev>(
                 uniqueQueueFamilies,

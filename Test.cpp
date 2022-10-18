@@ -444,7 +444,7 @@ namespace Vltava {
         //-----------------------------
         VulkanResources::getInstance().computeQueue->submit(submitInfo);
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
         // Checking results
         //-----------------------------
@@ -474,6 +474,15 @@ namespace Vltava {
                         sum += cpuGrid[startIdx + s + 1] - gpuGrid[startIdx + s + 1];
                     }
 
+#if log
+                    if (sum != 0) {
+                        std::cout << i << " " << j << " " << k << "; sum: " << sum << std::endl;
+                        for (int s = 0; s < cpuSize; s++) {
+                            std::cout << cpuGrid[startIdx + s + 1] << " " << gpuGrid[startIdx + s + 1] << std::endl;
+                        }
+                        std::cout << "-----------" << std::endl;
+                    }
+#endif
                     assert((sum == 0) && "Sum isn't zero. -> There are different particles contained in the cell in CPU vs GPU version.");
                 }
             }

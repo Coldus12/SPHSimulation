@@ -3,6 +3,7 @@
 
 #include <vulkan/vulkan.hpp>
 #include <set>
+#include <memory>
 
 namespace Vltava {
     class MLogDev {
