@@ -384,7 +384,7 @@ namespace Vltava {
         }
 
         for (int i = 0; i < 300; i++) { /* Default: 150 */
-            sim.run(1);
+            sim.runSESPH(1);
 
             cleanGridComp.bindPipelineAndDescriptors(computeCmdBuffer);
             computeCmdBuffer.dispatch(1000, 1, 1);
@@ -501,7 +501,7 @@ namespace Vltava {
             std::cout << "GPU pos: " << gpuParticles[i].x.x << " " << gpuParticles[i].x.y << " " << gpuParticles[i].x.z <<
                   "; GPU velocity: " << gpuParticles[i].v.x << " " << gpuParticles[i].v.y << " " << gpuParticles[i].v.z <<std::endl << std::endl;
 #endif
-            if (!errorMargin(gpuParticles[i].rho, cpuParticles[i].rho, 0.1)) std::cout << i << " gpu: " << gpuParticles[i].rho << "; cpu: " << cpuParticles[i].rho << ";" << std::endl;
+            if (!errorMargin(gpuParticles[i].rho, cpuParticles[i].rho, 0.1)) std::cout << i << " gpu: " << gpuParticles[i].rho << "; parallelCpuSim: " << cpuParticles[i].rho << ";" << std::endl;
             //assert((errorMargin(gpuParticles[i].rho, cpuParticles[i].rho, 0.1)) && "Rhos are not within error margin");
         }
     }

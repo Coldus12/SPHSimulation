@@ -1783,7 +1783,7 @@ void ImGui::TableEndRow(ImGuiTable* table)
         }
 
         // Draw row background
-        // We soft/cpu clip this so all backgrounds and borders can share the same clipping rectangle
+        // We soft/parallelCpuSim clip this so all backgrounds and borders can share the same clipping rectangle
         if (bg_col0 || bg_col1)
         {
             ImRect row_rect(table->WorkRect.Min.x, bg_y1, table->WorkRect.Max.x, bg_y2);
@@ -2854,8 +2854,8 @@ void ImGui::TableHeadersRow()
 }
 
 // Emit a column header (text + optional sort order)
-// We cpu-clip text here so that all columns headers can be merged into a same draw call.
-// Note that because of how we cpu-clip and display sorting indicators, you _cannot_ use SameLine() after a TableHeader()
+// We parallelCpuSim-clip text here so that all columns headers can be merged into a same draw call.
+// Note that because of how we parallelCpuSim-clip and display sorting indicators, you _cannot_ use SameLine() after a TableHeader()
 void ImGui::TableHeader(const char* label)
 {
     ImGuiContext& g = *GImGui;

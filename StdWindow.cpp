@@ -14,7 +14,7 @@ namespace Vltava {
     bool StdWindow::run = false;
     bool StdWindow::rot = false;
     bool StdWindow::logB = false;
-    bool StdWindow::cpu = false;
+    bool StdWindow::parallelCpuSim = false;
 
     // Constructor
     //------------------------------------------------------------------------------------------------------------------
@@ -338,15 +338,54 @@ namespace Vltava {
 
     void StdWindow::runComp() {
         if (run) {
-            dispatchCompute(nrOfP, 1, 1);
+            if (!cpuSim)
+                dispatchCompute(nrOfP, 1, 1);
+            else
+                runCpuSim(nrOfIter);
+
             log();
             run = false;
         }
     }
 
+    void StdWindow::runCpuSim(int iterNr) {
+        cpusim->runIISPH(iterNr);
+        //cpusim->runSESPH(iterNr);
+        auto& particles = cpusim->first ? cpusim->particles1 : cpusim->particles2;
+        //uBuffers.clear();
+        sBuffers.clear();
+
+        uint64_t size = particles.size() * sizeof(Particle);
+
+        //uBuffers[0].writeToBuffer(&props, sizeof(props));
+
+        Buffer inBuffer(
+                size,
+                vk::BufferUsageFlagBits::eStorageBuffer,
+                vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
+        );
+        inBuffer.bind(0);
+
+        Buffer outBuffer(
+                size,
+                vk::BufferUsageFlagBits::eStorageBuffer,
+                vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
+        );
+        outBuffer.setSize(all_particle_nr * sizeof(Particle));
+        outBuffer.bind(0);
+
+        sBuffers.push_back(std::move(inBuffer));
+        sBuffers.push_back(std::move(outBuffer));
+
+        for (auto& b: sBuffers)
+            b.writeToBuffer(particles.data(), size);
+
+        model->changeModel(particles.size(), &uBuffers, &sBuffers);
+    }
+
     void StdWindow::dispatchCompute(int groupCountX, int groupCountY, int groupCountZ) {
-        if (cpu)
-            cpusim->run(1);
+        if (parallelCpuSim)
+            cpusim->runSESPH(1);
 
         vk::CommandBufferBeginInfo beginInfo({}, nullptr);
         auto& computeCmdBuffer = vw->getCompCmdBuffer();
@@ -481,7 +520,13 @@ namespace Vltava {
                         //std::cout << "dispatch nr: " << time << std::endl;
 
                         nrOfIter = time;
-                        dispatchCompute(nrOfP, 1, 1);
+
+                        if (!cpuSim)
+                            dispatchCompute(nrOfP, 1, 1);
+                        else
+                            runCpuSim(nrOfIter);
+
+
                         log();
                         start = std::chrono::high_resolution_clock::now();
                     }
@@ -506,7 +551,7 @@ namespace Vltava {
                 run = true;
 
             if (ImGui::Button("CPU")) {
-                cpu = !cpu;
+                parallelCpuSim = !parallelCpuSim;
             }
 
             ImGui::Text("Number of iterations: "); ImGui::SameLine(); ImGui::InputInt("##", &nrOfIter);
@@ -522,12 +567,12 @@ namespace Vltava {
                 start = std::chrono::high_resolution_clock::now();
             }
 
+            ImGui::Checkbox("Try cpuSim?", &cpuSim);
+
             ImGui::Checkbox("Set boundaries?", &setBoundaries);
             if (setBoundaries) {
                 ImGui::Text("gridA: "); ImGui::SameLine(); ImGui::InputFloat3("##", (float*)&gridA);
                 ImGui::Text("gridB: "); ImGui::SameLine(); ImGui::InputFloat3("s", (float*)&gridB);
-
-
             }
 
             ImGui::Checkbox("Create container?", &makeContainer);
@@ -577,7 +622,7 @@ namespace Vltava {
         }
 
         if (key == GLFW_KEY_C && action == GLFW_PRESS) {
-            cpu = !cpu;
+            parallelCpuSim = !parallelCpuSim;
         }
     }
 
@@ -650,7 +695,7 @@ namespace Vltava {
         VulkanResources::getInstance().graphicsQueue->submit(infos, inFlightFences[currentFrame]);
         VulkanResources::getInstance().logDev->getHandle().waitIdle();
 
-        //clear font textures from cpu data
+        //clear font textures from parallelCpuSim data
         ImGui_ImplVulkan_DestroyFontUploadObjects();
     }
 

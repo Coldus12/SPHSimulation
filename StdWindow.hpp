@@ -50,8 +50,9 @@ namespace Vltava {
         GLFWwindow *window;
 
         static bool run;
-        static bool cpu;
+        static bool parallelCpuSim;
         static bool logB;
+        bool cpuSim = false;
 
         int nrOfIter = 100;
         int particleNr = 512;
@@ -84,12 +85,12 @@ namespace Vltava {
         std::vector<Buffer> sBuffers;
         std::vector<Buffer> uBuffers;
 
+        // SESPH shaders
         std::unique_ptr<ComputeShader> densityComp;
         std::unique_ptr<ComputeShader> particleIterComp;
         std::unique_ptr<ComputeShader> gridPlacementComp;
         std::unique_ptr<ComputeShader> cleanGridComp;
 
-        // even the sample uses VkImage and not vk::Image (i guess because swapchain.getImages() returns a vector of VkImage and not vk::Image)
         std::vector<vk::Semaphore> imageAvailableSemaphores;
         std::vector<vk::Semaphore> renderFinishedSemaphores;
         std::vector<vk::Fence> inFlightFences;
@@ -115,6 +116,8 @@ namespace Vltava {
         void resetData();
 
         void mainloop();
+
+        void runCpuSim(int iterNr);
 
         static void frameBufferResizeCallback(GLFWwindow *window, int width, int height);
         static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
