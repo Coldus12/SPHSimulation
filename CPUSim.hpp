@@ -66,9 +66,11 @@ namespace Vltava {
         // IISPH according to https://cg.informatik.uni-freiburg.de/publications/2013_TVCG_IISPH.pdf
         std::vector<glm::vec3> dii; // displacement
         std::vector<glm::vec3> sumDijPj;
-        std::vector<float> pred_corr_rho;
+        std::vector<float> rho_advected;
+        std::vector<float> rho_pred;
+        std::vector<glm::vec3> v_advected;
 
-        void computeVadvAndDii(int particleIdx, float dt);
+        void computeVadvAndDiiAndRho(int particleIdx, float dt);
         void computeAdvectedRho(int particleIdx, float dt);
         void computeAii(int particleIdx, float dt);
         void predictAdvection(float dt);

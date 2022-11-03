@@ -349,7 +349,7 @@ namespace Vltava {
     }
 
     void StdWindow::runCpuSim(int iterNr) {
-        cpusim->runIISPH(iterNr);
+        cpusim->runIISPH2(iterNr);
         //cpusim->runSESPH(iterNr);
         auto& particles = cpusim->first ? cpusim->particles1 : cpusim->particles2;
         //uBuffers.clear();
@@ -466,22 +466,35 @@ namespace Vltava {
 
     void StdWindow::log() {
         if (write_log) {
-            auto spheres = sBuffers[1].getData<Particle>();
             std::string str = "";
-            str += "Compute data - size: " + std::to_string(spheres.size()) + "\n";
-            str += "----------------------------------------------\n";
 
-            for (int i = 0; i < nrOfP; i++) {
-                str += "Density: " + std::to_string(spheres[i].rho) +
-                       /*"; Pressure: " + std::to_string(spheres[i].p) +
-                       " ; Position: " + std::to_string(spheres[i].x.x) + " " + std::to_string(spheres[i].x.y) + " " + std::to_string(spheres[i].x.z) +
-                       " ; Mass: " + std::to_string(spheres[i].m) +*/ " ; Padding = " + std::to_string(spheres[i].padding) + " ; diff = " + std::to_string(spheres[i].padding - spheres[i].rho) +
-                       /*" ; Velocity: " + std::to_string(spheres[i].v.x) + " " + std::to_string(spheres[i].v.y) + " " + std::to_string(spheres[i].v.z) +*/";\n";
-                //str += " length(velocity): " + std::to_string(glm::length(spheres[i].v)) + "\n";
+            if (!cpuSim) {
+                auto spheres = sBuffers[1].getData<Particle>();
+                str += "Compute data - size: " + std::to_string(spheres.size()) + "\n";
+                str += "----------------------------------------------\n";
+
+                for (int i = 0; i < nrOfP; i++) {
+                    str += "Density: " + std::to_string(spheres[i].rho) +
+                           /*"; Pressure: " + std::to_string(spheres[i].p) +
+                           " ; Position: " + std::to_string(spheres[i].x.x) + " " + std::to_string(spheres[i].x.y) + " " + std::to_string(spheres[i].x.z) +
+                           " ; Mass: " + std::to_string(spheres[i].m) +*/ " ; Padding = " +
+                           std::to_string(spheres[i].padding) + " ; diff = " +
+                           std::to_string(spheres[i].padding - spheres[i].rho) +
+                           /*" ; Velocity: " + std::to_string(spheres[i].v.x) + " " + std::to_string(spheres[i].v.y) + " " + std::to_string(spheres[i].v.z) +*/";\n";
+                    //str += " length(velocity): " + std::to_string(glm::length(spheres[i].v)) + "\n";
+                }
+                str += "\n----------------------------------------------\n";
+
+                my_log.addLog(str.c_str());
+            } else {
+                auto& data1 = cpusim->particles1;
+                auto& data2 = cpusim->particles2;
+
+                for (int i = 0; i < data1.size(); i++) {
+                    str += std::to_string(i) + "; Density1: " + std::to_string(data1[i].rho) + " pressure1: " + std::to_string(data1[i].p) + "\n";
+                    str += std::to_string(i) + "; Density2: " + std::to_string(data2[i].rho) + " pressure2: " + std::to_string(data2[i].p) + "\n\n";
+                }
             }
-            str += "\n----------------------------------------------\n";
-
-            my_log.addLog(str.c_str());
 
             if (console_log)
                 std::cout << str << std::endl;

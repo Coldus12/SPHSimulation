@@ -714,7 +714,7 @@ namespace Vltava {
             }
 
             particles[i].rho = density;
-            particles[i].p = 0;
+            //particles[i].p = 0;
         }
     }
 
@@ -727,6 +727,13 @@ namespace Vltava {
             // Step 1: Calculate density for all particles
             // Also sets pressure to 0.
             calculateRho();
+
+            // Predict advection
+            // Clearing diagonals
+            /*diagonals.clear();
+            for (int i = 0; i < particles.size(); i++) {
+                //particles[i].
+            }*/
 
             // Step 2: Calculate diagonal elements and source terms
             for (int i = 0; i < particles.size(); i++) {
@@ -776,17 +783,22 @@ namespace Vltava {
     // According to https://cg.informatik.uni-freiburg.de/publications/2013_TVCG_IISPH.pdf
     //------------------------------------------------------------------------------------------------------------------
 
-    void CPUSim::computeVadvAndDii(int particleIdx, float dt) {
+    void CPUSim::computeVadvAndDiiAndRho(int particleIdx, float dt) {
         auto& particles = first ? particles1 : particles2;
         glm::vec3 viscosity(0);
         glm::vec3 dii(0);
 
+        //float rho = 0;
+
         for (int j = 0; j < particles.size(); j++) {
             // Computing dii
-            dii += gradKernel(particleIdx, j);
+            dii += -dt * dt * particles[j].m * gradKernel(particleIdx, j) / (particles[particleIdx].rho * particles[particleIdx].rho);
 
             if (j == particleIdx)
                 continue;
+
+            // Computing rho
+            //rho += particles[j].m * kernel(particleIdx, j);
 
             // Computing viscosity for non-pressure velocity advection
             glm::vec3 xij = particles[particleIdx].x - particles[j].x;
@@ -801,28 +813,32 @@ namespace Vltava {
         }
 
         glm::vec3 vi = particles[particleIdx].v + dt * (glm::vec3(0,0,-9.81) + viscosity);
-        particles1[particleIdx].v = vi;
-        particles2[particleIdx].v = vi;
+        /*particles1[particleIdx].v = vi;
+        particles2[particleIdx].v = vi;*/
 
-        dii *= -1 * dt * dt * particles[particleIdx].m / (particles[particleIdx].rho * particles[particleIdx].rho);
+        //rho = (rho - simProps.desired_density) < 0 ? 0 : rho;
+
+        v_advected.push_back(vi);
         this->dii.push_back(dii);
+        //particles[particleIdx].rho = rho;
     }
 
     void CPUSim::computeAdvectedRho(int particleIdx, float dt) {
         auto& particles = first ? particles1 : particles2;
-        glm::vec3 vi = particles[particleIdx].v;
-        glm::vec3 vj;
         float val = 0;
 
         for (int j = 0; j < particles.size(); j++) {
-            vj = particles[j].v;
-            val += glm::dot(vi - vj, gradKernel(particleIdx, j));
+            if (j == particleIdx)
+                continue;
+
+            val += particles[j].m * glm::dot(v_advected[particleIdx] - v_advected[j], gradKernel(particleIdx, j));
         }
 
-        val *= particles[particleIdx].m * dt;
+        val *= dt;
 
-        particles1[particleIdx].rho = val;
-        particles2[particleIdx].rho = val;
+        /*particles1[particleIdx].rho += val;
+        particles2[particleIdx].rho += val;*/
+        rho_advected.push_back(particles[particleIdx].rho + val);
     }
 
     void CPUSim::computeAii(int particleIdx, float dt) {
@@ -830,10 +846,21 @@ namespace Vltava {
         float aii = 0;
 
         for (int j = 0; j < particles.size(); j++) {
+            if (j == particleIdx)
+                continue;
+
             glm::vec3 grad = gradKernel(particleIdx, j);
 
-            glm::vec3 dji = -1 * dt * dt * particles[j].m / (particles[particleIdx].rho * particles[particleIdx].rho) * grad;
+            glm::vec3 dji = -dt * dt * particles[j].m / (particles[j].rho * particles[j].rho) * grad;
+            //glm::vec3 dji = -dt * dt * particles[j].m / (particles[particleIdx].rho * particles[particleIdx].rho) * -grad;
+
             aii += particles[j].m * glm::dot(dii[particleIdx] - dji, grad);
+        }
+
+        if (aii != aii) {
+            std::cout << "NAN here in diag calculation; id: " << particleIdx << std::endl;
+            std::cout << particles[particleIdx].rho << std::endl;
+            std::cout << std::endl;
         }
 
         diagonals.push_back(aii);
@@ -844,29 +871,34 @@ namespace Vltava {
         calculateRho();
 
         dii.clear();
+        v_advected.clear();
 
         // Predict v adv, and compute dii
         for (int i = 0; i < particles1.size(); i++) {
-            computeVadvAndDii(i, dt);
+            computeVadvAndDiiAndRho(i, dt);
         }
 
         diagonals.clear();
+        rho_advected.clear();
 
         // Calculate advected rho
         for (int i = 0; i < particles1.size(); i++) {
+            //particles1[i].v = v_advected[i];
+            //particles2[i].v = v_advected[i];
+
             computeAdvectedRho(i, dt);
-            particles1[i].p = 0;
-            particles2[i].p = 0;
+            particles1[i].p *= 0.5;
+            particles2[i].p *= 0.5;
             computeAii(i, dt);
         }
     }
 
     void CPUSim::computeSumDijPj(int particleIdx, float dt) {
         auto& particles = first ? particles1 : particles2;
-        glm::vec3 dijpj;
+        glm::vec3 dijpj(0);
 
         for (int j = 0; j < particles.size(); j++) {
-            float val = -1 * particles[j].m * particles[j].p / (particles[j].rho * particles[j].rho);
+            float val = -particles[j].m * particles[j].p / (particles[j].rho * particles[j].rho);
             dijpj += gradKernel(particleIdx, j) * val;
         }
 
@@ -876,30 +908,56 @@ namespace Vltava {
 
     void CPUSim::updatePressure2(int particleIdx, float dt) {
         auto& particles = first ? particles1 : particles2;
-        glm::vec3 dji, grad, vecSum;
+        glm::vec3 djipi, grad, vecSum;
         float sum = 0;
+        //float djivals = -dt*dt * (particles[particleIdx].m * particles[particleIdx].p) / (particles[particleIdx].rho * particles[particleIdx].rho);
 
         float omega = 0.5;
 
         for (int j = 0; j < particles.size(); j++) {
             grad = gradKernel(particleIdx, j);
-            dji = -1 * dt * dt * particles[j].m / (particles[particleIdx].rho * particles[particleIdx].rho) * grad;
-            vecSum = particles[j].m * (sumDijPj[particleIdx] - dii[j] - (sumDijPj[j] - dji * particles[j].p));
-            sum += glm::dot(vecSum, grad);
+            float djivals = -dt*dt * (particles[j].m * particles[particleIdx].p) / (particles[j].rho * particles[j].rho);
+            //float djivals = -dt*dt * (particles[j].m * particles[particleIdx].p) / (particles[particleIdx].rho * particles[particleIdx].rho);
+            djipi = djivals * gradKernel(j, particleIdx);
+            sum += particles[j].m * glm::dot((sumDijPj[particleIdx] - dii[j] * particles[j].p - (sumDijPj[j] - djipi)), grad);
+
+            /*if (particleIdx == 0) {
+                std::cout << "djivals" << djivals << " sumDijPj (" << sumDijPj[particleIdx].x << "," << sumDijPj[particleIdx].y << "," << sumDijPj[particleIdx].z
+                << ") dii[j] (" << dii[j].x << "," << dii[j].y << "," << dii[j].z<< ") original p " << particles[j].p
+                << " djkpk (" << (sumDijPj[j] - djipi).x << "," << (sumDijPj[j] - djipi).y << "," << (sumDijPj[j] - djipi).z <<")"<< std::endl;
+            }*/
         }
 
-        pred_corr_rho.push_back(particles[particleIdx].rho + sum + diagonals[particleIdx]*particles[particleIdx].p);
-        particles[particleIdx].p = (1 - omega) * particles[particleIdx].p + (omega/diagonals[particleIdx]) * (simProps.desired_density - particles[particleIdx].rho - sum);
+        //if(particleIdx == 0) std::cout <<"\n------------------\n";
+
+        //particles[particleIdx].p = (1 - omega) * particles[particleIdx].p + (omega/diagonals[particleIdx]) * (simProps.desired_density - rho_advected[particleIdx] - sum);
+
+        // NOTES
+        // p^(l+1) = (1-omega) * p + (omega/diag) * (rho0 - rho_adv - sum)
+        // p^(l+1) * diag = (1-omega) * p * diag + omega * (rho0 - rho_adv - sum)
+        // p^(l+1) * diag = p * diag - omega * (rho_adv - rho0 + sum + p * diag)
+        // rho_pred = rho_adv + sum + p * diag
+        // p^(l+1) * diag = p * diag - omega * (rho_pred - rho0)
+        // p^(l+1) = p - (omega/diag) * (rho_pred - rho0)
+
+        float previous_p = particles[particleIdx].p;
+        float l_rho_pred = rho_advected[particleIdx] + sum + particles[particleIdx].p * diagonals[particleIdx];
+        particles[particleIdx].p = particles[particleIdx].p - (omega / diagonals[particleIdx]) * (l_rho_pred - simProps.desired_density);
+
+        //particles[particleIdx].p = particles[particleIdx].p < 0 ? 0 : particles[particleIdx].p;
+        std::cout << "[UpdatePressure2] particleIdx: " << particleIdx << " rho_adv: " << rho_advected[particleIdx] << " p: " << particles[particleIdx].p << " diag: " << diagonals[particleIdx] << " sum: " << sum  << " rho_pred " << l_rho_pred << " prevP " << previous_p << std::endl;
+        //rho_pred.push_back(rho_advected[particleIdx] + particles[particleIdx].p * diagonals[particleIdx] + sum);
+        rho_pred.push_back(l_rho_pred);
     }
 
     float CPUSim::computeAverageRho() {
         float val = 0;
 
-        for (auto& r : pred_corr_rho) {
+        for (auto& r : rho_pred) {
             val += r;
         }
 
-        val /= pred_corr_rho.size();
+        val /= rho_pred.size();
 
         return val;
     }
@@ -909,9 +967,10 @@ namespace Vltava {
 
         int l = 0;
         float error = 10;
-        while (error > 0.1 || l < 2) {
+
+        while (error > 0.011 && l < 1000) {
             sumDijPj.clear();
-            pred_corr_rho.clear();
+            rho_pred.clear();
 
             for (int j = 0; j < particles.size(); j++) {
                 computeSumDijPj(j, dt);
@@ -922,16 +981,9 @@ namespace Vltava {
             }
 
             float rhoAvg = computeAverageRho();
-            error = abs((rhoAvg/simProps.desired_density) - simProps.desired_density);
-            std::cout << "[IISPH2] error: " << error << " nr: " << l << " rhoavg: " << rhoAvg << " desireddensity: " << simProps.desired_density << std::endl;
-            for (auto& r : pred_corr_rho) {
-                std::cout << r << std::endl;
-            }
+            error = abs(rhoAvg - simProps.desired_density);
+            std::cout << "[IISPH2] error: " << error << " nr: " << l << " rhoavg: " << rhoAvg << " desireddensity: " << simProps.desired_density << " aii: " << std::endl;
             std::cout << "----------------" << std::endl;
-            /*for (auto& p : particles) {
-                std::cout << p.rho << std::endl;
-            }
-            break;*/
 
             l++;
         }
@@ -967,7 +1019,7 @@ namespace Vltava {
 
                 glm::vec3 viNext = p1[i].v;
                 glm::vec3 xiNext = p1[i].x;
-                viNext += acc * (float) dt / 1.0f;
+                viNext += acc * (float) dt + v_advected[i];
                 xiNext += viNext * dt;
 
                 p2[i].x = xiNext;
