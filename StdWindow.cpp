@@ -349,7 +349,7 @@ namespace Vltava {
     }
 
     void StdWindow::runCpuSim(int iterNr) {
-        cpusim->runIISPH2(iterNr);
+        cpusim->runIISPH(iterNr);
         //cpusim->runSESPH(iterNr);
         auto& particles = cpusim->first ? cpusim->particles1 : cpusim->particles2;
         //uBuffers.clear();

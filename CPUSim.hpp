@@ -44,42 +44,30 @@ namespace Vltava {
         void placeParticleIntoCell(int particleIdx);
         void printNeighbourhood(Neighbourhood nh);
 
-        // IISPH stuff
-        //--------------------------------------------------------------------------------------------------------------
-        float calculateDiagonal(int particleIdx, float dt);
-        float calculateSourceTerm(int particleIdx, float dt);
-        void initPressure();
-        glm::vec3 computePressureAcceleration(int particleIdx);
-        float computeLaplacian(int particleIdx, float dt);
-        void updatePressure(int particleIdx, float dt);
-        void calculateRho();
-
-        std::vector<float> densityError;
-        std::vector<float> diagonals;
-        std::vector<float> sourceTerms;
-        std::vector<glm::vec3> pressureAccs;
-
-        float calculateAverageError();
-
-        void runIISPH(int iterNr);
 
         // IISPH according to https://cg.informatik.uni-freiburg.de/publications/2013_TVCG_IISPH.pdf
-        std::vector<glm::vec3> dii; // displacement
-        std::vector<glm::vec3> sumDijPj;
-        std::vector<float> rho_advected;
-        std::vector<float> rho_pred;
-        std::vector<glm::vec3> v_advected;
+        //--------------------------------------------------------------------------------------------------------------
 
-        void computeVadvAndDiiAndRho(int particleIdx, float dt);
-        void computeAdvectedRho(int particleIdx, float dt);
+        // variables
+        std::vector<glm::vec3> dii; // displacement
+        std::vector<float> aii;
+        std::vector<glm::vec3> sumDijPj;
+        std::vector<float> rho_adv;
+        std::vector<float> rho_pred;
+        std::vector<glm::vec3> v_adv;
+
+        // functions
+        void calculateRho();
+        float calculateAverageError();
+        void computeVadvAndDii(float dt);
+        void computeRhoadvAndAii(float dt);
         void computeAii(int particleIdx, float dt);
         void predictAdvection(float dt);
-        void computeSumDijPj(int particleIdx, float dt);
-        void updatePressure2(int particleIdx, float dt);
-        float computeAverageRho();
+        void computeSumDijPj(float dt);
+        void updatePressure(float dt);
         void pressureSolve(float dt);
         void integrate(float dt);
-        void runIISPH2(int iterNr);
+        void runIISPH(int iterNr);
     };
 }
 
