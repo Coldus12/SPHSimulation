@@ -18,6 +18,7 @@
 #include "CPUSim.hpp"
 #include "VulkanWrapper.h"
 #include "SESPH.h"
+#include "IISPH.h"
 
 #include <iostream>
 #include <limits>
@@ -86,6 +87,7 @@ namespace Vltava {
         std::vector<Buffer> uBuffers;
 
         std::unique_ptr<SESPH> sesph;
+        std::unique_ptr<IISPH> iisph;
 
         //IMGUI
         VkDescriptorPool imguiPool;
@@ -103,9 +105,7 @@ namespace Vltava {
         virtual void recordCommandBuffer(uint32_t imageIndex);
         void loadModel();
         void cleanup();
-
-        void initCompute();
-        //void dispatchCompute(int groupCountX, int groupCountY, int groupCountZ);
+        
         void setComputeData();
         void resetData();
 

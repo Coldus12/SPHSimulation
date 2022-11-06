@@ -1,16 +1,12 @@
-#ifndef SPHSIMULATION_SESPH_H
-#define SPHSIMULATION_SESPH_H
+#ifndef SPHSIMULATION_IISPH_H
+#define SPHSIMULATION_IISPH_H
 
-#include <memory>
-#include <vector>
-#include "vulkan/vulkan.hpp"
-#include "ComputeShader.hpp"
 #include "SPH.h"
-#include "VulkanWrapper.h"
-#include "CPUSim.hpp"
+#include "ComputeShader.hpp"
 
 namespace Vltava {
-    class SESPH : public SPH {
+
+    class IISPH : public SPH {
     public:
         // other variables
 
@@ -19,6 +15,7 @@ namespace Vltava {
         // variables for CPU sim
 
         // other functions
+        void setBuffers(std::vector<Buffer>* uBuffers, std::vector<Buffer>* sBuffers) override;
 
         // functions for GPU sim
         void initGpuSim(std::vector<Buffer>* uBuffers, std::vector<Buffer>* sBuffers);
@@ -32,17 +29,21 @@ namespace Vltava {
 
     private:
         // other variables
-        bool data_has_been_set = false;
-        bool simProps_has_been_set = false;
 
         // variables for GPU sim
-        std::unique_ptr<ComputeShader> densityComp;
+        /*std::unique_ptr<ComputeShader> densityComp;
         std::unique_ptr<ComputeShader> particleIterComp;
         std::unique_ptr<ComputeShader> gridPlacementComp;
         std::unique_ptr<ComputeShader> cleanGridComp;
-        vk::Fence compFence;
+        vk::Fence compFence;*/
 
         // variables for CPU sim
+        std::vector<glm::vec3> dii; // displacement
+        std::vector<float> aii;
+        std::vector<glm::vec3> sumDijPj;
+        std::vector<float> rho_adv;
+        std::vector<float> rho_pred;
+        std::vector<glm::vec3> v_adv;
 
         // other functions
         void cleanup();
@@ -52,11 +53,17 @@ namespace Vltava {
         void createSyncObjects();
 
         // functions for CPU sim
-        void originalCalculateRhoAndP();
-        void neighbourCalculateRhoAndP();
-        void originalIter();
-        void neighbourIter();
+        void calculateRho();
+        float calculateAverageError();
+        void computeVadvAndDii(float dt);
+        void computeRhoadvAndAii(float dt);
+        void predictAdvection(float dt);
+        void computeSumDijPj(float dt);
+        void updatePressure(float dt);
+        void pressureSolve(float dt);
+        void integrate(float dt);
     };
-}
 
-#endif //SPHSIMULATION_SESPH_H
+} // Vltava
+
+#endif //SPHSIMULATION_IISPH_H

@@ -7,34 +7,6 @@ namespace Vltava {
         VulkanResources::getInstance().logDev->getHandle().destroyFence(compFence);
     }
 
-    std::string SESPH::log() {
-        std::string str = "";
-
-        if (!logCpuData) {
-            auto spheres = sBuffers->at(1).getData<Particle>();
-            str += "Compute data - size: " + std::to_string(spheres.size()) + "\n";
-            str += "----------------------------------------------\n";
-
-            for (auto & sphere : spheres) {
-                str += "Density: " + std::to_string(sphere.rho) +
-                       "; Pressure: " + std::to_string(sphere.p) +
-                       " ; Position: " + std::to_string(sphere.x.x) + " " + std::to_string(sphere.x.y) + " " + std::to_string(sphere.x.z) +
-                       " ; Mass: " + std::to_string(sphere.m) +/* " ; Padding = " +
-                       std::to_string(spheres[i].padding) + " ; diff = " +
-                       std::to_string(spheres[i].padding - spheres[i].rho) +*/
-                       " ; Velocity: " + std::to_string(sphere.v.x) + " " + std::to_string(sphere.v.y) + " " + std::to_string(sphere.v.z) + ";\n";
-            }
-            str += "\n----------------------------------------------\n";
-        } else {
-            for (int i = 0; i < particles1.size(); i++) {
-                str += std::to_string(i) + "; Density1: " + std::to_string(particles1[i].rho) + " pressure1: " + std::to_string(particles1[i].p) + "\n";
-                str += std::to_string(i) + "; Density2: " + std::to_string(particles2[i].rho) + " pressure2: " + std::to_string(particles2[i].p) + "\n\n";
-            }
-        }
-
-        return str;
-    }
-
     // GPU functions
     //------------------------------------------------------------------------------------------------------------------
     void SESPH::initGpuSim(std::vector<Buffer>* uBuffers, std::vector<Buffer>* sBuffers) {

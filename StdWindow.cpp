@@ -71,6 +71,7 @@ namespace Vltava {
         VulkanWrapper::getInstance().createVulkanWindow(window);
         createSyncObjects();
         sesph = std::make_unique<SESPH>();
+        iisph = std::make_unique<IISPH>();
 
         setComputeData();
 
@@ -237,6 +238,7 @@ namespace Vltava {
 
         sesph->initGpuSim(&uBuffers, &sBuffers);
         sesph->setCellSizes(cellx, celly, cellz, list_size);
+        iisph->setBuffers(&uBuffers, &sBuffers);
     }
 
     void StdWindow::resetData() {
@@ -327,8 +329,9 @@ namespace Vltava {
     void StdWindow::runCpuSim(int iterNr) {
         //cpusim->runIISPH(iterNr);
         //cpusim->runSESPH(iterNr);
-        sesph->cpuTimeStep();
-        auto particles = sesph->getFirst() ? sesph->getData1() : sesph->getData2();
+        //sesph->cpuTimeStep();
+        iisph->cpuTimeStep();
+        auto particles = iisph->getFirst() ? iisph->getData1() : iisph->getData2();
         //uBuffers.clear();
         sBuffers.clear();
 

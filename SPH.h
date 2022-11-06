@@ -15,18 +15,18 @@ namespace Vltava {
         virtual void gpuTimeStep() = 0;
         virtual void cpuTimeStep() = 0;
 
-        virtual std::string log() = 0;
+        virtual std::string log();
 
-        void setSimProps(SimProps props) {
+        virtual void setSimProps(SimProps props) {
             this->props = props;
         }
 
-        void setData(std::vector<Particle> particles) {
+        virtual void setData(std::vector<Particle> particles) {
             this->particles1 = particles;
             this->particles2 = particles;
         }
 
-        void setBuffers(std::vector<Buffer>* uBuffers, std::vector<Buffer>* sBuffers) {
+        virtual void setBuffers(std::vector<Buffer>* uBuffers, std::vector<Buffer>* sBuffers) {
             std::cout << "got here at least?" << std::endl;
 
             this->uBuffers = uBuffers;
@@ -41,7 +41,7 @@ namespace Vltava {
             this->props = uBuffers->at(0).getData<SimProps>()[0];
         }
 
-        void setCellSizes(int cellx, int celly, int cellz, int listSize) {
+        virtual void setCellSizes(int cellx, int celly, int cellz, int listSize) {
             this->cellx = cellx;
             this->celly = celly;
             this->cellz = cellz;
@@ -78,8 +78,8 @@ namespace Vltava {
         bool logCpuData = true;
 
         // Functions
-        float kernel(int i, int j);
-        glm::vec3 gradKernel(int i, int j);
+        virtual float kernel(int i, int j);
+        virtual glm::vec3 gradKernel(int i, int j);
 
         void container(int idx);
         void place();
