@@ -1,10 +1,265 @@
+#include <chrono>
+#include <thread>
 #include "IISPH.h"
 
 namespace Vltava {
     // GPU functions
     //------------------------------------------------------------------------------------------------------------------
     void IISPH::gpuTimeStep() {
+        logCpuData = false;
 
+        gpuPredictAdvection();
+
+        int nr = 0;
+        float error = 10;
+
+        //while (nr < 1) {
+        while (error > 0.01 && nr < 100) {
+            gpuPressureSolveUpdate();
+
+            // Density error calculation
+            error = 0;
+
+            auto data = sBuffers->at(3).getData<AdditionalIISPHData>();
+            //std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+            for (auto& add: data) {
+                //std::cout << add.rho_pred << " " << add.rho_adv << " " << add.aii << std::endl;
+                error += add.rho_pred;
+            }
+            error /= data.size();
+            error -= props.desired_density;
+
+            nr++;
+
+            std::cout << "[IISPH GPU] error: " << error << " nr: " << nr << std::endl;
+        }
+
+        gpuIntegrate();
+    }
+
+    void IISPH::gpuPredictAdvection() {
+        vk::CommandBufferBeginInfo beginInfo({}, nullptr);
+        auto& computeCmdBuffer = VulkanWrapper::getInstance().getCompCmdBuffer();
+        computeCmdBuffer.begin(beginInfo);
+
+        std::vector<vk::BufferMemoryBarrier> membarriers;
+        for (auto& buffer: *sBuffers) {
+            membarriers.emplace_back(
+                    vk::AccessFlagBits::eShaderWrite,
+                    vk::AccessFlagBits::eShaderRead,
+                    VulkanWrapper::getInstance().getComputeQueueFamily(),
+                    VulkanWrapper::getInstance().getComputeQueueFamily(),
+                    buffer.getBufferHandle(),
+                    0,
+                    VK_WHOLE_SIZE
+            );
+        }
+
+        // Predict advection
+        //--------------------
+        densityComp->bindPipelineAndDescriptors(computeCmdBuffer);
+        computeCmdBuffer.dispatch(particles1.size(), 1, 1);
+        computeCmdBuffer.pipelineBarrier(
+                vk::PipelineStageFlagBits::eComputeShader,
+                vk::PipelineStageFlagBits::eComputeShader,
+                {},
+                {},
+                membarriers,
+                {}
+        );
+
+        advVelocityAndDiiComp->bindPipelineAndDescriptors(computeCmdBuffer);
+        computeCmdBuffer.dispatch(particles1.size(), 1, 1);
+        computeCmdBuffer.pipelineBarrier(
+                vk::PipelineStageFlagBits::eComputeShader,
+                vk::PipelineStageFlagBits::eComputeShader,
+                {},
+                {},
+                membarriers,
+                {}
+        );
+
+        advDensityAndAiiComp->bindPipelineAndDescriptors(computeCmdBuffer);
+        computeCmdBuffer.dispatch(particles1.size(), 1, 1);
+        computeCmdBuffer.pipelineBarrier(
+                vk::PipelineStageFlagBits::eComputeShader,
+                vk::PipelineStageFlagBits::eComputeShader,
+                {},
+                {},
+                membarriers,
+                {}
+        );
+
+        computeCmdBuffer.end();
+
+        vk::SubmitInfo submitInfo(
+                {},
+                {},
+                computeCmdBuffer,
+                {}
+        );
+
+        //VulkanResources::getInstance().computeQueue->submit(submitInfo, compFence);
+        VulkanResources::getInstance().computeQueue->submit(submitInfo);
+        VulkanResources::getInstance().logDev->getHandle().waitIdle();
+    }
+
+    void IISPH::gpuPressureSolveUpdate() {
+        vk::CommandBufferBeginInfo beginInfo({}, nullptr);
+        auto& computeCmdBuffer = VulkanWrapper::getInstance().getCompCmdBuffer();
+        computeCmdBuffer.begin(beginInfo);
+
+        std::vector<vk::BufferMemoryBarrier> membarriers;
+        for (auto& buffer: *sBuffers) {
+            membarriers.emplace_back(
+                    vk::AccessFlagBits::eShaderWrite,
+                    vk::AccessFlagBits::eShaderRead,
+                    VulkanWrapper::getInstance().getComputeQueueFamily(),
+                    VulkanWrapper::getInstance().getComputeQueueFamily(),
+                    buffer.getBufferHandle(),
+                    0,
+                    VK_WHOLE_SIZE
+            );
+        }
+
+        // Pressure solve
+        //--------------------
+        sumDijPjComp->bindPipelineAndDescriptors(computeCmdBuffer);
+        computeCmdBuffer.dispatch(particles1.size(), 1, 1);
+        computeCmdBuffer.pipelineBarrier(
+                vk::PipelineStageFlagBits::eComputeShader,
+                vk::PipelineStageFlagBits::eComputeShader,
+                {},
+                {},
+                membarriers,
+                {}
+        );
+
+        pressureUpdateComp->bindPipelineAndDescriptors(computeCmdBuffer);
+        computeCmdBuffer.dispatch(particles1.size(), 1, 1);
+        computeCmdBuffer.pipelineBarrier(
+                vk::PipelineStageFlagBits::eComputeShader,
+                vk::PipelineStageFlagBits::eComputeShader,
+                {},
+                {},
+                membarriers,
+                {}
+        );
+
+        computeCmdBuffer.end();
+
+        vk::SubmitInfo submitInfo(
+                {},
+                {},
+                computeCmdBuffer,
+                {}
+        );
+
+        //VulkanResources::getInstance().computeQueue->submit(submitInfo, compFence);
+        VulkanResources::getInstance().computeQueue->submit(submitInfo);
+        VulkanResources::getInstance().logDev->getHandle().waitIdle();
+    }
+
+    void IISPH::gpuIntegrate() {
+        vk::CommandBufferBeginInfo beginInfo({}, nullptr);
+        auto& computeCmdBuffer = VulkanWrapper::getInstance().getCompCmdBuffer();
+        computeCmdBuffer.begin(beginInfo);
+
+        std::vector<vk::BufferMemoryBarrier> membarriers;
+        for (auto& buffer: *sBuffers) {
+            membarriers.emplace_back(
+                    vk::AccessFlagBits::eShaderWrite,
+                    vk::AccessFlagBits::eShaderRead,
+                    VulkanWrapper::getInstance().getComputeQueueFamily(),
+                    VulkanWrapper::getInstance().getComputeQueueFamily(),
+                    buffer.getBufferHandle(),
+                    0,
+                    VK_WHOLE_SIZE
+            );
+        }
+
+        // Integrate
+        //--------------------
+        particleIterComp->bindPipelineAndDescriptors(computeCmdBuffer);
+        computeCmdBuffer.dispatch(particles1.size(), 1, 1);
+        computeCmdBuffer.pipelineBarrier(
+                vk::PipelineStageFlagBits::eComputeShader,
+                vk::PipelineStageFlagBits::eComputeShader,
+                {},
+                {},
+                membarriers,
+                {}
+        );
+
+        computeCmdBuffer.end();
+
+        vk::SubmitInfo submitInfo(
+                {},
+                {},
+                computeCmdBuffer,
+                {}
+        );
+
+        //VulkanResources::getInstance().computeQueue->submit(submitInfo, compFence);
+        VulkanResources::getInstance().computeQueue->submit(submitInfo);
+        VulkanResources::getInstance().logDev->getHandle().waitIdle();
+    }
+
+    void IISPH::initGpuSim(std::vector<Buffer> *uBuffers, std::vector<Buffer> *sBuffers) {
+        densityComp.reset();
+        advVelocityAndDiiComp.reset();
+        advDensityAndAiiComp.reset();
+
+        sumDijPjComp.reset();
+        pressureUpdateComp.reset();
+
+        particleIterComp.reset();
+
+        createSyncObjects();
+        initComputeShaders(uBuffers, sBuffers);
+    }
+
+    void IISPH::createSyncObjects() {
+        vk::FenceCreateInfo fenceInfo(vk::FenceCreateFlagBits::eSignaled);
+        compFence =  VulkanResources::getInstance().logDev->getHandle().createFence(fenceInfo);
+    }
+
+    void IISPH::initComputeShaders(std::vector<Buffer> *uBuffers, std::vector<Buffer> *sBuffers) {
+        setBuffers(uBuffers, sBuffers);
+
+        Buffer additionalDataBuffer(
+                particles1.size() * sizeof(AdditionalIISPHData),
+                vk::BufferUsageFlagBits::eStorageBuffer,
+                vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
+        );
+        additionalDataBuffer.bind(0);
+        std::vector<AdditionalIISPHData> add_data = std::vector<AdditionalIISPHData>(particles1.size(), AdditionalIISPHData());
+        additionalDataBuffer.writeToBuffer(add_data.data(), add_data.size() * sizeof(AdditionalIISPHData));
+        sBuffers->push_back(std::move(additionalDataBuffer));
+
+        densityComp = std::make_unique<ComputeShader>("shaders/IISPH_calculateRho.spv");
+        densityComp->setBuffers(uBuffers, sBuffers);
+        densityComp->createPipeline();
+
+        advVelocityAndDiiComp = std::make_unique<ComputeShader>("shaders/IISPH_computeVadvAndDii.spv");
+        advVelocityAndDiiComp->setBuffers(uBuffers, sBuffers);
+        advVelocityAndDiiComp->createPipeline();
+
+        advDensityAndAiiComp = std::make_unique<ComputeShader>("shaders/IISPH_computeRhoadvAndAii.spv");
+        advDensityAndAiiComp->setBuffers(uBuffers, sBuffers);
+        advDensityAndAiiComp->createPipeline();
+
+        sumDijPjComp = std::make_unique<ComputeShader>("shaders/IISPH_computeSumDijPj.spv");
+        sumDijPjComp->setBuffers(uBuffers, sBuffers);
+        sumDijPjComp->createPipeline();
+
+        pressureUpdateComp = std::make_unique<ComputeShader>("shaders/IISPH_updatePressure.spv");
+        pressureUpdateComp->setBuffers(uBuffers, sBuffers);
+        pressureUpdateComp->createPipeline();
+
+        particleIterComp = std::make_unique<ComputeShader>("shaders/IISPH_iterateParticles.spv");
+        particleIterComp->setBuffers(uBuffers, sBuffers);
+        particleIterComp->createPipeline();
     }
 
     // CPU functions
@@ -13,6 +268,8 @@ namespace Vltava {
     // IISPH time step
     //----------------------------------------------------
     void IISPH::cpuTimeStep() {
+        logCpuData = true;
+
         float dt = 0.01;
 
         // TODO iter
@@ -140,6 +397,8 @@ namespace Vltava {
 
             error = abs(calculateAverageError());
             nr++;
+
+            std::cout << "[IISPH CPU] error: " << error << " nr " << std::endl;
         }
         auto& particles = first ? particles1 : particles2;
     }
@@ -258,5 +517,9 @@ namespace Vltava {
         aii = std::vector<float>(particles1.size(), 0.0f);
         rho_adv = std::vector<float>(particles1.size(), 0.0f);
         rho_pred = std::vector<float>(particles1.size(), 0.0f);
+    }
+
+    void IISPH::cleanup() {
+        VulkanResources::getInstance().logDev->getHandle().destroyFence(compFence);
     }
 } // Vltava

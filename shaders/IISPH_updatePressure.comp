@@ -1,0 +1,76 @@
+#version 450
+layout (local_size_x = 256) in; //256
+
+#include comp_shader.incl
+
+struct Additional_data {
+    vec3 dii;
+    float aii;
+    vec3 sumDijPj;
+    float rho_adv;
+    vec3 v_adv;
+    float rho_pred;
+};
+
+layout(set = 0, binding = 4, std430) buffer additionalDataBuffer {
+    Additional_data p[];
+} add_data;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+// Constants
+float m_k = 48.0 / (pow(ubo.kernelh, 3) * PI);
+float m_l = 1.0/(pow(ubo.kernelh, 3)) * 3.0/(2.0*PI);
+
+// Changed kernel to the CubicKernel by SPlisHSPHlasH:
+// https://www.interactive-graphics.de/SPlisHSPlasH/doc/html/_s_p_h_kernels_8h_source.html
+// (This is the one from the eurographics 2019 document, except now i finally understand their gradient notation)
+vec3 gradKernel(vec3 i, vec3 j) {
+    vec3 r = i - j;
+    float rlength = length(r);
+    float q = rlength / ubo.kernelh;
+    vec3 ret = vec3(0);
+
+    if (q > 0.0001 && q <= 1.0) {
+        vec3 gradq = r / (rlength * ubo.kernelh);
+
+        if (q <= 0.5) {
+            ret = m_k * q * (3.0 * q - 2) * gradq;
+        } else {
+            float factor = 1.0 - q;
+            ret = m_k * (-factor * factor) * gradq;
+        }
+    }
+
+    return ret;
+}
+
+void updatePressure(uint gID) {
+    float dt = 0.01;
+    float sum = 0;
+    float omega = 0.5;
+
+    // TODO updating p of input data, while also using p of input data!!!!!!!
+    for (int j = 0; j < ubo.nr_of_particles; j++) {
+        if (gID == j)
+            continue;
+
+        vec3 dji = -dt * dt * in_data.p[gID].m / (in_data.p[gID].rho * in_data.p[gID].rho) * gradKernel(in_data.p[j].x, in_data.p[gID].x);
+
+        sum += in_data.p[j].m * dot(add_data.p[gID].sumDijPj - add_data.p[j].dii * in_data.p[j].p - (add_data.p[j].sumDijPj - dji * in_data.p[gID].p), gradKernel(in_data.p[gID].x, in_data.p[j].x));
+    }
+
+    add_data.p[gID].rho_pred = add_data.p[gID].rho_adv + in_data.p[gID].p * add_data.p[gID].aii + sum;
+    in_data.p[gID].p = (1 - omega) * in_data.p[gID].p + (omega / add_data.p[gID].aii) * (ubo.desired_density - add_data.p[gID].rho_adv - sum);
+    out_data.p[gID].p = (1 - omega) * in_data.p[gID].p + (omega / add_data.p[gID].aii) * (ubo.desired_density - add_data.p[gID].rho_adv - sum);
+}
+
+void main()
+{
+    //grab global ID
+    uint gID = gl_GlobalInvocationID.x;
+
+    if (gID < ubo.nr_of_particles) {
+        updatePressure(gID);
+    }
+}

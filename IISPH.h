@@ -3,8 +3,17 @@
 
 #include "SPH.h"
 #include "ComputeShader.hpp"
+#include "VulkanWrapper.h"
 
 namespace Vltava {
+    struct AdditionalIISPHData {
+        glm::vec3 dii = glm::vec3(0);
+        float aii = 0;
+        glm::vec3 sumDijPj = glm::vec3(0);
+        float rho_adv = 0;
+        glm::vec3 v_adv = glm::vec3(0);
+        float rho_pred = 0;
+    };
 
     class IISPH : public SPH {
     public:
@@ -15,6 +24,9 @@ namespace Vltava {
         // variables for CPU sim
 
         // other functions
+        ~IISPH() {
+            cleanup();
+        }
         void setBuffers(std::vector<Buffer>* uBuffers, std::vector<Buffer>* sBuffers) override;
 
         // functions for GPU sim
@@ -31,11 +43,19 @@ namespace Vltava {
         // other variables
 
         // variables for GPU sim
-        /*std::unique_ptr<ComputeShader> densityComp;
+        // predict advection
+        std::unique_ptr<ComputeShader> densityComp;
+        std::unique_ptr<ComputeShader> advVelocityAndDiiComp;
+        std::unique_ptr<ComputeShader> advDensityAndAiiComp;
+
+        // pressure solve
+        std::unique_ptr<ComputeShader> sumDijPjComp;
+        std::unique_ptr<ComputeShader> pressureUpdateComp;
+
+        // integrate
         std::unique_ptr<ComputeShader> particleIterComp;
-        std::unique_ptr<ComputeShader> gridPlacementComp;
-        std::unique_ptr<ComputeShader> cleanGridComp;
-        vk::Fence compFence;*/
+
+        vk::Fence compFence;
 
         // variables for CPU sim
         std::vector<glm::vec3> dii; // displacement
@@ -51,6 +71,9 @@ namespace Vltava {
         // functions for GPU sim
         void initComputeShaders(std::vector<Buffer>* uBuffers, std::vector<Buffer>* sBuffers);
         void createSyncObjects();
+        void gpuPredictAdvection();
+        void gpuPressureSolveUpdate();
+        void gpuIntegrate();
 
         // functions for CPU sim
         void calculateRho();

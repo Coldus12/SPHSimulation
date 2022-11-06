@@ -19,6 +19,9 @@ namespace Vltava {
         // variables for CPU sim
 
         // other functions
+        ~SESPH() {
+            cleanup();
+        }
 
         // functions for GPU sim
         void initGpuSim(std::vector<Buffer>* uBuffers, std::vector<Buffer>* sBuffers);

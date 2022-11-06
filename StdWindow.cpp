@@ -236,9 +236,11 @@ namespace Vltava {
         sBuffers.push_back(std::move(gridBuffer));
         sBuffers[2].writeToBuffer(val.data(), val.size() * sizeof(int));
 
-        sesph->initGpuSim(&uBuffers, &sBuffers);
-        sesph->setCellSizes(cellx, celly, cellz, list_size);
-        iisph->setBuffers(&uBuffers, &sBuffers);
+        //sesph->initGpuSim(&uBuffers, &sBuffers);
+        //sesph->setCellSizes(cellx, celly, cellz, list_size);
+        //iisph->setBuffers(&uBuffers, &sBuffers);
+
+        iisph->initGpuSim(&uBuffers, &sBuffers);
     }
 
     void StdWindow::resetData() {
@@ -316,7 +318,8 @@ namespace Vltava {
     void StdWindow::runComp() {
         if (run) {
             if (!cpuSim)
-                sesph->gpuTimeStep();
+                //sesph->gpuTimeStep();
+                iisph->gpuTimeStep();
                 //dispatchCompute(nrOfP, 1, 1);
             else
                 runCpuSim(nrOfIter);
@@ -367,7 +370,8 @@ namespace Vltava {
         if (write_log) {
             std::string str = "";
 
-            str = sesph->log();
+            //str = sesph->log();
+            str = iisph->log();
             my_log.addLog(str.c_str());
 
             if (console_log)
@@ -410,7 +414,8 @@ namespace Vltava {
 
                         if (!cpuSim)
                             //dispatchCompute(nrOfP, 1, 1);
-                            sesph->gpuTimeStep();
+                            //sesph->gpuTimeStep();
+                            iisph->gpuTimeStep();
                         else
                             runCpuSim(nrOfIter);
                         //sesph->gpuTimeStep();

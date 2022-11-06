@@ -1,0 +1,97 @@
+#version 450
+layout (local_size_x = 256) in; //256
+
+#include comp_shader.incl
+
+struct Additional_data {
+    vec3 dii;
+    float aii;
+    vec3 sumDijPj;
+    float rho_adv;
+    vec3 v_adv;
+    float rho_pred;
+};
+
+layout(set = 0, binding = 4, std430) buffer additionalDataBuffer {
+    Additional_data p[];
+} add_data;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+float m_k = 8.0 / (PI * pow(ubo.kernelh, 3));
+float m_l = 1.0/(pow(ubo.kernelh, 3)) * 3.0/(2.0*PI);
+
+float kernel(vec3 i, vec3 j) {
+    float q = length(i - j) / ubo.kernelh;
+
+
+    float ret = 0;
+    if (q <= 1.0) {
+        if (q <= 0.5) {
+            ret = m_k * ( 6.0 * (pow(q, 3.0) - pow(q, 2.0)) + 1.0);
+        } else {
+            ret = m_k * (2.0 * pow(1 - q, 3));
+        }
+    }
+
+    return ret;
+}
+
+void copyData(uint gID) {
+    out_data.p[gID].x = in_data.p[gID].x;
+    out_data.p[gID].h = in_data.p[gID].h;
+    out_data.p[gID].v = in_data.p[gID].v;
+    out_data.p[gID].m = in_data.p[gID].m;
+
+    out_data.p[gID].rho = in_data.p[gID].rho;
+    out_data.p[gID].p = in_data.p[gID].p;
+
+    out_data.p[gID].staticP = in_data.p[gID].staticP;
+    out_data.p[gID].padding = in_data.p[gID].padding;
+}
+
+void calculateRho(uint gID) {
+    float density = 0.0;
+    float d2 = 0.0;
+
+    for (int j = 0; j < ubo.nr_of_particles; j++) {
+        if (gID == j)
+            continue;
+
+        density += in_data.p[gID].m * kernel(in_data.p[gID].x, in_data.p[j].x);
+    }
+
+    /*vec3 tuple = determineGridTuple(int(gID), true);
+    Neighbourhood n = getNeighbouringCells(tuple);
+    for (int i = 0; i < 27; i++) {
+        vec3 current = n.neighbour[i];
+        if (!checkBounds(current)) continue;
+
+        int idx = getStartIdxOfCell(current);
+        if (idx >= 0) {
+            int size = grid_data.numbers[idx];
+
+            int iterIdx = 0;
+            for (int j = 1; j < size+1; j++) {
+                iterIdx = grid_data.numbers[idx + j];
+                if (gID == iterIdx) continue;
+
+                density += in_data.p[gID].m * kernel(in_data.p[gID].x, in_data.p[iterIdx].x);
+            }
+        }
+    }*/
+
+    out_data.p[gID].rho = density;
+    out_data.p[gID].padding = d2;
+}
+
+void main()
+{
+    //grab global ID
+    uint gID = gl_GlobalInvocationID.x;
+
+    if (gID < ubo.nr_of_particles) {
+        copyData(gID);
+        calculateRho(gID);
+    }
+}

@@ -27,15 +27,15 @@ namespace Vltava {
     void SESPH::initComputeShaders(std::vector<Buffer>* uBuffers, std::vector<Buffer>* sBuffers) {
         setBuffers(uBuffers, sBuffers);
 
-        densityComp = std::make_unique<ComputeShader>("shaders/comp.spv");
+        densityComp = std::make_unique<ComputeShader>("shaders/SESPH_calculateRhoAndP.spv");
         densityComp->setBuffers(uBuffers, sBuffers);
         densityComp->createPipeline();
 
-        particleIterComp = std::make_unique<ComputeShader>("shaders/comp_it.spv");
+        particleIterComp = std::make_unique<ComputeShader>("shaders/SESPH_iterateParticles.spv");
         particleIterComp->setBuffers(uBuffers, sBuffers);
         particleIterComp->createPipeline();
 
-        gridPlacementComp = std::make_unique<ComputeShader>("shaders/atomic.spv");
+        gridPlacementComp = std::make_unique<ComputeShader>("shaders/gridPlacement.spv");
         gridPlacementComp->setBuffers(uBuffers, sBuffers);
         gridPlacementComp->createPipeline();
 
@@ -128,6 +128,8 @@ namespace Vltava {
     // CPU functions
     //------------------------------------------------------------------------------------------------------------------
     void SESPH::cpuTimeStep() {
+        logCpuData = true;
+
         // TODO something with iter
         for (int i = 0; i < 1; i++) {
             place();
