@@ -51,6 +51,7 @@ namespace Vltava {
         // pressure solve
         std::unique_ptr<ComputeShader> sumDijPjComp;
         std::unique_ptr<ComputeShader> pressureUpdateComp;
+        //std::unique_ptr<ComputeShader> pressureClampComp;
 
         // integrate
         std::unique_ptr<ComputeShader> particleIterComp;

@@ -55,14 +55,21 @@ void updatePressure(uint gID) {
         if (gID == j)
             continue;
 
-        vec3 dji = -dt * dt * in_data.p[gID].m / (in_data.p[gID].rho * in_data.p[gID].rho) * gradKernel(in_data.p[j].x, in_data.p[gID].x);
+        vec3 dji = vec3(0);
+        if (abs(in_data.p[gID].rho) > 0.0001)
+            dji = -dt * dt * in_data.p[gID].m / (in_data.p[gID].rho * in_data.p[gID].rho) * gradKernel(in_data.p[j].x, in_data.p[gID].x);
 
         sum += in_data.p[j].m * dot(add_data.p[gID].sumDijPj - add_data.p[j].dii * in_data.p[j].p - (add_data.p[j].sumDijPj - dji * in_data.p[gID].p), gradKernel(in_data.p[gID].x, in_data.p[j].x));
     }
 
     add_data.p[gID].rho_pred = add_data.p[gID].rho_adv + in_data.p[gID].p * add_data.p[gID].aii + sum;
-    in_data.p[gID].p = (1 - omega) * in_data.p[gID].p + (omega / add_data.p[gID].aii) * (ubo.desired_density - add_data.p[gID].rho_adv - sum);
-    out_data.p[gID].p = (1 - omega) * in_data.p[gID].p + (omega / add_data.p[gID].aii) * (ubo.desired_density - add_data.p[gID].rho_adv - sum);
+    if (abs(add_data.p[gID].aii) > 0.00001) {
+        in_data.p[gID].p = (1 - omega) * in_data.p[gID].p + (omega / add_data.p[gID].aii) * (ubo.desired_density - add_data.p[gID].rho_adv - sum);
+        out_data.p[gID].p = (1 - omega) * in_data.p[gID].p + (omega / add_data.p[gID].aii) * (ubo.desired_density - add_data.p[gID].rho_adv - sum);
+    } else {
+        in_data.p[gID].p = 0;
+        out_data.p[gID].p = 0;
+    }
 }
 
 void main()

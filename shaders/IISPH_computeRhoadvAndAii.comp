@@ -71,7 +71,10 @@ void computeRhoadvAndAii(uint gID) {
         if (gID == j)
             continue;
 
-        vec3 dji = -dt * dt * storage_in.p[gID].m / (storage_in.p[gID].rho * storage_in.p[gID].rho) * gradKernel(storage_in.p[j].x, storage_in.p[gID].x);
+        vec3 dji = vec3(0);
+        if (abs(storage_in.p[gID].rho) > 0.0001)
+            dji = -dt * dt * storage_in.p[gID].m / (storage_in.p[gID].rho * storage_in.p[gID].rho) * gradKernel(storage_in.p[j].x, storage_in.p[gID].x);
+
         aii += storage_in.p[j].m * dot((add_data.p[gID].dii - dji), gradKernel(storage_in.p[gID].x, storage_in.p[j].x));
 
         rho_adv += storage_in.p[j].m * dot((add_data.p[gID].v_adv - add_data.p[j].v_adv), gradKernel(storage_in.p[gID].x, storage_in.p[j].x));
@@ -83,6 +86,7 @@ void computeRhoadvAndAii(uint gID) {
     add_data.p[gID].rho_adv = rho_adv;
     add_data.p[gID].aii = aii;
 
+    // pressure init
     storage_in.p[gID].p *= 0.5;
 }
 

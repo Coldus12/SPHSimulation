@@ -54,7 +54,8 @@ void computeSumDijPj(uint gID) {
         if (gID == j)
             continue;
 
-        dijpj += in_data.p[j].m * in_data.p[j].p / (in_data.p[j].rho * in_data.p[j].rho) * gradKernel(in_data.p[gID].x, in_data.p[j].x);
+        if (abs(in_data.p[j].rho) > 0.0001)
+            dijpj += in_data.p[j].m * in_data.p[j].p / (in_data.p[j].rho * in_data.p[j].rho) * gradKernel(in_data.p[gID].x, in_data.p[j].x);
     }
 
     dijpj *= -dt * dt;

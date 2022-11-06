@@ -14,20 +14,19 @@ namespace Vltava {
         float error = 10;
 
         //while (nr < 1) {
-        while (error > 0.01 && nr < 100) {
+        while (error > 0.01 && nr < 50) {
             gpuPressureSolveUpdate();
 
             // Density error calculation
             error = 0;
 
             auto data = sBuffers->at(3).getData<AdditionalIISPHData>();
-            //std::this_thread::sleep_for(std::chrono::milliseconds(1000));
             for (auto& add: data) {
-                //std::cout << add.rho_pred << " " << add.rho_adv << " " << add.aii << std::endl;
                 error += add.rho_pred;
             }
             error /= data.size();
             error -= props.desired_density;
+            error = abs(error);
 
             nr++;
 
@@ -178,6 +177,19 @@ namespace Vltava {
             );
         }
 
+        // Clamp pressure
+        //--------------------
+        /*pressureClampComp->bindPipelineAndDescriptors(computeCmdBuffer);
+        computeCmdBuffer.dispatch(particles1.size(), 1, 1);
+        computeCmdBuffer.pipelineBarrier(
+                vk::PipelineStageFlagBits::eComputeShader,
+                vk::PipelineStageFlagBits::eComputeShader,
+                {},
+                {},
+                membarriers,
+                {}
+        );*/
+
         // Integrate
         //--------------------
         particleIterComp->bindPipelineAndDescriptors(computeCmdBuffer);
@@ -256,6 +268,10 @@ namespace Vltava {
         pressureUpdateComp = std::make_unique<ComputeShader>("shaders/IISPH_updatePressure.spv");
         pressureUpdateComp->setBuffers(uBuffers, sBuffers);
         pressureUpdateComp->createPipeline();
+
+        /*pressureClampComp = std::make_unique<ComputeShader>("shaders/IISPH_clampPressure.spv");
+        pressureClampComp->setBuffers(uBuffers, sBuffers);
+        pressureClampComp->createPipeline();*/
 
         particleIterComp = std::make_unique<ComputeShader>("shaders/IISPH_iterateParticles.spv");
         particleIterComp->setBuffers(uBuffers, sBuffers);
@@ -349,7 +365,10 @@ namespace Vltava {
             v_adv[i] = particles[i].v + dt * f / particles[i].m;
 
             // Calculating dii
-            dii *= dt * dt / (particles[i].rho * particles[i].rho); // TODO, what happens if rho == 0?
+            if (abs(particles[i].rho) > 0.001)
+                dii *= dt * dt / (particles[i].rho * particles[i].rho);
+            else dii = glm::vec3(0);
+
             this->dii[i] = dii;
         }
     }
@@ -367,8 +386,10 @@ namespace Vltava {
 
                 // dji = ??????
                 // dji = mi / rho_i^2 * grad(j,i)?
-                //TODO rho == 0?
-                glm::vec3 dji = -dt * dt * particles[i].m / (particles[i].rho * particles[i].rho) * gradKernel(j, i);
+                glm::vec3 dji(0);
+                if (abs(particles[i].rho) > 0.001)
+                    dji = -dt * dt * particles[i].m / (particles[i].rho * particles[i].rho) * gradKernel(j, i);
+
                 aii += particles[j].m * glm::dot(dii[i] - dji, gradKernel(i,j));
 
                 glm::vec3 vij_adv = v_adv[i] - v_adv[j];
@@ -413,8 +434,8 @@ namespace Vltava {
                 if (i == j)
                     continue;
 
-                // TODO rho == 0?
-                dijpj += particles[j].m * particles[j].p / (particles[j].rho * particles[j].rho) * gradKernel(i,j);
+                if (abs(particles[j].rho) > 0.0001)
+                    dijpj += particles[j].m * particles[j].p / (particles[j].rho * particles[j].rho) * gradKernel(i,j);
             }
 
             dijpj *= -dt*dt;
@@ -435,7 +456,10 @@ namespace Vltava {
                 if (i == j)
                     continue;
 
-                glm::vec3 dji = -dt*dt*particles[i].m / (particles[i].rho * particles[i].rho) * gradKernel(j, i);
+                glm::vec3 dji(0);
+                if (abs(particles[i].rho) > 0.001)
+                    dji = -dt * dt * particles[i].m / (particles[i].rho * particles[i].rho) * gradKernel(j, i);
+
                 sum += particles[j].m * glm::dot(sumDijPj[i] - dii[j] * particles[j].p - (sumDijPj[j] - dji * particles[i].p),
                                                  gradKernel(i,j));
             }

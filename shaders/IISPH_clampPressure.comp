@@ -1,0 +1,37 @@
+#version 450
+layout (local_size_x = 256) in; //256
+
+#include comp_shader.incl
+
+struct Additional_data {
+    vec3 dii;
+    float aii;
+    vec3 sumDijPj;
+    float rho_adv;
+    vec3 v_adv;
+    float rho_pred;
+};
+
+layout(set = 0, binding = 4, std430) buffer additionalDataBuffer {
+    Additional_data p[];
+} add_data;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void clampPressure(uint gID) {
+    in_data.p[gID].p = in_data.p[gID].p < -10 ? -10 : in_data.p[gID].p;
+    out_data.p[gID].p = out_data.p[gID].p < -10 ? -10 : out_data.p[gID].p;
+
+    in_data.p[gID].p = in_data.p[gID].p > 10 ? 10 : in_data.p[gID].p;
+    out_data.p[gID].p = out_data.p[gID].p > 10 ? 10 : out_data.p[gID].p;
+}
+
+void main()
+{
+    //grab global ID
+    uint gID = gl_GlobalInvocationID.x;
+
+    if (gID < ubo.nr_of_particles) {
+        //clampPressure(gID);
+    }
+}
