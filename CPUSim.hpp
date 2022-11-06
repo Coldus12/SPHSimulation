@@ -4,7 +4,7 @@
 #include "ParticleModel.hpp"
 
 namespace Vltava {
-    struct Neighbourhood {
+    /*struct Neighbourhood {
         glm::vec3 neighbour[27]; // 3^3
     };
 
@@ -61,14 +61,13 @@ namespace Vltava {
         float calculateAverageError();
         void computeVadvAndDii(float dt);
         void computeRhoadvAndAii(float dt);
-        void computeAii(int particleIdx, float dt);
         void predictAdvection(float dt);
         void computeSumDijPj(float dt);
         void updatePressure(float dt);
         void pressureSolve(float dt);
         void integrate(float dt);
         void runIISPH(int iterNr);
-    };
+    };*/
 }
 
 

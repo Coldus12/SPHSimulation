@@ -17,6 +17,7 @@
 #include "Managed/Managed.hpp"
 #include "CPUSim.hpp"
 #include "VulkanWrapper.h"
+#include "SESPH.h"
 
 #include <iostream>
 #include <limits>
@@ -76,29 +77,22 @@ namespace Vltava {
 
         uint32_t currentFrame = 0;
 
-        std::unique_ptr<CPUSim> cpusim;
+        //std::unique_ptr<CPUSim> cpusim;
         std::unique_ptr<ParticleModel> model;
-        std::unique_ptr<VulkanWrapper> vw;
 
         // For the compute shaders.
         // These contain the particle data.
         std::vector<Buffer> sBuffers;
         std::vector<Buffer> uBuffers;
 
-        // SESPH shaders
-        std::unique_ptr<ComputeShader> densityComp;
-        std::unique_ptr<ComputeShader> particleIterComp;
-        std::unique_ptr<ComputeShader> gridPlacementComp;
-        std::unique_ptr<ComputeShader> cleanGridComp;
+        std::unique_ptr<SESPH> sesph;
+
+        //IMGUI
+        VkDescriptorPool imguiPool;
 
         std::vector<vk::Semaphore> imageAvailableSemaphores;
         std::vector<vk::Semaphore> renderFinishedSemaphores;
         std::vector<vk::Fence> inFlightFences;
-
-        vk::Fence compFence;
-
-        //IMGUI
-        VkDescriptorPool imguiPool;
 
         // Functions
         //--------------------------------------------------------------------------------------------------------------
@@ -111,7 +105,7 @@ namespace Vltava {
         void cleanup();
 
         void initCompute();
-        void dispatchCompute(int groupCountX, int groupCountY, int groupCountZ);
+        //void dispatchCompute(int groupCountX, int groupCountY, int groupCountZ);
         void setComputeData();
         void resetData();
 

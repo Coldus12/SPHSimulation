@@ -60,7 +60,6 @@ namespace Vltava {
             VulkanResources::getInstance().logDev->getHandle().destroySemaphore(imageAvailableSemaphores[i]);
             VulkanResources::getInstance().logDev->getHandle().destroyFence(inFlightFences[i]);
         }
-        VulkanResources::getInstance().logDev->getHandle().destroyFence(compFence);
     }
 
     // Initializing Vulkan environment
@@ -69,21 +68,13 @@ namespace Vltava {
         gridA = {-6,-1.5,-0.2};
         gridB = {2, 2, 2};
 
-        vw = std::make_unique<VulkanWrapper>();
-        vw->createVulkanWindow(window);
+        VulkanWrapper::getInstance().createVulkanWindow(window);
         createSyncObjects();
+        sesph = std::make_unique<SESPH>();
 
-        initCompute();
+        setComputeData();
 
         loadModel();
-    }
-
-
-    // Framebuffer resize callback function
-    //------------------------------------------------------------------------------------------------------------------
-    void StdWindow::frameBufferResizeCallback(GLFWwindow *window, int width, int height) {
-        auto app = reinterpret_cast<StdWindow *>(glfwGetWindowUserPointer(window));
-        app->framebufferResized = true;
     }
 
     // Sync objects
@@ -96,7 +87,6 @@ namespace Vltava {
         vk::FenceCreateInfo fenceInfo(vk::FenceCreateFlagBits::eSignaled);
         vk::SemaphoreCreateInfo semaphoreCreateInfo;
 
-        compFence =  VulkanResources::getInstance().logDev->getHandle().createFence(fenceInfo);
         for (int i = 0; i < VulkanResources::getInstance().FRAMES_IN_FLIGHT; i++) {
             imageAvailableSemaphores.push_back(VulkanResources::getInstance().logDev->getHandle().createSemaphore(semaphoreCreateInfo));
             renderFinishedSemaphores.push_back(VulkanResources::getInstance().logDev->getHandle().createSemaphore(semaphoreCreateInfo));
@@ -104,38 +94,16 @@ namespace Vltava {
         }
     }
 
-    // Vulkan-Compute related functions
+    // Framebuffer resize callback function
     //------------------------------------------------------------------------------------------------------------------
-    void StdWindow::initCompute() {
-        Buffer props(
-                sizeof(SimProps),
-                vk::BufferUsageFlagBits::eUniformBuffer,
-                vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible
-        );
-        uBuffers.push_back(std::move(props));
-
-        setComputeData();
-
-        densityComp = std::make_unique<ComputeShader>("shaders/comp.spv");
-        densityComp->setBuffers(&uBuffers, &sBuffers);
-        densityComp->createPipeline();
-
-        particleIterComp = std::make_unique<ComputeShader>("shaders/comp_it.spv");
-        particleIterComp->setBuffers(&uBuffers, &sBuffers);
-        particleIterComp->createPipeline();
-
-        gridPlacementComp = std::make_unique<ComputeShader>("shaders/atomic.spv");
-        gridPlacementComp->setBuffers(&uBuffers, &sBuffers);
-        gridPlacementComp->createPipeline();
-
-        cleanGridComp = std::make_unique<ComputeShader>("shaders/resetgrid.spv");
-        cleanGridComp->setBuffers(&uBuffers, &sBuffers);
-        cleanGridComp->createPipeline();
+    void StdWindow::frameBufferResizeCallback(GLFWwindow *window, int width, int height) {
+        auto app = reinterpret_cast<StdWindow *>(glfwGetWindowUserPointer(window));
+        app->framebufferResized = true;
     }
 
     // Try changing data to std::vec, and only allocate gpu memory after you are done filling said vector.
     void StdWindow::setComputeData() {
-        cpusim = std::make_unique<CPUSim>();
+        //cpusim = std::make_unique<CPUSim>();
 
         // Water rest density = 1 kg/m^3
         //
@@ -205,6 +173,13 @@ namespace Vltava {
 
         vk::DeviceSize size = sizeof(Particle) * all_particle_nr;
 
+        Buffer propsBuffer(
+                sizeof(SimProps),
+                vk::BufferUsageFlagBits::eUniformBuffer,
+                vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible
+        );
+        uBuffers.push_back(std::move(propsBuffer));
+
         props = {
                 1.0f,
                 0.001f,
@@ -215,8 +190,8 @@ namespace Vltava {
                 glm::vec4(gridB, 0)
         };
 
-        cpusim->setSimProps(props);
-        cpusim->setData(particles);
+        //cpusim->setSimProps(props);
+        //cpusim->setData(particles);
 
         uBuffers[0].writeToBuffer(&props, sizeof(props));
 
@@ -259,15 +234,15 @@ namespace Vltava {
 
         sBuffers.push_back(std::move(gridBuffer));
         sBuffers[2].writeToBuffer(val.data(), val.size() * sizeof(int));
+
+        sesph->initGpuSim(&uBuffers, &sBuffers);
+        sesph->setCellSizes(cellx, celly, cellz, list_size);
     }
 
     void StdWindow::resetData() {
-        densityComp.reset();
-        particleIterComp.reset();
-        gridPlacementComp.reset();
         sBuffers.clear();
         uBuffers.clear();
-        initCompute();
+        setComputeData();
         model->changeModel(all_particle_nr, &uBuffers, &sBuffers);
     }
 
@@ -339,7 +314,8 @@ namespace Vltava {
     void StdWindow::runComp() {
         if (run) {
             if (!cpuSim)
-                dispatchCompute(nrOfP, 1, 1);
+                sesph->gpuTimeStep();
+                //dispatchCompute(nrOfP, 1, 1);
             else
                 runCpuSim(nrOfIter);
 
@@ -349,9 +325,10 @@ namespace Vltava {
     }
 
     void StdWindow::runCpuSim(int iterNr) {
-        cpusim->runIISPH(iterNr);
+        //cpusim->runIISPH(iterNr);
         //cpusim->runSESPH(iterNr);
-        auto& particles = cpusim->first ? cpusim->particles1 : cpusim->particles2;
+        sesph->cpuTimeStep();
+        auto particles = sesph->getFirst() ? sesph->getData1() : sesph->getData2();
         //uBuffers.clear();
         sBuffers.clear();
 
@@ -383,118 +360,12 @@ namespace Vltava {
         model->changeModel(particles.size(), &uBuffers, &sBuffers);
     }
 
-    void StdWindow::dispatchCompute(int groupCountX, int groupCountY, int groupCountZ) {
-        if (parallelCpuSim)
-            cpusim->runSESPH(1);
-
-        vk::CommandBufferBeginInfo beginInfo({}, nullptr);
-        auto& computeCmdBuffer = vw->getCompCmdBuffer();
-        computeCmdBuffer.begin(beginInfo);
-
-        std::vector<vk::BufferMemoryBarrier> membarriers;
-        for (auto& buffer: sBuffers) {
-            membarriers.emplace_back(
-                    vk::AccessFlagBits::eShaderWrite,
-                    vk::AccessFlagBits::eShaderRead,
-                    vw->getComputeQueueFamily(),
-                    vw->getComputeQueueFamily(),
-                    buffer.getBufferHandle(),
-                    0,
-                    VK_WHOLE_SIZE
-            );
-        }
-
-        for (int i = 0; i < nrOfIter; i++) {
-            cleanGridComp->bindPipelineAndDescriptors(computeCmdBuffer);
-            computeCmdBuffer.dispatch(list_size * cellx * celly * cellz, groupCountY, groupCountZ);
-            computeCmdBuffer.pipelineBarrier(
-                    vk::PipelineStageFlagBits::eComputeShader,
-                    vk::PipelineStageFlagBits::eComputeShader,
-                    {},
-                    {},
-                    membarriers,
-                    {}
-            );
-
-            gridPlacementComp->bindPipelineAndDescriptors(computeCmdBuffer);
-            computeCmdBuffer.dispatch(groupCountX, groupCountY, groupCountZ);
-            computeCmdBuffer.pipelineBarrier(
-                    vk::PipelineStageFlagBits::eComputeShader,
-                    vk::PipelineStageFlagBits::eComputeShader,
-                    {},
-                    {},
-                    membarriers,
-                    {}
-            );
-
-            densityComp->bindPipelineAndDescriptors(computeCmdBuffer);
-            computeCmdBuffer.dispatch(groupCountX, groupCountY, groupCountZ);
-            computeCmdBuffer.pipelineBarrier(
-                    vk::PipelineStageFlagBits::eComputeShader,
-                    vk::PipelineStageFlagBits::eComputeShader,
-                    {},
-                    {},
-                    membarriers,
-                    {}
-            );
-
-            particleIterComp->bindPipelineAndDescriptors(computeCmdBuffer);
-            computeCmdBuffer.dispatch(groupCountX, groupCountY, groupCountZ);
-            computeCmdBuffer.pipelineBarrier(
-                    vk::PipelineStageFlagBits::eComputeShader,
-                    vk::PipelineStageFlagBits::eComputeShader,
-                    {},
-                    {},
-                    membarriers,
-                    {}
-            );
-        }
-
-        computeCmdBuffer.end();
-
-        vk::SubmitInfo submitInfo(
-                {},
-                {},
-                computeCmdBuffer,
-                {}
-        );
-
-        //VulkanResources::getInstance().computeQueue->submit(submitInfo, compFence);
-        VulkanResources::getInstance().computeQueue->submit(submitInfo);
-        //VulkanResources::getInstance().logDev->getHandle().waitIdle();
-    }
-
     void StdWindow::log() {
         if (write_log) {
             std::string str = "";
 
-            if (!cpuSim) {
-                auto spheres = sBuffers[1].getData<Particle>();
-                str += "Compute data - size: " + std::to_string(spheres.size()) + "\n";
-                str += "----------------------------------------------\n";
-
-                for (int i = 0; i < nrOfP; i++) {
-                    str += "Density: " + std::to_string(spheres[i].rho) +
-                           /*"; Pressure: " + std::to_string(spheres[i].p) +
-                           " ; Position: " + std::to_string(spheres[i].x.x) + " " + std::to_string(spheres[i].x.y) + " " + std::to_string(spheres[i].x.z) +
-                           " ; Mass: " + std::to_string(spheres[i].m) +*/ " ; Padding = " +
-                           std::to_string(spheres[i].padding) + " ; diff = " +
-                           std::to_string(spheres[i].padding - spheres[i].rho) +
-                           /*" ; Velocity: " + std::to_string(spheres[i].v.x) + " " + std::to_string(spheres[i].v.y) + " " + std::to_string(spheres[i].v.z) +*/";\n";
-                    //str += " length(velocity): " + std::to_string(glm::length(spheres[i].v)) + "\n";
-                }
-                str += "\n----------------------------------------------\n";
-
-                my_log.addLog(str.c_str());
-            } else {
-                auto& data1 = cpusim->particles1;
-                auto& data2 = cpusim->particles2;
-
-                for (int i = 0; i < data1.size(); i++) {
-                    str += std::to_string(i) + "; Density1: " + std::to_string(data1[i].rho) + " pressure1: " + std::to_string(data1[i].p) + "\n";
-                    str += std::to_string(i) + "; Density2: " + std::to_string(data2[i].rho) + " pressure2: " + std::to_string(data2[i].p) + "\n\n";
-                }
-            }
+            str = sesph->log();
+            my_log.addLog(str.c_str());
 
             if (console_log)
                 std::cout << str << std::endl;
@@ -535,9 +406,11 @@ namespace Vltava {
                         nrOfIter = time;
 
                         if (!cpuSim)
-                            dispatchCompute(nrOfP, 1, 1);
+                            //dispatchCompute(nrOfP, 1, 1);
+                            sesph->gpuTimeStep();
                         else
                             runCpuSim(nrOfIter);
+                        //sesph->gpuTimeStep();
 
 
                         log();
@@ -603,7 +476,7 @@ namespace Vltava {
                         glm::vec4(gridB, 0)
                 };
 
-                cpusim->setSimProps(props);
+                //cpusim->setSimProps(props);
                 uBuffers[0].writeToBuffer(&props, sizeof(props));
             }
 
@@ -642,7 +515,7 @@ namespace Vltava {
     // DearImgui initialization
     //------------------------------------------------------------------------------------------------------------------
     void StdWindow::initImgui() {
-        auto& commandBuffers = vw->getCmdBuffers();
+        auto& commandBuffers = VulkanWrapper::getInstance().getCmdBuffers();
 
         //1: create descriptor pool for IMGUI
         // the size of the pool is very oversize, but it's copied from imgui demo itself.
@@ -721,7 +594,7 @@ namespace Vltava {
     // Draw frame
     //------------------------------------------------------------------------------------------------------------------
     void StdWindow::drawFrame() {
-        auto& commandBuffers = vw->getCmdBuffers();
+        auto& commandBuffers = VulkanWrapper::getInstance().getCmdBuffers();
 
 #if IMGUI_ENABLED
         ImGui::Render();
@@ -740,7 +613,7 @@ namespace Vltava {
         );
 
         if (result == vk::Result::eErrorOutOfDateKHR) {
-            vw->recreateSwapChain(window);
+            VulkanWrapper::getInstance().recreateSwapChain(window);
             model->recreatePipeline();
             return;
         } else if (result != vk::Result::eSuccess && result != vk::Result::eSuboptimalKHR) {
@@ -777,13 +650,13 @@ namespace Vltava {
             result = VulkanResources::getInstance().presentQueue->presentKHR(presentInfo);
         } catch (vk::SystemError &err) {
             framebufferResized = false;
-            vw->recreateSwapChain(window);
+            VulkanWrapper::getInstance().recreateSwapChain(window);
             model->recreatePipeline();
         }
 
         if (result == vk::Result::eErrorOutOfDateKHR || result == vk::Result::eSuboptimalKHR || framebufferResized) {
             framebufferResized = false;
-            vw->recreateSwapChain(window);
+            VulkanWrapper::getInstance().recreateSwapChain(window);
             model->recreatePipeline();
         } else if (result != vk::Result::eSuccess) {
             throw std::runtime_error("Failed to present swap chain image!");
@@ -793,8 +666,8 @@ namespace Vltava {
     }
 
     void StdWindow::recordCommandBuffer(uint32_t imageIndex) {
-        auto& commandBuffers = vw->getCmdBuffers();
-        auto& swapChainFramebuffers = vw->getSCFrameBuffers();
+        auto& commandBuffers = VulkanWrapper::getInstance().getCmdBuffers();
+        auto& swapChainFramebuffers = VulkanWrapper::getInstance().getSCFrameBuffers();
 
         vk::CommandBufferBeginInfo beginInfo({}, nullptr);
         commandBuffers[currentFrame].begin(beginInfo);

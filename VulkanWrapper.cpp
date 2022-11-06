@@ -2,6 +2,15 @@
 
 namespace Vltava {
     void VulkanWrapper::createVulkanWindow(GLFWwindow* window) {
+        if (currentState == vulkanWindow) {
+            return;
+        }
+
+        if (currentState == windowless) {
+            cleanup();
+        }
+
+        currentState = vulkanWindow;
         createInstance("Test");
         createSurface(window);
         selectPhysicalDevice();
@@ -17,6 +26,15 @@ namespace Vltava {
     }
 
     void VulkanWrapper::createWindowless() {
+        if (currentState == windowless) {
+            return;
+        }
+
+        if (currentState == vulkanWindow) {
+            cleanup();
+        }
+
+        currentState = windowless;
         createInstance("Test");
         selectPhysicalDevice();
         selectQueues(false);

@@ -7,8 +7,10 @@
 #define log false
 
 namespace Vltava {
-
+#if 0
     void Test::runTests() {
+        initVulkanWrapper();
+
         basicPlaceTest();
         tupleBoundsCheck();
         basicNeighbourhoodTest();
@@ -221,8 +223,6 @@ namespace Vltava {
     // Seems to work with the old comp/comp_it shaders and CPUSim
     // Also works with the new ones. NOTE: ALWAYS START MORE GRID-CLEANING "THREADS"
     void Test::cpuGpuPlaceCompare() {
-        VulkanWrapper vw;
-        vw.createWindowless();
         CPUSim sim;
 
         std::vector<Buffer> sBuffers;
@@ -367,7 +367,7 @@ namespace Vltava {
         // Dispatch compute
         //-----------------------------
         vk::CommandBufferBeginInfo beginInfo({}, nullptr);
-        auto& computeCmdBuffer = vw.getCompCmdBuffer();
+        auto& computeCmdBuffer = VulkanWrapper::getInstance().getCompCmdBuffer();
         computeCmdBuffer.begin(beginInfo);
 
         std::vector<vk::BufferMemoryBarrier> membarriers;
@@ -375,8 +375,8 @@ namespace Vltava {
             membarriers.emplace_back(
                     vk::AccessFlagBits::eShaderWrite,
                     vk::AccessFlagBits::eShaderRead,
-                    vw.getComputeQueueFamily(),
-                    vw.getComputeQueueFamily(),
+                    VulkanWrapper::getInstance().getComputeQueueFamily(),
+                    VulkanWrapper::getInstance().getComputeQueueFamily(),
                     buffer.getBufferHandle(),
                     0,
                     VK_WHOLE_SIZE
@@ -505,4 +505,5 @@ namespace Vltava {
             //assert((errorMargin(gpuParticles[i].rho, cpuParticles[i].rho, 0.1)) && "Rhos are not within error margin");
         }
     }
+#endif
 }

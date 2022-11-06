@@ -18,6 +18,11 @@ namespace Vltava {
     public:
         // Functions
         //--------------------------------------------------------------------------------------------------------------
+        static VulkanWrapper& getInstance() {
+            static VulkanWrapper instance;
+            return instance;
+        }
+
         ~VulkanWrapper() { cleanup(); }
 
         virtual void createVulkanWindow(GLFWwindow* window);
@@ -38,6 +43,15 @@ namespace Vltava {
         // Variables
         //--------------------------------------------------------------------------------------------------------------
     private:
+        enum State {
+            uninitialized,
+            windowless,
+            vulkanWindow
+        };
+
+        State currentState = uninitialized;
+
+        VulkanWrapper() = default;
         // Functions
         //--------------------------------------------------------------------------------------------------------------
         void createDepthResources();

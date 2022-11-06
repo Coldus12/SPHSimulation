@@ -5,7 +5,7 @@
 #define ppic false
 
 namespace Vltava {
-
+#if 0
     void CPUSim::container(int idx) {
         float left = (simProps.gridA.x < simProps.gridB.x ? simProps.gridA.x : simProps.gridB.x) + 0.1;
         float right = (simProps.gridA.x > simProps.gridB.x ? simProps.gridA.x : simProps.gridB.x) - 0.1;
@@ -791,4 +791,5 @@ namespace Vltava {
 
         first = !first;
     }
+#endif
 }
