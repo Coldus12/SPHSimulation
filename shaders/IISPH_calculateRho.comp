@@ -18,25 +18,6 @@ layout(set = 0, binding = 4, std430) buffer additionalDataBuffer {
 
 //----------------------------------------------------------------------------------------------------------------------
 
-float m_k = 8.0 / (PI * pow(ubo.kernelh, 3));
-float m_l = 1.0/(pow(ubo.kernelh, 3)) * 3.0/(2.0*PI);
-
-float kernel(vec3 i, vec3 j) {
-    float q = length(i - j) / ubo.kernelh;
-
-
-    float ret = 0;
-    if (q <= 1.0) {
-        if (q <= 0.5) {
-            ret = m_k * ( 6.0 * (pow(q, 3.0) - pow(q, 2.0)) + 1.0);
-        } else {
-            ret = m_k * (2.0 * pow(1 - q, 3));
-        }
-    }
-
-    return ret;
-}
-
 void copyData(uint gID) {
     out_data.p[gID].x = in_data.p[gID].x;
     out_data.p[gID].h = in_data.p[gID].h;
@@ -58,7 +39,7 @@ void calculateRho(uint gID) {
         if (gID == j)
             continue;
 
-        density += in_data.p[gID].m * kernel(in_data.p[gID].x, in_data.p[j].x);
+        density += in_data.p[gID].m * cs_kernel(in_data.p[gID].x, in_data.p[j].x);
     }
 
     out_data.p[gID].rho = density;

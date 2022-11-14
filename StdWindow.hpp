@@ -88,6 +88,7 @@ namespace Vltava {
 
         std::unique_ptr<SESPH> sesph;
         std::unique_ptr<IISPH> iisph;
+        bool sph = false; // true means se false means ii
 
         //IMGUI
         VkDescriptorPool imguiPool;

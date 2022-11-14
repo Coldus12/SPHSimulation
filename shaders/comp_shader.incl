@@ -46,6 +46,114 @@ layout(set = 0, binding = 3, std430) buffer gridBuffer {
     int numbers[];
 } grid_data;
 
+// Kernels
+//----------------------------------------------------------------------------------------------------------------------
+
+// Cubic spline kernel
+//----------------------------
+// Changed kernel to the CubicKernel by SPlisHSPHlasH:
+// https://www.interactive-graphics.de/SPlisHSPlasH/doc/html/_s_p_h_kernels_8h_source.html
+// (This is the one from the eurographics 2019 document, except now i finally understand their gradient notation)
+float cs_kernel(vec3 i, vec3 j) {
+    float m_k = 8.0 * 6.0 / (PI * pow(ubo.kernelh, 3));
+    float m_l = 48.0 * 6.0 / (PI * pow(ubo.kernelh, 3));
+
+    float q = length(i - j) / ubo.kernelh;
+
+    float ret = 0;
+    if (q <= 1.0) {
+        if (q <= 0.5) {
+            ret = m_k * ( 6.0 * (pow(q, 3.0) - pow(q, 2.0)) + 1.0);
+        } else {
+            ret = m_k * (2.0 * pow(1 - q, 3));
+        }
+    }
+
+    return ret;
+}
+
+// Cubic spline gradkernel
+//----------------------------
+vec3 cs_gradKernel(vec3 i, vec3 j) {
+    float m_k = 8.0 * 6.0 / (PI * pow(ubo.kernelh, 3));
+    float m_l = 48.0 * 6.0 / (PI * pow(ubo.kernelh, 3));
+
+    vec3 r = i - j;
+    float rlength = length(r);
+    float q = rlength / ubo.kernelh;
+    vec3 ret = vec3(0);
+
+    if (q > 0.0001 && q <= 1) {
+        vec3 gradq = r / (rlength * ubo.kernelh);
+
+        if (q <= 0.5) {
+            ret = m_l * q * (3.0 * q - 2) * gradq;
+        } else {
+            float factor = 1.0 - q;
+            ret = m_l * (-factor * factor) * gradq;
+        }
+    }
+
+    return ret;
+}
+
+// Quintic spline kernel
+//----------------------------
+float qs_kernel(vec3 i, vec3 j) {
+    float q = length(i - j) / ubo.kernelh;
+
+    float ret = 0;
+    float alpha = 10.0 / (120.0 * PI * pow(ubo.kernelh,3.0));
+    if (0 < q && q <= 3) {
+        float q2 = q*q;
+        float q3 = q2*q;
+
+        float t1 = pow(1.0-q,5.0);
+        float t2 = pow(2.0-q,5.0);
+        float t3 = pow(3.0-q,5.0);
+
+        if (q <= 1.0) {
+            ret = t3 - 6.0*t2 + 15.0*t1;
+        } else if (q <= 2.0) {
+            ret = t3-6.0*t2;
+        } else {
+            ret = t3;
+        }
+    }
+
+    ret *= alpha;
+
+    return ret;
+}
+
+// Quintic spline gradkernel
+//----------------------------
+vec3 qs_gradKernel(vec3 i, vec3 j) {
+    vec3 r = i - j;
+    float rlength = length(r);
+    float q = rlength / ubo.kernelh;
+    vec3 ret = vec3(0);
+
+    float t3 = -5.0 * pow(3.0-q,4.0);
+    float t2 = 30.0 * pow(2.0-q,4.0);
+    float t1 = -75.0 * pow(1.0-q,4.0);
+
+    float alpha = 10.0 / (120.0 * PI * pow(ubo.kernelh,3.0));
+    if (q > 0.0001 && q <= 3) {
+        vec3 gradq = r / (rlength * ubo.kernelh);
+
+        if (q <= 1.0) {
+            ret = alpha * (t3 + t2 + t1) * gradq;
+        } else if (q <= 2.0) {
+            ret = alpha * (t3 + t2) * gradq;
+        } else {
+            ret = alpha * t3 * gradq;
+        }
+    }
+
+    return ret;
+}
+
 // Neighbourhood stuff
 //----------------------------------------------------------------------------------------------------------------------
 struct Neighbourhood {

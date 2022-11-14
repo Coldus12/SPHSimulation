@@ -7,10 +7,9 @@ namespace Vltava {
     //------------------------------------------------------------------------------------------------------------------
     float SPH::kernel(int i, int j) {
         auto& particles = first ? particles1 : particles2;
-
+        float m_k = 8.0 * 6.0 / (PI * pow(props.kernelh, 3));
+        float m_l = 48.0 * 6.0 / (PI * pow(props.kernelh, 3));
         float q = glm::length(particles[i].x - particles[j].x)/props.kernelh;
-        float m_k = 8.0 / (PI * pow(props.kernelh, 3));
-        float m_l = 1.0/(pow(props.kernelh, 3)) * 3.0/(2.0*PI);
 
         float ret = 0;
         if (q <= 1.0) {
@@ -26,17 +25,16 @@ namespace Vltava {
 
     // One of the errors: vec3 i == vec3 j ---> normalize(i-j) -> nan
     glm::vec3 SPH::gradKernel(int i, int j) {
-        float m_k = 48.0 / (pow(props.kernelh, 3) * PI);
-        float m_l = 1.0/(pow(props.kernelh, 3)) * 3.0/(2.0*PI);
-
         auto& particles = first ? particles1 : particles2;
+        float m_k = 8.0 * 6.0 / (PI * pow(props.kernelh, 3));
+        float m_l = 48.0 * 6.0 / (PI * pow(props.kernelh, 3));
 
         glm::vec3 r = particles[i].x - particles[j].x;
         float rlength = length(r);
         float q = rlength / props.kernelh;
         glm::vec3 ret = glm::vec3(0);
 
-        if (q > 0.0001 && q <= 1.0) {
+        if (q > 0.0001 && q <= 2.0) {
             glm::vec3 gradq = r / (rlength * props.kernelh);
 
             if (q <= 0.5) {

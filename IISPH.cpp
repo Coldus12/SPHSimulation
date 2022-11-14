@@ -419,7 +419,7 @@ namespace Vltava {
             error = abs(calculateAverageError());
             nr++;
 
-            std::cout << "[IISPH CPU] error: " << error << " nr " << std::endl;
+            std::cout << "[IISPH CPU] error: " << error << " nr " << nr << std::endl;
         }
         auto& particles = first ? particles1 : particles2;
     }

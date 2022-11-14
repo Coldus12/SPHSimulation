@@ -106,13 +106,15 @@ namespace Vltava {
     void StdWindow::setComputeData() {
         //cpusim = std::make_unique<CPUSim>();
 
-        // Water rest density = 1 kg/m^3
+        // Water rest density = 1000 kg/m^3
         //
         // Particle r = 0.05 meter
-        // Particle volume = 5.2359 * 10^-4 m^3 = 0.005236 m^3 (4/3 * 0.05^3 * PI)
-        // Particle mass = volume * density = 0.005236 kg
+        // r^3 = 0.000125
+        // 4/3 * PI ~ 4.1888
+        // Particle volume = 5.2359 * 10^-4 m^3 = 0.0005236 m^3 (4/3 * 0.05^3 * PI)
+        // Particle mass = volume * density = 0.5236 kg
         //
-        // Smoothing length := 3 * 2 * h = 0.1 * 3 meter (for now)
+        // Smoothing length := 3 * 2 * r = 0.1 * 3 meter (for now)
         int pnrAlongAxis = round(pow(particleNr, 1.0/3.0));
         std::vector<Particle> particles;
 
@@ -122,14 +124,14 @@ namespace Vltava {
         // Solid box
         //int bsize = 16;
 
-        float s=0.125;
+        float s=0.1;
         //vk::DeviceSize size = sizeof(Particle) * nrOfP * bsize * bsize;
         //auto* data = new Particle[nrOfP + bsize * bsize];
 
         int r = -1;
         int z = -1;
 
-        float mass = 0.005236f;
+        float mass = 0.5236f;
 
         float distAxis = s * pnrAlongAxis / 2.0f;
 
@@ -182,8 +184,8 @@ namespace Vltava {
         uBuffers.push_back(std::move(propsBuffer));
 
         props = {
-                1.0f,
-                0.001f,
+                1000.0f,
+                50.0f,
                 (float) all_particle_nr,
                 0.2f,
 
@@ -236,8 +238,8 @@ namespace Vltava {
         sBuffers.push_back(std::move(gridBuffer));
         sBuffers[2].writeToBuffer(val.data(), val.size() * sizeof(int));
 
-        //sesph->initGpuSim(&uBuffers, &sBuffers);
-        //sesph->setCellSizes(cellx, celly, cellz, list_size);
+        sesph->initGpuSim(&uBuffers, &sBuffers);
+        sesph->setCellSizes(cellx, celly, cellz, list_size);
         //iisph->setBuffers(&uBuffers, &sBuffers);
 
         iisph->initGpuSim(&uBuffers, &sBuffers);
@@ -254,7 +256,7 @@ namespace Vltava {
         std::vector<Particle> container;
         container.reserve(sideLength * sideLength * 5);
 
-        float mass = 0.005236f;
+        float mass = 0.5236f;
 
         float m = (sideLength * dist) / 2.0f;
         glm::vec3 middle = glm::vec3(pos.x - m, pos.y - m, pos.z);
@@ -317,11 +319,13 @@ namespace Vltava {
 
     void StdWindow::runComp() {
         if (run) {
-            if (!cpuSim)
-                //sesph->gpuTimeStep();
-                iisph->gpuTimeStep();
+            if (!cpuSim) {
+                if (sph)
+                    sesph->gpuTimeStep();
+                else
+                    iisph->gpuTimeStep();
                 //dispatchCompute(nrOfP, 1, 1);
-            else
+            } else
                 runCpuSim(nrOfIter);
 
             log();
@@ -332,10 +336,15 @@ namespace Vltava {
     void StdWindow::runCpuSim(int iterNr) {
         //cpusim->runIISPH(iterNr);
         //cpusim->runSESPH(iterNr);
-        //sesph->cpuTimeStep();
-        iisph->cpuTimeStep();
-        auto particles = iisph->getFirst() ? iisph->getData1() : iisph->getData2();
-        //uBuffers.clear();
+        std::vector<Particle> particles;
+        if (sph) {
+            sesph->cpuTimeStep();
+            particles = sesph->getFirst() ? sesph->getData1() : sesph->getData2();
+        } else {
+            iisph->cpuTimeStep();
+            particles = iisph->getFirst() ? iisph->getData1() : iisph->getData2();
+            //uBuffers.clear();
+        }
         sBuffers.clear();
 
         uint64_t size = particles.size() * sizeof(Particle);
@@ -370,8 +379,11 @@ namespace Vltava {
         if (write_log) {
             std::string str = "";
 
-            //str = sesph->log();
-            str = iisph->log();
+            if (sph)
+                str = sesph->log();
+            else
+                str = iisph->log();
+
             my_log.addLog(str.c_str());
 
             if (console_log)
@@ -414,8 +426,10 @@ namespace Vltava {
 
                         if (!cpuSim)
                             //dispatchCompute(nrOfP, 1, 1);
-                            //sesph->gpuTimeStep();
-                            iisph->gpuTimeStep();
+                            if (sph)
+                                sesph->gpuTimeStep();
+                            else
+                                iisph->gpuTimeStep();
                         else
                             runCpuSim(nrOfIter);
                         //sesph->gpuTimeStep();
@@ -437,6 +451,8 @@ namespace Vltava {
             ImGui::Text("Reset data??");
             if (ImGui::Button("Yes"))
                 resetData();
+
+            ImGui::Checkbox("SESPH or IISPH, checked means SE", &sph);
 
             if (ImGui::Button("Toggle rotation"))
                 rot = !rot;
@@ -475,8 +491,8 @@ namespace Vltava {
                 ImGui::Text("Container size: "); ImGui::SameLine(); ImGui::InputInt("s", &containerSize);
 
                 props = {
-                        1.0f,
-                        0.001f,
+                        1000.0f,
+                        50.0f,
                         (float) all_particle_nr,
                         0.2f,
 
