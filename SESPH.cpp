@@ -122,7 +122,7 @@ namespace Vltava {
 
         //VulkanResources::getInstance().computeQueue->submit(submitInfo, compFence);
         VulkanResources::getInstance().computeQueue->submit(submitInfo);
-        //VulkanResources::getInstance().logDev->getHandle().waitIdle();
+        VulkanResources::getInstance().logDev->getHandle().waitIdle();
     }
 
     // CPU functions

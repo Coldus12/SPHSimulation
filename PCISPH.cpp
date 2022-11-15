@@ -34,7 +34,7 @@ namespace Vltava {
             updateDensityAndPressure(dt);
 
             nr++;
-            error = abs(calculateError(dt));
+            error = std::abs(calculateError(dt));
             std::cout << "nr :" << nr << " error: " << error << std::endl;
         }
     }
@@ -109,12 +109,17 @@ namespace Vltava {
 
         for (int i = 0; i < particles.size(); i++) {
             glm::vec3 a_p(0);
-            float dpi = particles[i].p / (particles[i].rho * particles[i].rho);
+            float dpi = 0;
+            if (particles[i].rho > 0.1)
+                dpi = particles[i].p / (particles[i].rho * particles[i].rho);
 
             for (int j = 0; j < particles.size(); j++) {
                 if (j == i) continue;
 
-                float dpj = particles[j].p / (particles[j].rho * particles[j].rho);
+                float dpj = 0;
+                if (particles[j].rho > 0.1)
+                    dpj = particles[j].p / (particles[j].rho * particles[j].rho);
+
                 a_p += -particles[j].m * (dpi + dpj) * gradKernel(i, j);
             }
 
@@ -139,6 +144,7 @@ namespace Vltava {
             rho_pred[i] += rho_change;
             particles[i].rho = rho_pred[i];
             particles[i].p += kPCI * ((rho_pred[i] - props.desired_density)/props.desired_density);
+            particles[i].p = particles[i].p < -200 ? -200 : particles[i].p;
         }
     }
 

@@ -65,7 +65,7 @@ namespace Vltava {
     // Initializing Vulkan environment
     //------------------------------------------------------------------------------------------------------------------
     void StdWindow::initVulkan() {
-        gridA = {-6,-1.5,-0.2};
+        gridA = {-3,-1.5,-0.2};
         gridB = {2, 2, 2};
 
         VulkanWrapper::getInstance().createVulkanWindow(window);
@@ -388,6 +388,8 @@ namespace Vltava {
                 str = sesph->log();
             else
                 str = iisph->log();
+
+            str = pcisph->log();
 
             my_log.addLog(str.c_str());
 
