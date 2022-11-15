@@ -19,6 +19,7 @@
 #include "VulkanWrapper.h"
 #include "SESPH.h"
 #include "IISPH.h"
+#include "PCISPH.h"
 
 #include <iostream>
 #include <limits>
@@ -88,6 +89,7 @@ namespace Vltava {
 
         std::unique_ptr<SESPH> sesph;
         std::unique_ptr<IISPH> iisph;
+        std::unique_ptr<PCISPH> pcisph;
         bool sph = false; // true means se false means ii
 
         //IMGUI

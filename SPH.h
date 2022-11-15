@@ -79,7 +79,9 @@ namespace Vltava {
 
         // Functions
         virtual float kernel(int i, int j);
+        virtual float kernel(glm::vec3 i, glm::vec3 j);
         virtual glm::vec3 gradKernel(int i, int j);
+        virtual glm::vec3 gradKernel(glm::vec3 i, glm::vec3 j);
 
         void container(int idx);
         void place();

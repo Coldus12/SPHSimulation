@@ -72,6 +72,7 @@ namespace Vltava {
         createSyncObjects();
         sesph = std::make_unique<SESPH>();
         iisph = std::make_unique<IISPH>();
+        pcisph = std::make_unique<PCISPH>();
 
         setComputeData();
 
@@ -243,6 +244,7 @@ namespace Vltava {
         //iisph->setBuffers(&uBuffers, &sBuffers);
 
         iisph->initGpuSim(&uBuffers, &sBuffers);
+        pcisph->setBuffers(&uBuffers, &sBuffers);
     }
 
     void StdWindow::resetData() {
@@ -341,9 +343,12 @@ namespace Vltava {
             sesph->cpuTimeStep();
             particles = sesph->getFirst() ? sesph->getData1() : sesph->getData2();
         } else {
-            iisph->cpuTimeStep();
-            particles = iisph->getFirst() ? iisph->getData1() : iisph->getData2();
+            //iisph->cpuTimeStep();
+            //particles = iisph->getFirst() ? iisph->getData1() : iisph->getData2();
             //uBuffers.clear();
+
+            pcisph->cpuTimeStep();
+            particles = pcisph->getFirst() ? pcisph->getData1() : pcisph->getData2();
         }
         sBuffers.clear();
 

@@ -5,11 +5,10 @@
 namespace Vltava {
     // CPU kernel / gradKernel
     //------------------------------------------------------------------------------------------------------------------
-    float SPH::kernel(int i, int j) {
-        auto& particles = first ? particles1 : particles2;
+    float SPH::kernel(glm::vec3 i, glm::vec3 j) {
         float m_k = 8.0 * 6.0 / (PI * pow(props.kernelh, 3));
         float m_l = 48.0 * 6.0 / (PI * pow(props.kernelh, 3));
-        float q = glm::length(particles[i].x - particles[j].x)/props.kernelh;
+        float q = glm::length(i - j)/props.kernelh;
 
         float ret = 0;
         if (q <= 1.0) {
@@ -23,13 +22,16 @@ namespace Vltava {
         return ret;
     }
 
-    // One of the errors: vec3 i == vec3 j ---> normalize(i-j) -> nan
-    glm::vec3 SPH::gradKernel(int i, int j) {
+    float SPH::kernel(int i, int j) {
         auto& particles = first ? particles1 : particles2;
+        return kernel(particles[i].x, particles[j].x);
+    }
+
+    glm::vec3 SPH::gradKernel(glm::vec3 i, glm::vec3 j) {
         float m_k = 8.0 * 6.0 / (PI * pow(props.kernelh, 3));
         float m_l = 48.0 * 6.0 / (PI * pow(props.kernelh, 3));
 
-        glm::vec3 r = particles[i].x - particles[j].x;
+        glm::vec3 r = i - j;
         float rlength = length(r);
         float q = rlength / props.kernelh;
         glm::vec3 ret = glm::vec3(0);
@@ -47,6 +49,15 @@ namespace Vltava {
         }
 
         return ret;
+    }
+
+    // One of the errors: vec3 i == vec3 j ---> normalize(i-j) -> nan
+    glm::vec3 SPH::gradKernel(int i, int j) {
+        auto& particles = first ? particles1 : particles2;
+        float m_k = 8.0 * 6.0 / (PI * pow(props.kernelh, 3));
+        float m_l = 48.0 * 6.0 / (PI * pow(props.kernelh, 3));
+
+        return gradKernel(particles[i].x, particles[j].x);
     }
 
     // Log function
@@ -70,10 +81,21 @@ namespace Vltava {
             }
             str += "\n----------------------------------------------\n";
         } else {
-            for (int i = 0; i < particles1.size(); i++) {
+            /*for (int i = 0; i < particles1.size(); i++) {
                 str += std::to_string(i) + "; Density1: " + std::to_string(particles1[i].rho) + " pressure1: " + std::to_string(particles1[i].p) + "\n";
                 str += std::to_string(i) + "; Density2: " + std::to_string(particles2[i].rho) + " pressure2: " + std::to_string(particles2[i].p) + "\n\n";
+            }*/
+            auto spheres = particles2;
+            for (auto & sphere : spheres) {
+                str += "Density: " + std::to_string(sphere.rho) +
+                       "; Pressure: " + std::to_string(sphere.p) +
+                       " ; Position: " + std::to_string(sphere.x.x) + " " + std::to_string(sphere.x.y) + " " + std::to_string(sphere.x.z) +
+                       " ; Mass: " + std::to_string(sphere.m) +/* " ; Padding = " +
+                       std::to_string(spheres[i].padding) + " ; diff = " +
+                       std::to_string(spheres[i].padding - spheres[i].rho) +*/
+                       " ; Velocity: " + std::to_string(sphere.v.x) + " " + std::to_string(sphere.v.y) + " " + std::to_string(sphere.v.z) + ";\n";
             }
+            str += "\n----------------------------------------------\n";
         }
 
         return str;
