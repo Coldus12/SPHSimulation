@@ -1,0 +1,51 @@
+#version 450
+layout (local_size_x = 64) in; //256
+
+#include comp_shader.incl
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void computeAdvectedVelocity(uint gID) {
+    // Forces
+    vec3 f = vec3(0);
+
+    // Calculating viscosity
+    vec3 viscosity = vec3(0);
+
+    for (int j = 0; j < ubo.nr_of_particles; j++) {
+        if (gID == j)
+            continue;
+
+        vec3 xij = in_data.p[gID].x - in_data.p[j].x;
+
+        float pval = 0;
+        if (in_data.p[j].rho != 0)
+            pval = (in_data.p[j].m / in_data.p[j].rho) * (dot(xij, cs_gradKernel(in_data.p[gID].x, in_data.p[j].x)) /  (dot(xij, xij) + 0.01 * ubo.kernelh));
+
+        vec3 vij = in_data.p[gID].v - in_data.p[j].v;
+        viscosity += pval * vij;
+    }
+
+    float nu = 0.01;
+    viscosity *= 2 * nu * in_data.p[gID].m;
+
+    if (in_data.p[gID].staticP == 0)
+        f += viscosity;
+
+    // Gravity
+    f += vec3(0, 0, -9.81 * in_data.p[gID].m);
+
+    // Calculating v_adv
+    pcisph_add_data.p[gID].v_adv = in_data.p[gID].v + ubo.dt * f / in_data.p[gID].m;
+    pcisph_add_data.p[gID].pred_pos = in_data.p[gID].x + ubo.dt * (pcisph_add_data.p[gID].v_adv + pcisph_add_data.p[gID].prev_p_acc * ubo.dt);
+}
+
+void main()
+{
+    //grab global ID
+    uint gID = gl_GlobalInvocationID.x;
+
+    if (gID < ubo.nr_of_particles) {
+        computeAdvectedVelocity(gID);
+    }
+}

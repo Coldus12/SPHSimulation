@@ -27,13 +27,18 @@ namespace Vltava {
 
     // Properties of the simulation
     struct SimProps {
-        float desired_density;
-        float k;                    // normalization constant / stiffness constant
-        float nr_of_particles;
-        float kernelh;
+        float desired_density = 1000.0f;
+        float k = 50.0f;                    // normalization constant / stiffness constant
+        float nr_of_particles = 512.0f;
+        float kernelh = 0.2f;
 
-        glm::vec4 gridA;
-        glm::vec4 gridB;
+        float dt = 0.01f;
+        float kPCI = 0.0f;
+        float padding1 = 0.0f;
+        float padding2 = 0.0f;
+
+        glm::vec4 gridA = glm::vec4(1);
+        glm::vec4 gridB = glm::vec4(-1);
     };
 
     class ParticleModel : public Model {

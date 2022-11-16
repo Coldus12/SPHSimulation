@@ -29,6 +29,8 @@
 #include <chrono>
 
 namespace Vltava {
+    enum SPHType {sesph, iisph, pcisph};
+
     class StdWindow {
 
     public:
@@ -87,10 +89,11 @@ namespace Vltava {
         std::vector<Buffer> sBuffers;
         std::vector<Buffer> uBuffers;
 
-        std::unique_ptr<SESPH> sesph;
-        std::unique_ptr<IISPH> iisph;
-        std::unique_ptr<PCISPH> pcisph;
-        bool sph = false; // true means se false means ii
+        SPHType sph_type = sesph;
+
+        std::unique_ptr<SESPH> sesph_sim;
+        std::unique_ptr<IISPH> iisph_sim;
+        std::unique_ptr<PCISPH> pcisph_sim;
 
         //IMGUI
         VkDescriptorPool imguiPool;

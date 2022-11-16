@@ -26,6 +26,7 @@ namespace Vltava {
             this->particles2 = particles;
         }
 
+        // TODO: pointers could theoretically be null, and the vector may be empty. Handle these exceptions!
         virtual void setBuffers(std::vector<Buffer>* uBuffers, std::vector<Buffer>* sBuffers) {
             std::cout << "got here at least?" << std::endl;
 

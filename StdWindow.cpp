@@ -70,9 +70,9 @@ namespace Vltava {
 
         VulkanWrapper::getInstance().createVulkanWindow(window);
         createSyncObjects();
-        sesph = std::make_unique<SESPH>();
-        iisph = std::make_unique<IISPH>();
-        pcisph = std::make_unique<PCISPH>();
+        sesph_sim = std::make_unique<SESPH>();
+        iisph_sim = std::make_unique<IISPH>();
+        pcisph_sim = std::make_unique<PCISPH>();
 
         setComputeData();
 
@@ -184,15 +184,10 @@ namespace Vltava {
         );
         uBuffers.push_back(std::move(propsBuffer));
 
-        props = {
-                1000.0f,
-                50.0f,
-                (float) all_particle_nr,
-                0.2f,
-
-                glm::vec4(gridA, 0),
-                glm::vec4(gridB, 0)
-        };
+        props = SimProps();
+        props.nr_of_particles = (float) all_particle_nr;
+        props.gridA = glm::vec4(gridA,0);
+        props.gridB = glm::vec4(gridB,0);
 
         //cpusim->setSimProps(props);
         //cpusim->setData(particles);
@@ -239,12 +234,12 @@ namespace Vltava {
         sBuffers.push_back(std::move(gridBuffer));
         sBuffers[2].writeToBuffer(val.data(), val.size() * sizeof(int));
 
-        sesph->initGpuSim(&uBuffers, &sBuffers);
-        sesph->setCellSizes(cellx, celly, cellz, list_size);
-        //iisph->setBuffers(&uBuffers, &sBuffers);
+        sesph_sim->initGpuSim(&uBuffers, &sBuffers);
+        sesph_sim->setCellSizes(cellx, celly, cellz, list_size);
+        //iisph_sim->setBuffers(&uBuffers, &sBuffers);
 
-        iisph->initGpuSim(&uBuffers, &sBuffers);
-        pcisph->setBuffers(&uBuffers, &sBuffers);
+        iisph_sim->initGpuSim(&uBuffers, &sBuffers);
+        pcisph_sim->initGpuSim(&uBuffers, &sBuffers);
     }
 
     void StdWindow::resetData() {
@@ -322,11 +317,18 @@ namespace Vltava {
     void StdWindow::runComp() {
         if (run) {
             if (!cpuSim) {
-                if (sph)
-                    sesph->gpuTimeStep();
-                else
-                    iisph->gpuTimeStep();
-                //dispatchCompute(nrOfP, 1, 1);
+                switch (sph_type) {
+                    default:
+                    case sesph:
+                        sesph_sim->gpuTimeStep();
+                        break;
+                    case iisph:
+                       iisph_sim->gpuTimeStep();
+                        break;
+                    case pcisph:
+                        pcisph_sim->gpuTimeStep();
+                        break;
+                }
             } else
                 runCpuSim(nrOfIter);
 
@@ -336,25 +338,26 @@ namespace Vltava {
     }
 
     void StdWindow::runCpuSim(int iterNr) {
-        //cpusim->runIISPH(iterNr);
-        //cpusim->runSESPH(iterNr);
         std::vector<Particle> particles;
-        if (sph) {
-            sesph->cpuTimeStep();
-            particles = sesph->getFirst() ? sesph->getData1() : sesph->getData2();
-        } else {
-            //iisph->cpuTimeStep();
-            //particles = iisph->getFirst() ? iisph->getData1() : iisph->getData2();
-            //uBuffers.clear();
 
-            pcisph->cpuTimeStep();
-            particles = pcisph->getFirst() ? pcisph->getData1() : pcisph->getData2();
+        switch (sph_type) {
+            default:
+            case sesph:
+                sesph_sim->cpuTimeStep();
+                particles = sesph_sim->getFirst() ? sesph_sim->getData1() : sesph_sim->getData2();
+                break;
+            case iisph:
+                iisph_sim->cpuTimeStep();
+                particles = iisph_sim->getFirst() ? iisph_sim->getData1() : iisph_sim->getData2();
+                break;
+            case pcisph:
+                pcisph_sim->cpuTimeStep();
+                particles = pcisph_sim->getFirst() ? pcisph_sim->getData1() : pcisph_sim->getData2();
+                break;
         }
         sBuffers.clear();
 
         uint64_t size = particles.size() * sizeof(Particle);
-
-        //uBuffers[0].writeToBuffer(&props, sizeof(props));
 
         Buffer inBuffer(
                 size,
@@ -384,12 +387,18 @@ namespace Vltava {
         if (write_log) {
             std::string str = "";
 
-            if (sph)
-                str = sesph->log();
-            else
-                str = iisph->log();
-
-            str = pcisph->log();
+            switch (sph_type) {
+                default:
+                case sesph:
+                    str += sesph_sim->log();
+                    break;
+                case iisph:
+                    str += iisph_sim->log();
+                    break;
+                case pcisph:
+                    str += pcisph_sim->log();
+                    break;
+            }
 
             my_log.addLog(str.c_str());
 
@@ -432,14 +441,21 @@ namespace Vltava {
                         nrOfIter = time;
 
                         if (!cpuSim)
-                            //dispatchCompute(nrOfP, 1, 1);
-                            if (sph)
-                                sesph->gpuTimeStep();
-                            else
-                                iisph->gpuTimeStep();
+                            switch (sph_type) {
+                                default:
+                                case sesph:
+                                    sesph_sim->gpuTimeStep();
+                                    break;
+                                case iisph:
+                                    iisph_sim->gpuTimeStep();
+                                    break;
+                                case pcisph:
+                                    pcisph_sim->gpuTimeStep();
+                                    break;
+                            }
                         else
                             runCpuSim(nrOfIter);
-                        //sesph->gpuTimeStep();
+                        //sesph_sim->gpuTimeStep();
 
 
                         log();
@@ -455,11 +471,19 @@ namespace Vltava {
             //ImGui::ShowDemoWindow();
             ImGui::Begin("Test");
 
+            int choice = sph_type;
+
+            ImGui::Text("Choose SPH type:");
+            ImGui::RadioButton("SESPH", &choice, sesph); ImGui::SameLine();
+            ImGui::RadioButton("IISPH", &choice, iisph); ImGui::SameLine();
+            ImGui::RadioButton("PCISPH", &choice, pcisph);
+            sph_type = static_cast<SPHType>(choice);
+
             ImGui::Text("Reset data??");
             if (ImGui::Button("Yes"))
                 resetData();
 
-            ImGui::Checkbox("SESPH or IISPH, checked means SE", &sph);
+            //ImGui::Checkbox("SESPH or IISPH, checked means SE", &sph);
 
             if (ImGui::Button("Toggle rotation"))
                 rot = !rot;
@@ -497,7 +521,7 @@ namespace Vltava {
                 ImGui::Text("Container position: "); ImGui::SameLine(); ImGui::InputFloat3("##", (float*)&containerPos);
                 ImGui::Text("Container size: "); ImGui::SameLine(); ImGui::InputInt("s", &containerSize);
 
-                props = {
+                /*props = {
                         1000.0f,
                         50.0f,
                         (float) all_particle_nr,
@@ -508,7 +532,7 @@ namespace Vltava {
                 };
 
                 //cpusim->setSimProps(props);
-                uBuffers[0].writeToBuffer(&props, sizeof(props));
+                uBuffers[0].writeToBuffer(&props, sizeof(props));*/
             }
 
             if (show_log)

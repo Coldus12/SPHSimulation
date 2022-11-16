@@ -1,3 +1,5 @@
+#include <thread>
+#include <chrono>
 #include "PCISPH.h"
 
 namespace Vltava {
@@ -5,6 +7,243 @@ namespace Vltava {
     //------------------------------------------------------------------------------------------------------------------
     void PCISPH::gpuTimeStep() {
         logCpuData = false;
+        float error = 10.0;
+        int nr = 0;
+
+        gpuPredictAdvection();
+
+        while(error > 0.1f && nr < 50) {
+            gpuPressureSolve();
+
+            // Density error calculation
+            error = 0;
+
+            auto data = sBuffers->at(1).getData<Particle>();
+            for (auto& d: data) {
+                error += d.rho;
+            }
+            error /= data.size();
+            error = (error - props.desired_density)/props.desired_density;
+            error = std::abs(error);
+
+            nr++;
+
+            std::cout << "[PCISPH GPU] error: " << error << " nr: " << nr << std::endl;
+        }
+
+        gpuIntegrate();
+    }
+
+    void PCISPH::gpuPredictAdvection() {
+        vk::CommandBufferBeginInfo beginInfo({}, nullptr);
+        auto& computeCmdBuffer = VulkanWrapper::getInstance().getCompCmdBuffer();
+        computeCmdBuffer.begin(beginInfo);
+
+        std::vector<vk::BufferMemoryBarrier> membarriers;
+        for (auto& buffer: *sBuffers) {
+            membarriers.emplace_back(
+                    vk::AccessFlagBits::eShaderWrite,
+                    vk::AccessFlagBits::eShaderRead,
+                    VulkanWrapper::getInstance().getComputeQueueFamily(),
+                    VulkanWrapper::getInstance().getComputeQueueFamily(),
+                    buffer.getBufferHandle(),
+                    0,
+                    VK_WHOLE_SIZE
+            );
+        }
+
+        // Predict velocity
+        //--------------------
+        advVelocityComp->bindPipelineAndDescriptors(computeCmdBuffer);
+        computeCmdBuffer.dispatch(particles1.size() / 64 + 1, 1, 1);
+        computeCmdBuffer.pipelineBarrier(
+                vk::PipelineStageFlagBits::eComputeShader,
+                vk::PipelineStageFlagBits::eComputeShader,
+                {},
+                {},
+                membarriers,
+                {}
+        );
+
+        // Predict rho
+        //--------------------
+        predictedRhoComp->bindPipelineAndDescriptors(computeCmdBuffer);
+        computeCmdBuffer.dispatch(particles1.size() / 64 + 1, 1, 1);
+        computeCmdBuffer.pipelineBarrier(
+                vk::PipelineStageFlagBits::eComputeShader,
+                vk::PipelineStageFlagBits::eComputeShader,
+                {},
+                {},
+                membarriers,
+                {}
+        );
+
+        computeCmdBuffer.end();
+
+        vk::SubmitInfo submitInfo(
+                {},
+                {},
+                computeCmdBuffer,
+                {}
+        );
+
+        //VulkanResources::getInstance().computeQueue->submit(submitInfo, compFence);
+        VulkanResources::getInstance().computeQueue->submit(submitInfo);
+        VulkanResources::getInstance().logDev->getHandle().waitIdle();
+    }
+
+    void PCISPH::gpuPressureSolve() {
+        vk::CommandBufferBeginInfo beginInfo({}, nullptr);
+        auto& computeCmdBuffer = VulkanWrapper::getInstance().getCompCmdBuffer();
+        computeCmdBuffer.begin(beginInfo);
+
+        std::vector<vk::BufferMemoryBarrier> membarriers;
+        for (auto& buffer: *sBuffers) {
+            membarriers.emplace_back(
+                    vk::AccessFlagBits::eShaderWrite,
+                    vk::AccessFlagBits::eShaderRead,
+                    VulkanWrapper::getInstance().getComputeQueueFamily(),
+                    VulkanWrapper::getInstance().getComputeQueueFamily(),
+                    buffer.getBufferHandle(),
+                    0,
+                    VK_WHOLE_SIZE
+            );
+        }
+
+        // Recalculating pressure accelerations
+        //--------------------
+        pressureAccelerationComp->bindPipelineAndDescriptors(computeCmdBuffer);
+        computeCmdBuffer.dispatch(particles1.size() / 64 + 1, 1, 1);
+        computeCmdBuffer.pipelineBarrier(
+                vk::PipelineStageFlagBits::eComputeShader,
+                vk::PipelineStageFlagBits::eComputeShader,
+                {},
+                {},
+                membarriers,
+                {}
+        );
+
+        // Updating rho and p
+        //--------------------
+        densityAndPressureUpdateComp->bindPipelineAndDescriptors(computeCmdBuffer);
+        computeCmdBuffer.dispatch(particles1.size() / 64 + 1, 1, 1);
+        computeCmdBuffer.pipelineBarrier(
+                vk::PipelineStageFlagBits::eComputeShader,
+                vk::PipelineStageFlagBits::eComputeShader,
+                {},
+                {},
+                membarriers,
+                {}
+        );
+
+        computeCmdBuffer.end();
+
+        vk::SubmitInfo submitInfo(
+                {},
+                {},
+                computeCmdBuffer,
+                {}
+        );
+
+        //VulkanResources::getInstance().computeQueue->submit(submitInfo, compFence);
+        VulkanResources::getInstance().computeQueue->submit(submitInfo);
+        VulkanResources::getInstance().logDev->getHandle().waitIdle();
+    }
+
+    void PCISPH::gpuIntegrate() {
+        vk::CommandBufferBeginInfo beginInfo({}, nullptr);
+        auto& computeCmdBuffer = VulkanWrapper::getInstance().getCompCmdBuffer();
+        computeCmdBuffer.begin(beginInfo);
+
+        std::vector<vk::BufferMemoryBarrier> membarriers;
+        for (auto& buffer: *sBuffers) {
+            membarriers.emplace_back(
+                    vk::AccessFlagBits::eShaderWrite,
+                    vk::AccessFlagBits::eShaderRead,
+                    VulkanWrapper::getInstance().getComputeQueueFamily(),
+                    VulkanWrapper::getInstance().getComputeQueueFamily(),
+                    buffer.getBufferHandle(),
+                    0,
+                    VK_WHOLE_SIZE
+            );
+        }
+
+        // Particle iter
+        //--------------------
+        particleIterComp->bindPipelineAndDescriptors(computeCmdBuffer);
+        computeCmdBuffer.dispatch(particles1.size() / 64 + 1, 1, 1);
+        computeCmdBuffer.pipelineBarrier(
+                vk::PipelineStageFlagBits::eComputeShader,
+                vk::PipelineStageFlagBits::eComputeShader,
+                {},
+                {},
+                membarriers,
+                {}
+        );
+
+        computeCmdBuffer.end();
+
+        vk::SubmitInfo submitInfo(
+                {},
+                {},
+                computeCmdBuffer,
+                {}
+        );
+
+        //VulkanResources::getInstance().computeQueue->submit(submitInfo, compFence);
+        VulkanResources::getInstance().computeQueue->submit(submitInfo);
+        VulkanResources::getInstance().logDev->getHandle().waitIdle();
+    }
+
+    void PCISPH::initGpuSim(std::vector<Buffer> *uBuffers, std::vector<Buffer> *sBuffers) {
+        advVelocityComp.reset();
+        predictedRhoComp.reset();
+        pressureAccelerationComp.reset();
+        densityAndPressureUpdateComp.reset();
+        particleIterComp.reset();
+
+        createSyncObjects();
+        initComputeShaders(uBuffers, sBuffers);
+    }
+
+    void PCISPH::createSyncObjects() {
+        vk::FenceCreateInfo fenceInfo(vk::FenceCreateFlagBits::eSignaled);
+        compFence = VulkanResources::getInstance().logDev->getHandle().createFence(fenceInfo);
+    }
+
+    void PCISPH::initComputeShaders(std::vector<Buffer> *uBuffers, std::vector<Buffer> *sBuffers) {
+        setBuffers(uBuffers, sBuffers);
+
+        Buffer additionalDataBuffer(
+                particles1.size() * sizeof(AdditionalPCISPHData),
+                vk::BufferUsageFlagBits::eStorageBuffer,
+                vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
+        );
+
+        additionalDataBuffer.bind(0);
+        std::vector<AdditionalPCISPHData> add_data = std::vector<AdditionalPCISPHData>(particles1.size(), AdditionalPCISPHData());
+        additionalDataBuffer.writeToBuffer(add_data.data(), add_data.size() * sizeof(AdditionalPCISPHData));
+        sBuffers->push_back(std::move(additionalDataBuffer));
+
+        advVelocityComp = std::make_unique<ComputeShader>("shaders/PCISPH_computeVadv.spv");
+        advVelocityComp->setBuffers(uBuffers, sBuffers);
+        advVelocityComp->createPipeline();
+
+        predictedRhoComp = std::make_unique<ComputeShader>("shaders/PCISPH_computePredictedRho.spv");
+        predictedRhoComp->setBuffers(uBuffers, sBuffers);
+        predictedRhoComp->createPipeline();
+
+        pressureAccelerationComp = std::make_unique<ComputeShader>("shaders/PCISPH_computePressureAccs.spv");
+        pressureAccelerationComp->setBuffers(uBuffers, sBuffers);
+        pressureAccelerationComp->createPipeline();
+
+        densityAndPressureUpdateComp = std::make_unique<ComputeShader>("shaders/PCISPH_updateDensityAndPressure.spv");
+        densityAndPressureUpdateComp->setBuffers(uBuffers, sBuffers);
+        densityAndPressureUpdateComp->createPipeline();
+
+        particleIterComp = std::make_unique<ComputeShader>("shaders/PCISPH_iterParticle.spv");
+        particleIterComp->setBuffers(uBuffers, sBuffers);
+        particleIterComp->createPipeline();
     }
 
     // CPU functions
@@ -130,7 +369,6 @@ namespace Vltava {
     void PCISPH::updateDensityAndPressure(float dt) {
         auto& particles = first ? particles1 : particles2;
 
-        std::cout <<"\n\n";
         for (int i = 0; i < particles.size(); i++) {
             float rho_change = 0;
 
@@ -236,5 +474,13 @@ namespace Vltava {
         prev_p_acc = std::vector<glm::vec3>(particles1.size(), glm::vec3(0));
 
         compute_kPCI();
+
+        // TODO handle exceptions (pointer null, size < 1)
+        props.kPCI = kPCI;
+        uBuffers->at(0).writeToBuffer(&props, sizeof(props));
+    }
+
+    void PCISPH::cleanup() {
+        VulkanResources::getInstance().logDev->getHandle().destroyFence(compFence);
     }
 } // Vltava

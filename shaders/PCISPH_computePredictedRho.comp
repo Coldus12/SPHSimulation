@@ -18,19 +18,22 @@ void copyData(uint gID) {
     out_data.p[gID].padding = in_data.p[gID].padding;
 }
 
-void calculateRho(uint gID) {
-    float density = 0.0;
-    float d2 = 0.0;
+void computePredictedRho(uint gID) {
+    float density = 0;
+    float real_density = 0;
 
     for (int j = 0; j < ubo.nr_of_particles; j++) {
-        if (gID == j)
-            continue;
+        if (j == gID) continue;
 
-        density += in_data.p[gID].m * cs_kernel(in_data.p[gID].x, in_data.p[j].x);
+        density += in_data.p[j].m * cs_kernel(pcisph_add_data.p[gID].pred_pos, pcisph_add_data.p[j].pred_pos);
+        real_density += in_data.p[j].m * cs_kernel(in_data.p[gID].x, in_data.p[j].x);
     }
 
-    out_data.p[gID].rho = density;
-    out_data.p[gID].padding = d2;
+    pcisph_add_data.p[gID].rho_pred = density;
+    out_data.p[gID].rho = real_density;
+
+    // Pressure init
+    out_data.p[gID].p = ubo.kPCI * ((density - ubo.desired_density)/ubo.desired_density);
 }
 
 void main()
@@ -40,6 +43,6 @@ void main()
 
     if (gID < ubo.nr_of_particles) {
         copyData(gID);
-        calculateRho(gID);
+        computePredictedRho(gID);
     }
 }

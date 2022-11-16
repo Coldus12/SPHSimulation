@@ -26,7 +26,7 @@ namespace Vltava {
             }
             error /= data.size();
             error -= props.desired_density;
-            error = abs(error);
+            error = std::abs(error);
 
             nr++;
 
@@ -57,7 +57,7 @@ namespace Vltava {
         // Predict advection
         //--------------------
         densityComp->bindPipelineAndDescriptors(computeCmdBuffer);
-        computeCmdBuffer.dispatch(particles1.size(), 1, 1);
+        computeCmdBuffer.dispatch(particles1.size() / 64 + 1, 1, 1);
         computeCmdBuffer.pipelineBarrier(
                 vk::PipelineStageFlagBits::eComputeShader,
                 vk::PipelineStageFlagBits::eComputeShader,
@@ -68,7 +68,7 @@ namespace Vltava {
         );
 
         advVelocityAndDiiComp->bindPipelineAndDescriptors(computeCmdBuffer);
-        computeCmdBuffer.dispatch(particles1.size(), 1, 1);
+        computeCmdBuffer.dispatch(particles1.size() / 64 + 1, 1, 1);
         computeCmdBuffer.pipelineBarrier(
                 vk::PipelineStageFlagBits::eComputeShader,
                 vk::PipelineStageFlagBits::eComputeShader,
@@ -79,7 +79,7 @@ namespace Vltava {
         );
 
         advDensityAndAiiComp->bindPipelineAndDescriptors(computeCmdBuffer);
-        computeCmdBuffer.dispatch(particles1.size(), 1, 1);
+        computeCmdBuffer.dispatch(particles1.size() / 64 + 1, 1, 1);
         computeCmdBuffer.pipelineBarrier(
                 vk::PipelineStageFlagBits::eComputeShader,
                 vk::PipelineStageFlagBits::eComputeShader,
@@ -124,7 +124,7 @@ namespace Vltava {
         // Pressure solve
         //--------------------
         sumDijPjComp->bindPipelineAndDescriptors(computeCmdBuffer);
-        computeCmdBuffer.dispatch(particles1.size(), 1, 1);
+        computeCmdBuffer.dispatch(particles1.size() / 64 + 1, 1, 1);
         computeCmdBuffer.pipelineBarrier(
                 vk::PipelineStageFlagBits::eComputeShader,
                 vk::PipelineStageFlagBits::eComputeShader,
@@ -135,7 +135,7 @@ namespace Vltava {
         );
 
         pressureUpdateComp->bindPipelineAndDescriptors(computeCmdBuffer);
-        computeCmdBuffer.dispatch(particles1.size(), 1, 1);
+        computeCmdBuffer.dispatch(particles1.size() / 64 + 1, 1, 1);
         computeCmdBuffer.pipelineBarrier(
                 vk::PipelineStageFlagBits::eComputeShader,
                 vk::PipelineStageFlagBits::eComputeShader,
@@ -193,7 +193,7 @@ namespace Vltava {
         // Integrate
         //--------------------
         particleIterComp->bindPipelineAndDescriptors(computeCmdBuffer);
-        computeCmdBuffer.dispatch(particles1.size(), 1, 1);
+        computeCmdBuffer.dispatch(particles1.size() / 64 + 1, 1, 1);
         computeCmdBuffer.pipelineBarrier(
                 vk::PipelineStageFlagBits::eComputeShader,
                 vk::PipelineStageFlagBits::eComputeShader,

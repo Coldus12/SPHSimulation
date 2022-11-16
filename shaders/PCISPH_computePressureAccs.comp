@@ -1,0 +1,40 @@
+#version 450
+layout (local_size_x = 64) in; //256
+
+#include comp_shader.incl
+
+#define storage_in out_data
+#define storage_out in_data
+#define SimProps ubo
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void computePressureAcc(uint gID) {
+    vec3 a_p = vec3(0);
+    float dpi = 0;
+    
+    if (storage_in.p[gID].rho > 0.1)
+        dpi = storage_in.p[gID].p / (storage_in.p[gID].rho * storage_in.p[gID].rho);
+
+    for (int j = 0; j < ubo.nr_of_particles; j++) {
+        if (j == gID) continue;
+
+        float dpj = 0;
+        if (storage_in.p[j].rho > 0.1)
+            dpj = storage_in.p[j].p / (storage_in.p[j].rho * storage_in.p[j].rho);
+    
+        a_p += -storage_in.p[j].m * (dpi + dpj) * cs_gradKernel(storage_in.p[gID].x, storage_in.p[j].x);
+    }
+    
+    pcisph_add_data.p[gID].prev_p_acc = a_p;
+}
+
+void main()
+{
+    //grab global ID
+    uint gID = gl_GlobalInvocationID.x;
+
+    if (gID < ubo.nr_of_particles) {
+        computePressureAcc(gID);
+    }
+}

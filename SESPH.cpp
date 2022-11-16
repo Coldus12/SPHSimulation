@@ -67,7 +67,7 @@ namespace Vltava {
         // TODO something with iter
         for (int i = 0; i < 1; i++) {
             cleanGridComp->bindPipelineAndDescriptors(computeCmdBuffer);
-            computeCmdBuffer.dispatch(list_size * cellx * celly * cellz, 1, 1);
+            computeCmdBuffer.dispatch(list_size * cellx * celly * cellz / 64 + 1, 1, 1);
             computeCmdBuffer.pipelineBarrier(
                     vk::PipelineStageFlagBits::eComputeShader,
                     vk::PipelineStageFlagBits::eComputeShader,
@@ -78,7 +78,7 @@ namespace Vltava {
             );
 
             gridPlacementComp->bindPipelineAndDescriptors(computeCmdBuffer);
-            computeCmdBuffer.dispatch(particles1.size(), 1, 1);
+            computeCmdBuffer.dispatch(particles1.size() / 64 + 1, 1, 1);
             computeCmdBuffer.pipelineBarrier(
                     vk::PipelineStageFlagBits::eComputeShader,
                     vk::PipelineStageFlagBits::eComputeShader,
@@ -89,7 +89,7 @@ namespace Vltava {
             );
 
             densityComp->bindPipelineAndDescriptors(computeCmdBuffer);
-            computeCmdBuffer.dispatch(particles1.size(), 1, 1);
+            computeCmdBuffer.dispatch(particles1.size() / 64 + 1, 1, 1);
             computeCmdBuffer.pipelineBarrier(
                     vk::PipelineStageFlagBits::eComputeShader,
                     vk::PipelineStageFlagBits::eComputeShader,
@@ -100,7 +100,7 @@ namespace Vltava {
             );
 
             particleIterComp->bindPipelineAndDescriptors(computeCmdBuffer);
-            computeCmdBuffer.dispatch(particles1.size(), 1, 1);
+            computeCmdBuffer.dispatch(particles1.size() / 64 + 1, 1, 1);
             computeCmdBuffer.pipelineBarrier(
                     vk::PipelineStageFlagBits::eComputeShader,
                     vk::PipelineStageFlagBits::eComputeShader,

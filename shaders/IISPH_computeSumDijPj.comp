@@ -1,26 +1,11 @@
 #version 450
-layout (local_size_x = 256) in; //256
+layout (local_size_x = 64) in; //256
 
 #include comp_shader.incl
-
-struct Additional_data {
-    vec3 dii;
-    float aii;
-    vec3 sumDijPj;
-    float rho_adv;
-    vec3 v_adv;
-    float rho_pred;
-};
-
-layout(set = 0, binding = 4, std430) buffer additionalDataBuffer {
-    Additional_data p[];
-} add_data;
 
 //----------------------------------------------------------------------------------------------------------------------
 
 void computeSumDijPj(uint gID) {
-    float dt = 0.01;
-
     vec3 dijpj = vec3(0);
 
     for (int j = 0; j < ubo.nr_of_particles; j++) {
@@ -31,9 +16,9 @@ void computeSumDijPj(uint gID) {
             dijpj += in_data.p[j].m * in_data.p[j].p / (in_data.p[j].rho * in_data.p[j].rho) * cs_gradKernel(in_data.p[gID].x, in_data.p[j].x);
     }
 
-    dijpj *= -dt * dt;
+    dijpj *= -ubo.dt * ubo.dt;
 
-    add_data.p[gID].sumDijPj = dijpj;
+    iisph_add_data.p[gID].sumDijPj = dijpj;
 }
 
 void main()

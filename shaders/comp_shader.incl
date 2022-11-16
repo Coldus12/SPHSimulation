@@ -30,6 +30,11 @@ layout(set = 0, binding = 0) uniform UBO {
     float nr_of_particles;
     float kernelh;
 
+    float dt;
+    float kPCI;
+    float padding1;
+    float padding2;
+
     vec4 gridA;
     vec4 gridB;
 } ubo;
@@ -45,6 +50,36 @@ layout(set = 0, binding = 2, std430) buffer outBuffer {
 layout(set = 0, binding = 3, std430) buffer gridBuffer {
     int numbers[];
 } grid_data;
+
+// IISPH additional data
+//----------------------------
+struct IISPH_Additional_data {
+    vec3 dii;
+    float aii;
+    vec3 sumDijPj;
+    float rho_adv;
+    vec3 v_adv;
+    float rho_pred;
+};
+
+layout(set = 0, binding = 4, std430) buffer additionalDataBuffer1 {
+        IISPH_Additional_data p[];
+} iisph_add_data;
+
+// PCISPH additional data
+//----------------------------
+struct PCISPH_Additional_data {
+    vec3 v_adv;
+    float rho_pred;
+    vec3 pred_pos;
+    float padding1;
+    vec3 prev_p_acc;
+    float padding2;
+};
+
+layout(set = 0, binding = 5, std430) buffer additionalDataBuffer2 {
+        PCISPH_Additional_data p[];
+} pcisph_add_data;
 
 // Kernels
 //----------------------------------------------------------------------------------------------------------------------
