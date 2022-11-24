@@ -8,12 +8,35 @@ layout (local_size_x = 64) in; //256
 void computeSumDijPj(uint gID) {
     vec3 dijpj = vec3(0);
 
-    for (int j = 0; j < ubo.nr_of_particles; j++) {
-        if (gID == j)
+    if (ubo.neighbour) {
+        vec3 tuple = determineGridTuple(int(gID), true);
+        Neighbourhood n = getNeighbouringCells(tuple);
+        for (int i = 0; i < 27; i++) {
+            vec3 current = n.neighbour[i];
+            if (!checkBounds(current)) continue;
+
+            int idx = getStartIdxOfCell(current);
+            if (idx >= 0) {
+                int size = grid_data.numbers[idx];
+
+                int iterIdx = 0;
+                for (int j = 1; j < size+1; j++) {
+                    iterIdx = grid_data.numbers[idx + j];
+                    if (gID == iterIdx) continue;
+
+                    if (abs(in_data.p[iterIdx].rho) > 0.0001)
+                    dijpj += in_data.p[iterIdx].m * in_data.p[iterIdx].p / (in_data.p[iterIdx].rho * in_data.p[iterIdx].rho) * cs_gradKernel(in_data.p[gID].x, in_data.p[iterIdx].x);
+                }
+            }
+        }
+    } else {
+        for (int j = 0; j < ubo.nr_of_particles; j++) {
+            if (gID == j)
             continue;
 
-        if (abs(in_data.p[j].rho) > 0.0001)
+            if (abs(in_data.p[j].rho) > 0.0001)
             dijpj += in_data.p[j].m * in_data.p[j].p / (in_data.p[j].rho * in_data.p[j].rho) * cs_gradKernel(in_data.p[gID].x, in_data.p[j].x);
+        }
     }
 
     dijpj *= -ubo.dt * ubo.dt;

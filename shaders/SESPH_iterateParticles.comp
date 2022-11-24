@@ -138,7 +138,7 @@ void iterate(uint gID) {
                 if (storage_in.p[iterIdx].rho != 0 && storage_in.p[gID].rho != 0)
                     val = storage_in.p[iterIdx].m * ((storage_in.p[gID].p / pow(storage_in.p[gID].rho, 2)) + (storage_in.p[iterIdx].p / pow(storage_in.p[iterIdx].rho, 2)));
 
-                vec3 k = cs_gradKernel(storage_in.p[gID].x, storage_in.p[iterIdx].x);
+                //vec3 k = cs_gradKernel(storage_in.p[gID].x, storage_in.p[iterIdx].x);
                 pressure += val * cs_gradKernel(storage_in.p[gID].x, storage_in.p[iterIdx].x);
 
                 vec3 xij = storage_in.p[gID].x - storage_in.p[iterIdx].x;

@@ -25,17 +25,45 @@ void computeRhoadvAndAii(uint gID) {
     float rho_adv = 0;
     float aii = 0;
 
-    for (int j = 0; j < ubo.nr_of_particles; j++) {
-        if (gID == j)
+    if (ubo.neighbour) {
+        vec3 tuple = determineGridTuple(int(gID), false);
+        Neighbourhood n = getNeighbouringCells(tuple);
+        for (int i = 0; i < 27; i++) {
+            vec3 current = n.neighbour[i];
+            if (!checkBounds(current)) continue;
+
+            int idx = getStartIdxOfCell(current);
+            if (idx >= 0) {
+                int size = grid_data.numbers[idx];
+
+                int iterIdx = 0;
+                for (int j = 1; j < size+1; j++) {
+                    iterIdx = grid_data.numbers[idx + j];
+                    if (gID == iterIdx) continue;
+
+                    vec3 dji = vec3(0);
+                    if (abs(storage_in.p[gID].rho) > 0.0001)
+                    dji = -ubo.dt * ubo.dt * storage_in.p[gID].m / (storage_in.p[gID].rho * storage_in.p[gID].rho) * cs_gradKernel(storage_in.p[iterIdx].x, storage_in.p[gID].x);
+
+                    aii += storage_in.p[iterIdx].m * dot((iisph_add_data.p[gID].dii - dji), cs_gradKernel(storage_in.p[gID].x, storage_in.p[iterIdx].x));
+
+                    rho_adv += storage_in.p[iterIdx].m * dot((iisph_add_data.p[gID].v_adv - iisph_add_data.p[iterIdx].v_adv), cs_gradKernel(storage_in.p[gID].x, storage_in.p[iterIdx].x));
+                }
+            }
+        }
+    } else {
+        for (int j = 0; j < ubo.nr_of_particles; j++) {
+            if (gID == j)
             continue;
 
-        vec3 dji = vec3(0);
-        if (abs(storage_in.p[gID].rho) > 0.0001)
+            vec3 dji = vec3(0);
+            if (abs(storage_in.p[gID].rho) > 0.0001)
             dji = -ubo.dt * ubo.dt * storage_in.p[gID].m / (storage_in.p[gID].rho * storage_in.p[gID].rho) * cs_gradKernel(storage_in.p[j].x, storage_in.p[gID].x);
 
-        aii += storage_in.p[j].m * dot((iisph_add_data.p[gID].dii - dji), cs_gradKernel(storage_in.p[gID].x, storage_in.p[j].x));
+            aii += storage_in.p[j].m * dot((iisph_add_data.p[gID].dii - dji), cs_gradKernel(storage_in.p[gID].x, storage_in.p[j].x));
 
-        rho_adv += storage_in.p[j].m * dot((iisph_add_data.p[gID].v_adv - iisph_add_data.p[j].v_adv), cs_gradKernel(storage_in.p[gID].x, storage_in.p[j].x));
+            rho_adv += storage_in.p[j].m * dot((iisph_add_data.p[gID].v_adv - iisph_add_data.p[j].v_adv), cs_gradKernel(storage_in.p[gID].x, storage_in.p[j].x));
+        }
     }
 
     rho_adv *= ubo.dt;

@@ -10,15 +10,42 @@ void updatePressure(uint gID) {
     float omega = 0.5;
 
     // TODO updating p of input data, while also using p of input data!!!!!!!
-    for (int j = 0; j < ubo.nr_of_particles; j++) {
-        if (gID == j)
+    if (ubo.neighbour) {
+        vec3 tuple = determineGridTuple(int(gID), true);
+        Neighbourhood n = getNeighbouringCells(tuple);
+        for (int i = 0; i < 27; i++) {
+            vec3 current = n.neighbour[i];
+            if (!checkBounds(current)) continue;
+
+            int idx = getStartIdxOfCell(current);
+            if (idx >= 0) {
+                int size = grid_data.numbers[idx];
+
+                int iterIdx = 0;
+                for (int j = 1; j < size+1; j++) {
+                    iterIdx = grid_data.numbers[idx + j];
+                    if (gID == iterIdx) continue;
+
+                    vec3 dji = vec3(0);
+                    if (abs(in_data.p[gID].rho) > 0.0001)
+                    dji = -ubo.dt * ubo.dt * in_data.p[gID].m / (in_data.p[gID].rho * in_data.p[gID].rho) * cs_gradKernel(in_data.p[iterIdx].x, in_data.p[gID].x);
+
+                    sum += in_data.p[iterIdx].m * dot(iisph_add_data.p[gID].sumDijPj - iisph_add_data.p[iterIdx].dii * in_data.p[iterIdx].p - (iisph_add_data.p[iterIdx].sumDijPj - dji * in_data.p[gID].p), cs_gradKernel(in_data.p[gID].x, in_data.p[iterIdx].x));
+
+                }
+            }
+        }
+    } else {
+        for (int j = 0; j < ubo.nr_of_particles; j++) {
+            if (gID == j)
             continue;
 
-        vec3 dji = vec3(0);
-        if (abs(in_data.p[gID].rho) > 0.0001)
+            vec3 dji = vec3(0);
+            if (abs(in_data.p[gID].rho) > 0.0001)
             dji = -ubo.dt * ubo.dt * in_data.p[gID].m / (in_data.p[gID].rho * in_data.p[gID].rho) * cs_gradKernel(in_data.p[j].x, in_data.p[gID].x);
 
-        sum += in_data.p[j].m * dot(iisph_add_data.p[gID].sumDijPj - iisph_add_data.p[j].dii * in_data.p[j].p - (iisph_add_data.p[j].sumDijPj - dji * in_data.p[gID].p), cs_gradKernel(in_data.p[gID].x, in_data.p[j].x));
+            sum += in_data.p[j].m * dot(iisph_add_data.p[gID].sumDijPj - iisph_add_data.p[j].dii * in_data.p[j].p - (iisph_add_data.p[j].sumDijPj - dji * in_data.p[gID].p), cs_gradKernel(in_data.p[gID].x, in_data.p[j].x));
+        }
     }
 
     iisph_add_data.p[gID].rho_pred = iisph_add_data.p[gID].rho_adv + in_data.p[gID].p * iisph_add_data.p[gID].aii + sum;

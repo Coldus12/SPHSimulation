@@ -26,21 +26,52 @@ void computeVadvAndDii(uint gID) {
     vec3 dii = vec3(0);
     vec3 viscosity = vec3(0);
 
-    for (int j = 0; j < ubo.nr_of_particles; j++) {
-        if (gID == j)
+    if(ubo.neighbour) {
+        vec3 tuple = determineGridTuple(int(gID), false);
+        Neighbourhood n = getNeighbouringCells(tuple);
+        for (int i = 0; i < 27; i++) {
+            vec3 current = n.neighbour[i];
+            if (!checkBounds(current)) continue;
+
+            int idx = getStartIdxOfCell(current);
+            if (idx >= 0) {
+                int size = grid_data.numbers[idx];
+
+                int iterIdx = 0;
+                for (int j = 1; j < size + 1; j++) {
+                    iterIdx = grid_data.numbers[idx + j];
+                    if (gID == iterIdx) continue;
+
+                    vec3 xij = storage_in.p[gID].x - storage_in.p[iterIdx].x;
+
+                    float pval = 0;
+                    if (storage_in.p[iterIdx].rho != 0)
+                    pval = (storage_in.p[iterIdx].m / storage_in.p[iterIdx].rho) * (dot(xij, cs_gradKernel(storage_in.p[gID].x, storage_in.p[iterIdx].x)) /  (dot(xij, xij) + 0.01 * ubo.kernelh));
+
+                    vec3 vij = storage_in.p[gID].v - storage_in.p[iterIdx].v;
+                    viscosity += pval * vij;
+
+                    dii += -storage_in.p[iterIdx].m * cs_gradKernel(storage_in.p[gID].x, storage_in.p[iterIdx].x);
+                }
+            }
+        }
+    } else {
+        for (int j = 0; j < ubo.nr_of_particles; j++) {
+            if (gID == j)
             continue;
 
-        // Viscosity calculation
-        vec3 xij = storage_in.p[gID].x - storage_in.p[j].x;
-        float pval = 0;
-        if (storage_in.p[j].rho != 0)
+            // Viscosity calculation
+            vec3 xij = storage_in.p[gID].x - storage_in.p[j].x;
+            float pval = 0;
+            if (storage_in.p[j].rho != 0)
             pval = (storage_in.p[j].m / storage_in.p[j].rho) * (dot(xij, cs_gradKernel(storage_in.p[gID].x, storage_in.p[j].x)) /  (dot(xij, xij) + 0.01 * ubo.kernelh));
 
-        vec3 vij = storage_in.p[gID].v - storage_in.p[j].v;
-        viscosity += pval * vij;
-        
-        // Dii calculation
-        dii += -storage_in.p[j].m * cs_gradKernel(storage_in.p[gID].x, storage_in.p[j].x);
+            vec3 vij = storage_in.p[gID].v - storage_in.p[j].v;
+            viscosity += pval * vij;
+
+            // Dii calculation
+            dii += -storage_in.p[j].m * cs_gradKernel(storage_in.p[gID].x, storage_in.p[j].x);
+        }
     }
 
     float nu = 0.01;

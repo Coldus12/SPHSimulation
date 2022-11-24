@@ -86,19 +86,48 @@ void iterate(uint gID) {
     vec3 pressure = vec3(0);
     vec3 viscosity = vec3(0);
 
-    // Original
-    for (int j = 0; j < SimProps.nr_of_particles; j++) {
-        if (gID == j)
+    if (ubo.neighbour) {
+        vec3 tuple = determineGridTuple(int(gID), false);
+        Neighbourhood n = getNeighbouringCells(tuple);
+        for (int i = 0; i < 27; i++) {
+            vec3 current = n.neighbour[i];
+            if (!checkBounds(current)) continue;
+
+            int idx = getStartIdxOfCell(current);
+            if (idx >= 0) {
+                int size = grid_data.numbers[idx];
+
+                int iterIdx = 0;
+                for (int j = 1; j < size + 1; j++) {
+                    iterIdx = grid_data.numbers[idx + j];
+                    if (gID == iterIdx) continue;
+
+                    // Note to self: as the particles get further and further from each other the density decreases which means rho --> 0
+                    // which leads to something/0^2, which is either inf or -inf ----> nan or -nan
+                    float val = 0;
+                    if (storage_in.p[iterIdx].rho != 0 && storage_in.p[gID].rho != 0)
+                    val = storage_in.p[iterIdx].m * ((storage_in.p[gID].p / pow(storage_in.p[gID].rho, 2)) + (storage_in.p[iterIdx].p / pow(storage_in.p[iterIdx].rho, 2)));
+
+                    vec3 k = cs_gradKernel(storage_in.p[gID].x, storage_in.p[iterIdx].x);
+                    pressure += val * cs_gradKernel(storage_in.p[gID].x, storage_in.p[iterIdx].x);
+                }
+            }
+        }
+    } else {
+        // Original
+        for (int j = 0; j < SimProps.nr_of_particles; j++) {
+            if (gID == j)
             continue;
 
-        // Note to self: as the particles get further and further from each other the density decreases which means rho --> 0
-        // which leads to something/0^2, which is either inf or -inf ----> nan or -nan
-        float val = 0;
-        if (storage_in.p[j].rho != 0 && storage_in.p[gID].rho != 0)
+            // Note to self: as the particles get further and further from each other the density decreases which means rho --> 0
+            // which leads to something/0^2, which is either inf or -inf ----> nan or -nan
+            float val = 0;
+            if (storage_in.p[j].rho != 0 && storage_in.p[gID].rho != 0)
             val = storage_in.p[j].m * ((storage_in.p[gID].p / pow(storage_in.p[gID].rho, 2)) + (storage_in.p[j].p / pow(storage_in.p[j].rho, 2)));
 
-        vec3 k = cs_gradKernel(storage_in.p[gID].x, storage_in.p[j].x);
-        pressure += val * cs_gradKernel(storage_in.p[gID].x, storage_in.p[j].x);
+            vec3 k = cs_gradKernel(storage_in.p[gID].x, storage_in.p[j].x);
+            pressure += val * cs_gradKernel(storage_in.p[gID].x, storage_in.p[j].x);
+        }
     }
 
     pressure *= -storage_in.p[gID].m;

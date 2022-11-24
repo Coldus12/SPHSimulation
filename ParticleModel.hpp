@@ -34,7 +34,7 @@ namespace Vltava {
 
         float dt = 0.01f;
         float kPCI = 0.0f;
-        float padding1 = 0.0f;
+        bool neighbour = true;
         float padding2 = 0.0f;
 
         glm::vec4 gridA = glm::vec4(1);

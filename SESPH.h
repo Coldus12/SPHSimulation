@@ -55,10 +55,10 @@ namespace Vltava {
         void createSyncObjects();
 
         // functions for CPU sim
-        void originalCalculateRhoAndP();
-        void neighbourCalculateRhoAndP();
-        void originalIter();
-        void neighbourIter();
+        void originalCalculateRhoAndP(float dt);
+        void neighbourCalculateRhoAndP(float dt);
+        void originalIter(float dt);
+        void neighbourIter(float dt);
     };
 }
 

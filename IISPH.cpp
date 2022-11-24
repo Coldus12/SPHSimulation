@@ -14,7 +14,7 @@ namespace Vltava {
         float error = 10;
 
         //while (nr < 1) {
-        while (error > 0.01 && nr < 50) {
+        while (error > 0.01 && nr < 100) {
             gpuPressureSolveUpdate();
 
             // Density error calculation
@@ -30,7 +30,7 @@ namespace Vltava {
 
             nr++;
 
-            std::cout << "[IISPH GPU] error: " << error << " nr: " << nr << std::endl;
+            //std::cout << "[IISPH GPU] error: " << error << " nr: " << nr << std::endl;
         }
 
         gpuIntegrate();
@@ -53,6 +53,30 @@ namespace Vltava {
                     VK_WHOLE_SIZE
             );
         }
+
+        // Grid stuff
+        //--------------------
+        cleanGridComp->bindPipelineAndDescriptors(computeCmdBuffer);
+        computeCmdBuffer.dispatch(list_size * cellx * celly * cellz / 64 + 1, 1, 1);
+        computeCmdBuffer.pipelineBarrier(
+                vk::PipelineStageFlagBits::eComputeShader,
+                vk::PipelineStageFlagBits::eComputeShader,
+                {},
+                {},
+                membarriers,
+                {}
+        );
+
+        gridPlacementComp->bindPipelineAndDescriptors(computeCmdBuffer);
+        computeCmdBuffer.dispatch(particles1.size() / 64 + 1, 1, 1);
+        computeCmdBuffer.pipelineBarrier(
+                vk::PipelineStageFlagBits::eComputeShader,
+                vk::PipelineStageFlagBits::eComputeShader,
+                {},
+                {},
+                membarriers,
+                {}
+        );
 
         // Predict advection
         //--------------------
@@ -276,6 +300,14 @@ namespace Vltava {
         particleIterComp = std::make_unique<ComputeShader>("shaders/IISPH_iterateParticles.spv");
         particleIterComp->setBuffers(uBuffers, sBuffers);
         particleIterComp->createPipeline();
+
+        gridPlacementComp = std::make_unique<ComputeShader>("shaders/gridPlacement.spv");
+        gridPlacementComp->setBuffers(uBuffers, sBuffers);
+        gridPlacementComp->createPipeline();
+
+        cleanGridComp = std::make_unique<ComputeShader>("shaders/resetgrid.spv");
+        cleanGridComp->setBuffers(uBuffers, sBuffers);
+        cleanGridComp->createPipeline();
     }
 
     // CPU functions
@@ -290,6 +322,8 @@ namespace Vltava {
 
         // TODO iter
         for (int iter = 0; iter < 1; iter++) {
+            place();
+
             predictAdvection(dt);
             pressureSolve(dt);
             integrate(dt);
@@ -311,15 +345,39 @@ namespace Vltava {
 
             // Calculating rho
             float rho = 0;
+            float og_rho = 0;
 
             for (int j = 0; j < particles.size(); j++) {
                 if (i == j)
                     continue;
 
-                rho += particles[j].m * kernel(i, j);
+                og_rho += particles[j].m * kernel(i, j);
             }
 
+            /*glm::vec3 tuple = determineGridTuple(i);
+            Neighbourhood n = getNeighbouringCells(tuple);
+            for (int nr = 0; nr < 27; nr++) {
+                glm::vec3 current = n.neighbour[nr];
+                if (!checkBounds(current)) continue;
+
+                int idx = getStartIdxOfCell(current);
+                if (idx >= 0) {
+                    int size = grid_data.at(idx);
+
+                    int iterIdx = 0;
+                    for (int j = 1; j < size + 1; j++) {
+                        iterIdx = grid_data.at(idx + j);
+                        if (i == iterIdx) continue;
+
+                        //density += in_data.p[gID].m * kernel(in_data.p[gID].x, in_data.p[iterIdx].x);
+                        rho += particles[i].m * kernel(i, iterIdx);
+                    }
+                }
+            }*/
+
             particles[i].rho = rho;
+
+            std::cout << "og_rho: " << og_rho << " neighbour rho: " << rho << std::endl;
         }
     }
 

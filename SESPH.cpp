@@ -134,16 +134,16 @@ namespace Vltava {
         for (int i = 0; i < 1; i++) {
             place();
             if (neighbour) {
-                neighbourCalculateRhoAndP();
-                neighbourIter();
+                neighbourCalculateRhoAndP(props.dt);
+                neighbourIter(props.dt);
             } else {
-                originalCalculateRhoAndP();
-                originalIter();
+                originalCalculateRhoAndP(props.dt);
+                originalIter(props.dt);
             }
         }
     }
 
-    void SESPH::neighbourCalculateRhoAndP() {
+    void SESPH::neighbourCalculateRhoAndP(float dt) {
         auto& particles = first ? particles1 : particles2;
 
         // Density calculation
@@ -183,7 +183,7 @@ namespace Vltava {
         }
     }
 
-    void SESPH::originalCalculateRhoAndP() {
+    void SESPH::originalCalculateRhoAndP(float dt) {
         auto& particles = first ? particles1 : particles2;
 
         // Density calculation
@@ -209,7 +209,7 @@ namespace Vltava {
         }
     }
 
-    void SESPH::neighbourIter() {
+    void SESPH::neighbourIter(float dt) {
         const auto& p1 = first ? particles1 : particles2;
         auto& p2 = first ? particles2 : particles1;
         for (int i = 0; i < p1.size(); i++) {
@@ -261,10 +261,12 @@ namespace Vltava {
                 glm::vec3 gravity(0, 0, -9.81 * p1[i].m);
                 glm::vec3 acc = (pressure + viscosity + gravity) / p1[i].m;
 
-                float dt = 0.01;
                 glm::vec3 viNext = p1[i].v;
                 glm::vec3 xiNext = p1[i].x;
-                viNext += acc * (float) dt / 1.0f;
+                viNext += acc * (float) dt;
+
+                viNext = speedBound(viNext);
+
                 xiNext += viNext * dt;
 
                 p2[i].x = xiNext;
@@ -281,7 +283,7 @@ namespace Vltava {
         first = !first;
     }
 
-    void SESPH::originalIter() {
+    void SESPH::originalIter(float dt) {
         const auto& p1 = first ? particles1 : particles2;
         auto& p2 = first ? particles2 : particles1;
         for (int i = 0; i < p1.size(); i++) {
@@ -324,10 +326,10 @@ namespace Vltava {
                 glm::vec3 gravity(0, 0, -9.81 * p1[i].m);
                 glm::vec3 acc = (pressure + viscosity + gravity) / p1[i].m;
 
-                float dt = 0.01;
                 glm::vec3 viNext = p1[i].v;
                 glm::vec3 xiNext = p1[i].x;
-                viNext += acc * (float) dt / 1.0f;
+                viNext += acc * (float) dt;
+                viNext = speedBound(viNext);
                 xiNext += viNext * dt;
 
                 p2[i].x = xiNext;

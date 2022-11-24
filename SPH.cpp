@@ -1,6 +1,7 @@
 #include "SPH.h"
 
 #define PI 3.1415926538
+#define vbound 6
 
 namespace Vltava {
     // CPU kernel / gradKernel
@@ -30,21 +31,23 @@ namespace Vltava {
     glm::vec3 SPH::gradKernel(glm::vec3 i, glm::vec3 j) {
         float m_k = 8.0 * 6.0 / (PI * pow(props.kernelh, 3));
         float m_l = 48.0 * 6.0 / (PI * pow(props.kernelh, 3));
+        //float m_l = 8.0 * 6.0 / (PI * pow(props.kernelh, 3));
 
         glm::vec3 r = i - j;
         float rlength = length(r);
         float q = rlength / props.kernelh;
         glm::vec3 ret = glm::vec3(0);
 
-        if (q > 0.0001 && q <= 2.0) {
+        if (q > 0.0001 && q <= 1.0) {
             glm::vec3 gradq = r / (rlength * props.kernelh);
 
             if (q <= 0.5) {
-                gradq *= m_k * q * (3.0 * q - 2);
-                ret = gradq;
+                /*gradq *= m_l * q * (3.0 * q - 2);
+                ret = gradq;*/
+                ret = (m_l * q * (3.0f * q - 2.0f)) * gradq;
             } else {
                 float factor = 1.0 - q;
-                ret = m_k * (-factor * factor) * gradq;
+                ret = m_l * (-factor * factor) * gradq;
             }
         }
 
@@ -54,9 +57,6 @@ namespace Vltava {
     // One of the errors: vec3 i == vec3 j ---> normalize(i-j) -> nan
     glm::vec3 SPH::gradKernel(int i, int j) {
         auto& particles = first ? particles1 : particles2;
-        float m_k = 8.0 * 6.0 / (PI * pow(props.kernelh, 3));
-        float m_l = 48.0 * 6.0 / (PI * pow(props.kernelh, 3));
-
         return gradKernel(particles[i].x, particles[j].x);
     }
 
@@ -77,6 +77,7 @@ namespace Vltava {
                        " ; Mass: " + std::to_string(sphere.m) +/* " ; Padding = " +
                        std::to_string(spheres[i].padding) + " ; diff = " +
                        std::to_string(spheres[i].padding - spheres[i].rho) +*/
+                       + " ; Padding: " + std::to_string(sphere.padding) +
                        " ; Velocity: " + std::to_string(sphere.v.x) + " " + std::to_string(sphere.v.y) + " " + std::to_string(sphere.v.z) + ";\n";
             }
             str += "\n----------------------------------------------\n";
@@ -143,6 +144,19 @@ namespace Vltava {
             particles[idx].v.y = -particles[idx].v.y;
             particles[idx].x.y = back;
         }
+    }
+
+    glm::vec3 SPH::speedBound(glm::vec3 velocity) {
+        if (velocity.x < -vbound) velocity.x = 0.1 * -vbound;
+        if (velocity.x > vbound) velocity.x = 0.1 * vbound;
+
+        if (velocity.y < -vbound) velocity.y = 0.1 * -vbound;
+        if (velocity.y > vbound) velocity.y = 0.1 * vbound;
+
+        if (velocity.z < -vbound) velocity.z = 0.1 * -vbound;
+        if (velocity.z > vbound) velocity.z = 0.1 * vbound;
+
+        return velocity;
     }
 
     // CPU neighbourhood stuff

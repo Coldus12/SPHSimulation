@@ -43,6 +43,8 @@ namespace Vltava {
         // other variables
 
         // variables for GPU sim
+        std::unique_ptr<ComputeShader> gridPlacementComp;
+        std::unique_ptr<ComputeShader> cleanGridComp;
         // predict advection
         std::unique_ptr<ComputeShader> densityComp;
         std::unique_ptr<ComputeShader> advVelocityAndDiiComp;

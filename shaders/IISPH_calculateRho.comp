@@ -22,15 +22,39 @@ void calculateRho(uint gID) {
     float density = 0.0;
     float d2 = 0.0;
 
-    for (int j = 0; j < ubo.nr_of_particles; j++) {
-        if (gID == j)
+    if (ubo.neighbour) {
+        vec3 tuple = determineGridTuple(int(gID), true);
+        Neighbourhood n = getNeighbouringCells(tuple);
+        for (int i = 0; i < 27; i++) {
+            vec3 current = n.neighbour[i];
+            if (!checkBounds(current)) continue;
+
+            int idx = getStartIdxOfCell(current);
+            if (idx >= 0) {
+                int size = grid_data.numbers[idx];
+
+                int iterIdx = 0;
+                for (int j = 1; j < size+1; j++) {
+                    iterIdx = grid_data.numbers[idx + j];
+                    if (gID == iterIdx) continue;
+
+                    density += in_data.p[iterIdx].m * cs_kernel(in_data.p[gID].x, in_data.p[iterIdx].x);
+                }
+            }
+        }
+
+        out_data.p[gID].padding = 10.0;
+    } else {
+        for (int j = 0; j < ubo.nr_of_particles; j++) {
+            if (gID == j)
             continue;
 
-        density += in_data.p[gID].m * cs_kernel(in_data.p[gID].x, in_data.p[j].x);
+            density += in_data.p[gID].m * cs_kernel(in_data.p[gID].x, in_data.p[j].x);
+        }
+        out_data.p[gID].padding = -10.0;
     }
 
     out_data.p[gID].rho = density;
-    out_data.p[gID].padding = d2;
 }
 
 void main()

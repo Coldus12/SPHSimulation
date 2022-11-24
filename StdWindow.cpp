@@ -185,6 +185,7 @@ namespace Vltava {
         uBuffers.push_back(std::move(propsBuffer));
 
         props = SimProps();
+        props.neighbour = neigbourIGuess;
         props.nr_of_particles = (float) all_particle_nr;
         props.gridA = glm::vec4(gridA,0);
         props.gridB = glm::vec4(gridB,0);
@@ -239,7 +240,10 @@ namespace Vltava {
         //iisph_sim->setBuffers(&uBuffers, &sBuffers);
 
         iisph_sim->initGpuSim(&uBuffers, &sBuffers);
+        iisph_sim->setCellSizes(cellx, celly, cellz, list_size);
+
         pcisph_sim->initGpuSim(&uBuffers, &sBuffers);
+        pcisph_sim->setCellSizes(cellx, celly, cellz, list_size);
     }
 
     void StdWindow::resetData() {
@@ -478,6 +482,7 @@ namespace Vltava {
             ImGui::RadioButton("IISPH", &choice, iisph); ImGui::SameLine();
             ImGui::RadioButton("PCISPH", &choice, pcisph);
             sph_type = static_cast<SPHType>(choice);
+            ImGui::Checkbox("Neighbour?", &neigbourIGuess);
 
             ImGui::Text("Reset data??");
             if (ImGui::Button("Yes"))

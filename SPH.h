@@ -84,6 +84,8 @@ namespace Vltava {
         virtual glm::vec3 gradKernel(int i, int j);
         virtual glm::vec3 gradKernel(glm::vec3 i, glm::vec3 j);
 
+        glm::vec3 speedBound(glm::vec3 velocity);
+
         void container(int idx);
         void place();
         glm::vec3 determineGridTuple(int particleIdx);
