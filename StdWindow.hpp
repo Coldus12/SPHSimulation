@@ -43,6 +43,18 @@ namespace Vltava {
     private:
         // Variables
         //--------------------------------------------------------------------------------------------------------------
+        const Particle standardParticle = {
+                glm::vec3(0),
+                0.1f,
+                glm::vec3(0),
+                0.1f,
+                1.0f,
+                1.0f,
+                0.0f,
+                0.0f
+        };
+        float particleMass = 0.0f;
+
         SimProps props;
         glm::vec3 gridA;
         glm::vec3 gridB;

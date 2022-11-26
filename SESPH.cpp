@@ -133,7 +133,7 @@ namespace Vltava {
         // TODO something with iter
         for (int i = 0; i < 1; i++) {
             place();
-            if (neighbour) {
+            if (props.neighbour) {
                 neighbourCalculateRhoAndP(props.dt);
                 neighbourIter(props.dt);
             } else {
@@ -173,13 +173,14 @@ namespace Vltava {
                 }
             }
 
+            density = density < props.desired_density ? props.desired_density : density;
+
             particles[i].rho = density;
             particles[i].padding = ogd;
 
             // Pressure calculation
-            float ratio = density / props.desired_density;
-            float p = props.k * (pow(ratio, 7) - 1.0);
-            particles[i].p = p < 0 ? 0 : p;
+            float p = props.k * 1000 * (pow(density / props.desired_density, 7) - 1.0);
+            particles[i].p = p;
         }
     }
 
@@ -188,6 +189,7 @@ namespace Vltava {
 
         // Density calculation
         for (int i = 0; i < particles.size(); i++) {
+            //float density = particles[0].m * kernel0();
             float density = 0.0f;
             float ogd = 0.0f;
 
@@ -199,13 +201,14 @@ namespace Vltava {
                 density += particles[j].m * kernel(i, j);
             }
 
+            density = density < props.desired_density ? props.desired_density : density;
+
             particles[i].rho = density;
             particles[i].padding = ogd;
 
             // Pressure calculation
-            float ratio = density / props.desired_density;
-            float p = props.k * (pow(ratio, 7) - 1.0);
-            particles[i].p = p < 0 ? 0 : p;
+            float p = props.k * 1000 * (pow(density / props.desired_density, 7) - 1.0);
+            particles[i].p = p;
         }
     }
 
@@ -215,6 +218,10 @@ namespace Vltava {
         for (int i = 0; i < p1.size(); i++) {
 
             if (p1.at(i).staticP == 0) {
+
+                float dpi = 0;
+                if (p1.at(i).rho != 0)
+                    dpi = p1.at(i).p / (p1.at(i).rho * p1.at(i).rho);
 
                 // Calculate pressure
                 glm::vec3 pressure = glm::vec3(0);
@@ -234,39 +241,28 @@ namespace Vltava {
                         iterIdx = grid_data.at(idx + j);
                         if (i == iterIdx) continue;
 
-                        // Note to self: as the particles get further and further from each other the density decreases which means rho --> 0
-                        // whihc leads to something/0^2, which is either inf or -inf ----> nan or -nan
-                        float val = 0;
-                        if (p1[iterIdx].rho != 0 && p1[i].rho != 0)
-                            val = p1[iterIdx].m * ((p1[i].p / pow(p1[i].rho, 2)) + (p1[iterIdx].p / pow(p1[iterIdx].rho, 2)));
+                        float dpj = 0;
+                        if (p1.at(iterIdx).rho != 0)
+                            dpj = p1.at(iterIdx).p / (p1.at(iterIdx).rho * p1.at(iterIdx).rho);
 
-                        pressure += val * gradKernel(i, iterIdx);
-
-                        glm::vec3 xij = p1[i].x - p1[iterIdx].x;
+                        pressure -= p1.at(iterIdx).m * (dpi + dpj) * gradKernel(p1.at(i).x, p1.at(iterIdx).x);
 
                         float pval = 0;
-                        if (p1[iterIdx].rho != 0)
-                            pval = (p1[iterIdx].m / p1[iterIdx].rho) * (dot(xij, gradKernel(i, iterIdx)) /  (dot(xij, xij) + 0.01 * props.kernelh));
+                        if (p1.at(iterIdx).rho != 0)
+                            pval = (p1.at(iterIdx).m / p1.at(iterIdx).rho) * 1.0/props.dt * 0.05 * kernel(p1.at(i).x, p1.at(iterIdx).x);
 
-                        glm::vec3 vij = p1[i].v - p1[iterIdx].v;
-                        viscosity += pval * vij;
+                        glm::vec3 vij = p1[i].v - p1.at(iterIdx).v;
+                        viscosity -= pval * vij;
                     }
                 }
-
-                pressure *= -p1[i].m;
-
-                float nu = 0.01;
-                viscosity *= 2 * nu * p1[i].m;
 
                 glm::vec3 gravity(0, 0, -9.81 * p1[i].m);
                 glm::vec3 acc = (pressure + viscosity + gravity) / p1[i].m;
 
                 glm::vec3 viNext = p1[i].v;
                 glm::vec3 xiNext = p1[i].x;
-                viNext += acc * (float) dt;
-
+                viNext += acc * dt;
                 viNext = speedBound(viNext);
-
                 xiNext += viNext * dt;
 
                 p2[i].x = xiNext;
@@ -290,6 +286,10 @@ namespace Vltava {
 
             if (p1.at(i).staticP == 0) {
 
+                float dpi = 0;
+                if (p1.at(i).rho != 0)
+                    dpi = p1.at(i).p / (p1.at(i).rho * p1.at(i).rho);
+
                 // Calculate pressure
                 glm::vec3 pressure = glm::vec3(0);
                 glm::vec3 viscosity = glm::vec3(0);
@@ -299,36 +299,26 @@ namespace Vltava {
                     if (j == i)
                         continue;
 
-                    // Note to self: as the particles get further and further from each other the density decreases which means rho --> 0
-                    // whihc leads to something/0^2, which is either inf or -inf ----> nan or -nan
-                    float val = 0;
-                    if (p1[j].rho != 0 && p1[i].rho != 0)
-                        val = p1[j].m * ((p1[i].p / pow(p1[i].rho, 2)) + (p1[j].p / pow(p1[j].rho, 2)));
+                    float dpj = 0;
+                    if (p1.at(j).rho != 0)
+                        dpj = p1.at(j).p / (p1.at(j).rho * p1.at(j).rho);
 
-                    pressure += val * gradKernel(i, j);
-
-                    glm::vec3 xij = p1[i].x - p1[j].x;
+                    pressure -= p1.at(j).m * (dpi + dpj) * gradKernel(p1.at(i).x, p1.at(j).x);
 
                     float pval = 0;
                     if (p1[j].rho != 0)
-                        pval = (p1[j].m / p1[j].rho) *
-                               (dot(xij, gradKernel(i, j)) / (dot(xij, xij) + 0.01 * props.kernelh));
+                        pval = (p1[j].m / p1[j].rho) * 1.0/props.dt * 0.05 * kernel(p1.at(i).x, p1.at(j).x);
 
                     glm::vec3 vij = p1[i].v - p1[j].v;
-                    viscosity += pval * vij;
+                    viscosity -= pval * vij;
                 }
-
-                pressure *= -p1[i].m;
-
-                float nu = 0.01;
-                viscosity *= 2 * nu * p1[i].m;
 
                 glm::vec3 gravity(0, 0, -9.81 * p1[i].m);
                 glm::vec3 acc = (pressure + viscosity + gravity) / p1[i].m;
 
                 glm::vec3 viNext = p1[i].v;
                 glm::vec3 xiNext = p1[i].x;
-                viNext += acc * (float) dt;
+                viNext += acc * dt;
                 viNext = speedBound(viNext);
                 xiNext += viNext * dt;
 

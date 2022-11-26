@@ -322,7 +322,7 @@ namespace Vltava {
 
         // TODO iter
         for (int iter = 0; iter < 1; iter++) {
-            place();
+            //place();
 
             predictAdvection(dt);
             pressureSolve(dt);
@@ -351,7 +351,7 @@ namespace Vltava {
                 if (i == j)
                     continue;
 
-                og_rho += particles[j].m * kernel(i, j);
+                rho += particles[j].m * kernel(i, j);
             }
 
             /*glm::vec3 tuple = determineGridTuple(i);
@@ -377,7 +377,7 @@ namespace Vltava {
 
             particles[i].rho = rho;
 
-            std::cout << "og_rho: " << og_rho << " neighbour rho: " << rho << std::endl;
+            //std::cout << "og_rho: " << og_rho << " neighbour rho: " << rho << std::endl;
         }
     }
 

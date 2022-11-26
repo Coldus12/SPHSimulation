@@ -6,9 +6,26 @@
 namespace Vltava {
     // CPU kernel / gradKernel
     //------------------------------------------------------------------------------------------------------------------
+    float SPH::static_kernel(glm::vec3 i, glm::vec3 j, float h) {
+        float m_k = 8.0 / (PI * pow(h, 3));
+        float m_l = 48.0 / (PI * pow(h, 3));
+        float q = glm::length(i - j)/h;
+
+        float ret = 0;
+        if (q <= 1.0) {
+            if (q <= 0.5) {
+                ret = m_k * (6.0 * (pow(q, 3.0) - pow(q, 2.0)) + 1.0);
+            } else {
+                ret = m_k * (2.0 * pow(1 - q, 3));
+            }
+        }
+
+        return ret;
+    }
+
     float SPH::kernel(glm::vec3 i, glm::vec3 j) {
-        float m_k = 8.0 * 6.0 / (PI * pow(props.kernelh, 3));
-        float m_l = 48.0 * 6.0 / (PI * pow(props.kernelh, 3));
+        float m_k = 8.0 / (PI * pow(props.kernelh, 3));
+        float m_l = 48.0 / (PI * pow(props.kernelh, 3));
         float q = glm::length(i - j)/props.kernelh;
 
         float ret = 0;
@@ -29,9 +46,8 @@ namespace Vltava {
     }
 
     glm::vec3 SPH::gradKernel(glm::vec3 i, glm::vec3 j) {
-        float m_k = 8.0 * 6.0 / (PI * pow(props.kernelh, 3));
-        float m_l = 48.0 * 6.0 / (PI * pow(props.kernelh, 3));
-        //float m_l = 8.0 * 6.0 / (PI * pow(props.kernelh, 3));
+        float m_k = 8.0 / (PI * pow(props.kernelh, 3));
+        float m_l = 48.0 / (PI * pow(props.kernelh, 3));
 
         glm::vec3 r = i - j;
         float rlength = length(r);
@@ -42,8 +58,6 @@ namespace Vltava {
             glm::vec3 gradq = r / (rlength * props.kernelh);
 
             if (q <= 0.5) {
-                /*gradq *= m_l * q * (3.0 * q - 2);
-                ret = gradq;*/
                 ret = (m_l * q * (3.0f * q - 2.0f)) * gradq;
             } else {
                 float factor = 1.0 - q;

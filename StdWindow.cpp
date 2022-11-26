@@ -116,30 +116,29 @@ namespace Vltava {
         // Particle mass = volume * density = 0.5236 kg
         //
         // Smoothing length := 3 * 2 * r = 0.1 * 3 meter (for now)
+        float rest_density = 1000.0f;
+
         int pnrAlongAxis = round(pow(particleNr, 1.0/3.0));
         std::vector<Particle> particles;
 
         nrOfP = pnrAlongAxis * pnrAlongAxis * pnrAlongAxis;
         particleNr = nrOfP;
 
-        // Solid box
-        //int bsize = 16;
-
-        float s=0.1;
-        //vk::DeviceSize size = sizeof(Particle) * nrOfP * bsize * bsize;
-        //auto* data = new Particle[nrOfP + bsize * bsize];
+        float diam=0.1;
 
         int r = -1;
         int z = -1;
 
-        float mass = 0.5236f;
+        //float mass = 0.5236f;
+        particleMass = diam * diam * diam * rest_density;
 
-        float distAxis = s * pnrAlongAxis / 2.0f;
+        float distAxis = diam * pnrAlongAxis / 2.0f;
 
         // Actual simulated particles
         //--------------------------------------------------------------------------------------------------------------
         for (int i = 0; i < nrOfP; i++) {
-            Particle data;
+            Particle data = standardParticle;
+            data.m = particleMass;
 
             if (i % pnrAlongAxis == 0)
                 r++;
@@ -147,17 +146,8 @@ namespace Vltava {
             if (i % (pnrAlongAxis * pnrAlongAxis) == 0)
                 z++;
 
-            data.x = glm::vec3((i%pnrAlongAxis) * s - distAxis,(r%pnrAlongAxis) * s - distAxis, z * s);
+            data.x = glm::vec3((i%pnrAlongAxis) * diam - distAxis, (r % pnrAlongAxis) * diam - distAxis, z * diam);
             data.h = 0.1; // Only sets size for visualization atm
-            data.v = glm::vec3(0,0,0);
-            data.m = mass;
-            //data[i].m = 1.0f;
-
-            data.rho = 1;
-            data.p = 1;
-
-            data.staticP = 0;
-            data.padding = 0;
 
             particles.push_back(data);
         }
@@ -185,13 +175,11 @@ namespace Vltava {
         uBuffers.push_back(std::move(propsBuffer));
 
         props = SimProps();
+        props.dt = 0.002f;
         props.neighbour = neigbourIGuess;
         props.nr_of_particles = (float) all_particle_nr;
         props.gridA = glm::vec4(gridA,0);
         props.gridB = glm::vec4(gridB,0);
-
-        //cpusim->setSimProps(props);
-        //cpusim->setData(particles);
 
         uBuffers[0].writeToBuffer(&props, sizeof(props));
 
@@ -237,7 +225,6 @@ namespace Vltava {
 
         sesph_sim->initGpuSim(&uBuffers, &sBuffers);
         sesph_sim->setCellSizes(cellx, celly, cellz, list_size);
-        //iisph_sim->setBuffers(&uBuffers, &sBuffers);
 
         iisph_sim->initGpuSim(&uBuffers, &sBuffers);
         iisph_sim->setCellSizes(cellx, celly, cellz, list_size);
@@ -257,8 +244,6 @@ namespace Vltava {
         std::vector<Particle> container;
         container.reserve(sideLength * sideLength * 5);
 
-        float mass = 0.5236f;
-
         float m = (sideLength * dist) / 2.0f;
         glm::vec3 middle = glm::vec3(pos.x - m, pos.y - m, pos.z);
 
@@ -267,52 +252,43 @@ namespace Vltava {
             if (i%sideLength == 0)
                 r++;
 
-            Particle data;
+            Particle data = standardParticle;
 
             // Bottom first
             data.x = glm::vec3((i % sideLength) * dist + middle.x,(r % sideLength) * dist + middle.y, middle.z);
             data.h = 0.1f;
-            data.v = glm::vec3(0,0,0);
-            data.m = mass;
-            //data[i].m = 1.0f;
+            data.m = particleMass;
+            data.staticP = 1.0f;
 
-            data.rho = 1;
-            data.p = 1;
-
-            data.staticP = 1;
-            data.padding = 0;
-
-            container.push_back(data);
-
-            // Second bottom
-            data.x = glm::vec3((i % sideLength) * dist + middle.x,(r % sideLength) * dist + middle.y, middle.z - 1 * dist);
             container.push_back(data);
 
             // Wall1
-            data.x = glm::vec3((i % sideLength) * dist + middle.x,dist + middle.y, (r % sideLength) * dist + middle.z);
-            container.push_back(data);
-
             data.x = glm::vec3((i % sideLength) * dist + middle.x,-dist*0 + middle.y, (r % sideLength) * dist + middle.z);
             container.push_back(data);
 
             // Wall2
-            data.x = glm::vec3(dist*1 + middle.x,(i % sideLength) * dist + middle.y, (r % sideLength) * dist + middle.z);
-            container.push_back(data);
-
             data.x = glm::vec3(-dist*0 + middle.x,(i % sideLength) * dist + middle.y, (r % sideLength) * dist + middle.z);
             container.push_back(data);
 
             // Wall3
             data.x = glm::vec3((i % sideLength) * dist + middle.x, (sideLength - 1) * dist + middle.y, (r % sideLength) * dist + middle.z);
             container.push_back(data);
-            data.x = glm::vec3((i % sideLength) * dist + middle.x, (sideLength - 2)* 1 * dist + middle.y, (r % sideLength) * dist + middle.z);
-            container.push_back(data);
 
             // Wall4
             data.x = glm::vec3((sideLength + 1*0) * dist + middle.x, (i % sideLength) * dist + middle.y, (r % sideLength) * dist + middle.z);
             container.push_back(data);
-            data.x = glm::vec3((sideLength - 1) * 1 * dist + middle.x, (i % sideLength) * dist + middle.y, (r % sideLength) * dist + middle.z);
-            container.push_back(data);
+        }
+
+        // Calculating pseudo mass:
+        for (int i = 0; i < container.size(); i++) {
+            float rho_b = 0.0f;
+
+            for (int j = 0; j < container.size(); j++) {
+                if (i == j) continue;
+
+                rho_b += SPH::static_kernel(container[i].x, container[j].x, container[i].h * 2.0f);
+            }
+            container[i].m = 1.0f * props.desired_density / rho_b;
         }
 
         return container;

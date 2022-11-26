@@ -90,8 +90,8 @@ layout(set = 0, binding = 5, std430) buffer additionalDataBuffer2 {
 // https://www.interactive-graphics.de/SPlisHSPlasH/doc/html/_s_p_h_kernels_8h_source.html
 // (This is the one from the eurographics 2019 document, except now i finally understand their gradient notation)
 float cs_kernel(vec3 i, vec3 j) {
-    float m_k = 8.0 * 6.0 / (PI * pow(ubo.kernelh, 3));
-    float m_l = 48.0 * 6.0 / (PI * pow(ubo.kernelh, 3));
+    float m_k = 8.0 / (PI * pow(ubo.kernelh, 3));
+    float m_l = 48.0 / (PI * pow(ubo.kernelh, 3));
 
     float q = length(i - j) / ubo.kernelh;
 
@@ -110,8 +110,8 @@ float cs_kernel(vec3 i, vec3 j) {
 // Cubic spline gradkernel
 //----------------------------
 vec3 cs_gradKernel(vec3 i, vec3 j) {
-    float m_k = 8.0 * 6.0 / (PI * pow(ubo.kernelh, 3));
-    float m_l = 48.0 * 6.0 / (PI * pow(ubo.kernelh, 3));
+    float m_k = 8.0 / (PI * pow(ubo.kernelh, 3));
+    float m_l = 48.0 / (PI * pow(ubo.kernelh, 3));
 
     vec3 r = i - j;
     float rlength = length(r);

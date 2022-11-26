@@ -92,72 +92,70 @@ void iterate(uint gID) {
     vec3 pressure = vec3(0);
     vec3 viscosity = vec3(0);
 
+    float dpi = 0;
+    if (storage_in.p[gID].rho != 0)
+        dpi = storage_in.p[gID].p / (storage_in.p[gID].rho * storage_in.p[gID].rho);
+
     // Original
-    /*for (int j = 0; j < SimProps.nr_of_particles; j++) {
-        if (gID == j)
-            continue;
+    if (!ubo.neighbour) {
+        for (int j = 0; j < SimProps.nr_of_particles; j++) {
+            if (gID == j)
+                continue;
 
-        // Note to self: as the particles get further and further from each other the density decreases which means rho --> 0
-        // which leads to something/0^2, which is either inf or -inf ----> nan or -nan
-        float val = 0;
-        if (storage_in.p[j].rho != 0 && storage_in.p[gID].rho != 0)
-            val = storage_in.p[j].m * ((storage_in.p[gID].p / pow(storage_in.p[gID].rho, 2)) + (storage_in.p[j].p / pow(storage_in.p[j].rho, 2)));
+            if (storage_in.p[gID].staticP == 0) {
+                float dpj = 0;
+                if (storage_in.p[j].rho != 0)
+                dpj = storage_in.p[j].p / (storage_in.p[j].rho * storage_in.p[j].rho);
 
-        vec3 k = cs_gradKernel(storage_in.p[gID].x, storage_in.p[j].x);
-        pressure += val * cs_gradKernel(storage_in.p[gID].x, storage_in.p[j].x);
-
-        vec3 xij = storage_in.p[gID].x - storage_in.p[j].x;
-
-        float pval = 0;
-        if (storage_in.p[j].rho != 0)
-            pval = (storage_in.p[j].m / storage_in.p[j].rho) * (dot(xij, cs_gradKernel(storage_in.p[gID].x, storage_in.p[j].x)) /  (dot(xij, xij) + 0.01 * SimProps.kernelh));
-
-        vec3 vij = storage_in.p[gID].v - storage_in.p[j].v;
-        viscosity += pval * vij;
-    }*/
-
-    // Neighbourhood
-    vec3 tuple = determineGridTuple(int(gID), false);
-    Neighbourhood n = getNeighbouringCells(tuple);
-    for (int i = 0; i < 27; i++) {
-        vec3 current = n.neighbour[i];
-        if (!checkBounds(current)) continue;
-
-        int idx = getStartIdxOfCell(current);
-        if (idx >= 0) {
-            int size = grid_data.numbers[idx];
-
-            int iterIdx = 0;
-            for (int j = 1; j < size + 1; j++) {
-                iterIdx = grid_data.numbers[idx + j];
-                if (gID == iterIdx) continue;
-
-                // Note to self: as the particles get further and further from each other the density decreases which means rho --> 0
-                // which leads to something/0^2, which is either inf or -inf ----> nan or -nan
-                float val = 0;
-                if (storage_in.p[iterIdx].rho != 0 && storage_in.p[gID].rho != 0)
-                    val = storage_in.p[iterIdx].m * ((storage_in.p[gID].p / pow(storage_in.p[gID].rho, 2)) + (storage_in.p[iterIdx].p / pow(storage_in.p[iterIdx].rho, 2)));
-
-                //vec3 k = cs_gradKernel(storage_in.p[gID].x, storage_in.p[iterIdx].x);
-                pressure += val * cs_gradKernel(storage_in.p[gID].x, storage_in.p[iterIdx].x);
-
-                vec3 xij = storage_in.p[gID].x - storage_in.p[iterIdx].x;
+                pressure -= storage_in.p[j].m * (dpi + dpj) * cs_gradKernel(storage_in.p[gID].x, storage_in.p[j].x);
 
                 float pval = 0;
-                if (storage_in.p[iterIdx].rho != 0)
-                    pval = (storage_in.p[iterIdx].m / storage_in.p[iterIdx].rho) * (dot(xij, cs_gradKernel(storage_in.p[gID].x, storage_in.p[iterIdx].x)) /  (dot(xij, xij) + 0.01 * SimProps.kernelh));
+                if (storage_in.p[j].rho != 0)
+                pval = (storage_in.p[j].m / storage_in.p[j].rho) * 1.0/SimProps.dt * 0.05 * cs_kernel(storage_in.p[gID].x, storage_in.p[j].x);
 
-                vec3 vij = storage_in.p[gID].v - storage_in.p[iterIdx].v;
-                viscosity += pval * vij;
+                vec3 vij = storage_in.p[gID].v - storage_in.p[j].v;
+                viscosity -= pval * vij;
+            } else {
+                pressure -= storage_in.p[j].m * dpi * cs_gradKernel(storage_in.p[gID].x, storage_in.p[j].x);
+            }
+        }
+    } else {
+        // Neighbourhood
+        vec3 tuple = determineGridTuple(int(gID), false);
+        Neighbourhood n = getNeighbouringCells(tuple);
+        for (int i = 0; i < 27; i++) {
+            vec3 current = n.neighbour[i];
+            if (!checkBounds(current)) continue;
+
+            int idx = getStartIdxOfCell(current);
+            if (idx >= 0) {
+                int size = grid_data.numbers[idx];
+
+                int iterIdx = 0;
+                for (int j = 1; j < size + 1; j++) {
+                    iterIdx = grid_data.numbers[idx + j];
+                    if (gID == iterIdx) continue;
+
+                    if (storage_in.p[gID].staticP == 0) {
+                        float dpj = 0;
+                        if (storage_in.p[iterIdx].rho != 0)
+                        dpj = storage_in.p[iterIdx].p / (storage_in.p[iterIdx].rho * storage_in.p[iterIdx].rho);
+
+                        pressure -= storage_in.p[iterIdx].m * (dpi + dpj) * cs_gradKernel(storage_in.p[gID].x, storage_in.p[iterIdx].x);
+
+                        float pval = 0;
+                        if (storage_in.p[iterIdx].rho != 0)
+                        pval = (storage_in.p[iterIdx].m / storage_in.p[iterIdx].rho) * 1.0/SimProps.dt * 0.05 * cs_kernel(storage_in.p[gID].x, storage_in.p[iterIdx].x);
+
+                        vec3 vij = storage_in.p[gID].v - storage_in.p[iterIdx].v;
+                        viscosity -= pval * vij;
+                    } else {
+                        pressure -= storage_in.p[iterIdx].m * dpi * cs_gradKernel(storage_in.p[gID].x, storage_in.p[iterIdx].x);
+                    }
+                }
             }
         }
     }
-
-    pressure *= -storage_in.p[gID].m;
-
-    float nu = 0.01;
-    //float nu = 0.15;
-    viscosity *= 2 * nu * storage_in.p[gID].m;
 
     vec3 gravity = vec3(0, 0, -9.81) * storage_in.p[gID].m;
     
@@ -166,12 +164,7 @@ void iterate(uint gID) {
     vec3 viNext = storage_in.p[gID].v;
     vec3 xiNext = storage_in.p[gID].x;
     viNext += acc * SimProps.dt;
-    /*if ((abs(viNext.x) > 9) || (abs(viNext.y) > 9) || (abs(viNext.z) > 9)) {
-        viNext = vec3(0);
-    }*/
     viNext = speedBound(viNext);
-
-    //float vil = length(viNext);
     xiNext += viNext * SimProps.dt;
     
     storage_out.p[gID].x = xiNext;

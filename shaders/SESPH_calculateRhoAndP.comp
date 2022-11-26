@@ -22,41 +22,43 @@ void calculateRhoAndP(uint gID) {
     float density = 0.0;
     float d2 = 0.0;
 
-    /*for (int j = 0; j < ubo.nr_of_particles; j++) {
-        if (gID == j)
+    if (!ubo.neighbour) {
+        for (int j = 0; j < ubo.nr_of_particles; j++) {
+            if (gID == j)
             continue;
 
-        density += in_data.p[j].m * cs_kernel(in_data.p[gID].x, in_data.p[j].x);
-    }*/
+            density += in_data.p[j].m * cs_kernel(in_data.p[gID].x, in_data.p[j].x);
+        }
+    } else {
 
-    vec3 tuple = determineGridTuple(int(gID), true);
-    Neighbourhood n = getNeighbouringCells(tuple);
-    for (int i = 0; i < 27; i++) {
-        vec3 current = n.neighbour[i];
-        if (!checkBounds(current)) continue;
+        vec3 tuple = determineGridTuple(int(gID), true);
+        Neighbourhood n = getNeighbouringCells(tuple);
+        for (int i = 0; i < 27; i++) {
+            vec3 current = n.neighbour[i];
+            if (!checkBounds(current)) continue;
 
-        int idx = getStartIdxOfCell(current);
-        if (idx >= 0) {
-            int size = grid_data.numbers[idx];
+            int idx = getStartIdxOfCell(current);
+            if (idx >= 0) {
+                int size = grid_data.numbers[idx];
 
-            int iterIdx = 0;
-            for (int j = 1; j < size+1; j++) {
-                iterIdx = grid_data.numbers[idx + j];
-                if (gID == iterIdx) continue;
+                int iterIdx = 0;
+                for (int j = 1; j < size+1; j++) {
+                    iterIdx = grid_data.numbers[idx + j];
+                    if (gID == iterIdx) continue;
 
-                density += in_data.p[j].m * cs_kernel(in_data.p[gID].x, in_data.p[iterIdx].x);
+                    density += in_data.p[j].m * cs_kernel(in_data.p[gID].x, in_data.p[iterIdx].x);
+                }
             }
         }
     }
 
-    //density = density < ubo.desired_density ? ubo.desired_density : density;
+    density = density < ubo.desired_density ? ubo.desired_density : density;
     out_data.p[gID].rho = density;
     out_data.p[gID].padding = d2;
-    //if (d2 != density) out_data.p[gID].p = 11111;
 
     float ratio = density / ubo.desired_density;
-    float p = ubo.k * (pow(ratio, 7) - 1.0);
-    out_data.p[gID].p = p < 0 ? 0 : p;
+    float p = ubo.k * 1000 * (pow(ratio, 7) - 1.0);
+    out_data.p[gID].p = p;
 }
 
 void main()
@@ -66,6 +68,7 @@ void main()
 
     if (gID < ubo.nr_of_particles) {
         copyData(gID);
-        calculateRhoAndP(gID);
+        if (in_data.p[gID].staticP == 0)
+            calculateRhoAndP(gID);
     }
 }

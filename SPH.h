@@ -14,6 +14,7 @@ namespace Vltava {
     public:
         virtual void gpuTimeStep() = 0;
         virtual void cpuTimeStep() = 0;
+        static float static_kernel(glm::vec3 i, glm::vec3 j, float h);
 
         virtual std::string log();
 
@@ -79,6 +80,9 @@ namespace Vltava {
         bool logCpuData = true;
 
         // Functions
+        /*float kernel0() {
+            return kernel(glm::vec3(0), glm::vec3(0));
+        }*/
         virtual float kernel(int i, int j);
         virtual float kernel(glm::vec3 i, glm::vec3 j);
         virtual glm::vec3 gradKernel(int i, int j);
