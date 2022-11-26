@@ -12,22 +12,45 @@ void computeAdvectedVelocity(uint gID) {
     // Calculating viscosity
     vec3 viscosity = vec3(0);
 
-    for (int j = 0; j < ubo.nr_of_particles; j++) {
-        if (gID == j)
+    if (!ubo.neighbour) {
+        for (int j = 0; j < ubo.nr_of_particles; j++) {
+            if (gID == j)
             continue;
 
-        vec3 xij = in_data.p[gID].x - in_data.p[j].x;
+            float pval = 0;
+            if (in_data.p[j].rho != 0)
+                pval = (in_data.p[j].m / in_data.p[j].rho) * 1.0/ubo.dt * 0.05 * cs_kernel(in_data.p[gID].x, in_data.p[j].x);
 
-        float pval = 0;
-        if (in_data.p[j].rho != 0)
-            pval = (in_data.p[j].m / in_data.p[j].rho) * (dot(xij, cs_gradKernel(in_data.p[gID].x, in_data.p[j].x)) /  (dot(xij, xij) + 0.01 * ubo.kernelh));
+            vec3 vij = in_data.p[gID].v - in_data.p[j].v;
+            viscosity -= pval * vij;
+        }
+    } else {
+        vec3 tuple = determineGridTuple(int(gID), false);
+        Neighbourhood n = getNeighbouringCells(tuple);
+        for (int i = 0; i < 27; i++) {
+            vec3 current = n.neighbour[i];
+            if (!checkBounds(current)) continue;
 
-        vec3 vij = in_data.p[gID].v - in_data.p[j].v;
-        viscosity += pval * vij;
+            int idx = getStartIdxOfCell(current);
+            if (idx >= 0) {
+                int size = grid_data.numbers[idx];
+
+                int iterIdx = 0;
+                for (int j = 1; j < size + 1; j++) {
+                    iterIdx = grid_data.numbers[idx + j];
+                    if (gID == iterIdx) continue;
+
+                    float pval = 0;
+                    if (in_data.p[iterIdx].rho != 0)
+                        pval = (in_data.p[iterIdx].m / in_data.p[iterIdx].rho) * 1.0/ubo.dt * 0.05 * cs_kernel(in_data.p[gID].x, in_data.p[iterIdx].x);
+
+                    vec3 vij = in_data.p[gID].v - in_data.p[iterIdx].v;
+                    viscosity -= pval * vij;
+
+                }
+            }
+        }
     }
-
-    float nu = 0.01;
-    viscosity *= 2 * nu * in_data.p[gID].m;
 
     if (in_data.p[gID].staticP == 0)
         f += viscosity;

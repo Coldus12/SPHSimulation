@@ -22,18 +22,41 @@ void computePredictedRho(uint gID) {
     float density = 0;
     float real_density = 0;
 
-    for (int j = 0; j < ubo.nr_of_particles; j++) {
-        if (j == gID) continue;
+    if (!ubo.neighbour) {
+        for (int j = 0; j < ubo.nr_of_particles; j++) {
+            if (j == gID) continue;
 
-        density += in_data.p[j].m * cs_kernel(pcisph_add_data.p[gID].pred_pos, pcisph_add_data.p[j].pred_pos);
-        real_density += in_data.p[j].m * cs_kernel(in_data.p[gID].x, in_data.p[j].x);
+            density += in_data.p[j].m * cs_kernel(pcisph_add_data.p[gID].pred_pos, pcisph_add_data.p[j].pred_pos);
+            real_density += in_data.p[j].m * cs_kernel(in_data.p[gID].x, in_data.p[j].x);
+        }
+    } else {
+        vec3 tuple = determineGridTuple(int(gID), true);
+        Neighbourhood n = getNeighbouringCells(tuple);
+        for (int i = 0; i < 27; i++) {
+            vec3 current = n.neighbour[i];
+            if (!checkBounds(current)) continue;
+
+            int idx = getStartIdxOfCell(current);
+            if (idx >= 0) {
+                int size = grid_data.numbers[idx];
+
+                int iterIdx = 0;
+                for (int j = 1; j < size+1; j++) {
+                    iterIdx = grid_data.numbers[idx + j];
+                    if (gID == iterIdx) continue;
+
+                    density += in_data.p[iterIdx].m * cs_kernel(pcisph_add_data.p[gID].pred_pos, pcisph_add_data.p[iterIdx].pred_pos);
+                    real_density += in_data.p[iterIdx].m * cs_kernel(in_data.p[gID].x, in_data.p[iterIdx].x);
+                }
+            }
+        }
     }
 
     pcisph_add_data.p[gID].rho_pred = density;
     out_data.p[gID].rho = real_density;
 
     // Pressure init
-    out_data.p[gID].p = ubo.kPCI * ((density - ubo.desired_density)/ubo.desired_density);
+    out_data.p[gID].p = ubo.kPCI * 1000.0f * ((density - ubo.desired_density)/ubo.desired_density);
 }
 
 void main()

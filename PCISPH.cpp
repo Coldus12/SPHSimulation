@@ -52,6 +52,30 @@ namespace Vltava {
             );
         }
 
+        // Neighbourhood search
+        //--------------------
+        cleanGridComp->bindPipelineAndDescriptors(computeCmdBuffer);
+        computeCmdBuffer.dispatch(list_size * cellx * celly * cellz / 64 + 1, 1, 1);
+        computeCmdBuffer.pipelineBarrier(
+                vk::PipelineStageFlagBits::eComputeShader,
+                vk::PipelineStageFlagBits::eComputeShader,
+                {},
+                {},
+                membarriers,
+                {}
+        );
+
+        gridPlacementComp->bindPipelineAndDescriptors(computeCmdBuffer);
+        computeCmdBuffer.dispatch(particles1.size() / 64 + 1, 1, 1);
+        computeCmdBuffer.pipelineBarrier(
+                vk::PipelineStageFlagBits::eComputeShader,
+                vk::PipelineStageFlagBits::eComputeShader,
+                {},
+                {},
+                membarriers,
+                {}
+        );
+
         // Predict velocity
         //--------------------
         advVelocityComp->bindPipelineAndDescriptors(computeCmdBuffer);
@@ -196,6 +220,8 @@ namespace Vltava {
     }
 
     void PCISPH::initGpuSim(std::vector<Buffer> *uBuffers, std::vector<Buffer> *sBuffers) {
+        cleanGridComp.reset();
+        gridPlacementComp.reset();
         advVelocityComp.reset();
         predictedRhoComp.reset();
         pressureAccelerationComp.reset();
@@ -225,6 +251,14 @@ namespace Vltava {
         additionalDataBuffer.writeToBuffer(add_data.data(), add_data.size() * sizeof(AdditionalPCISPHData));
         sBuffers->push_back(std::move(additionalDataBuffer));
 
+        gridPlacementComp = std::make_unique<ComputeShader>("shaders/gridPlacement.spv");
+        gridPlacementComp->setBuffers(uBuffers, sBuffers);
+        gridPlacementComp->createPipeline();
+
+        cleanGridComp = std::make_unique<ComputeShader>("shaders/resetgrid.spv");
+        cleanGridComp->setBuffers(uBuffers, sBuffers);
+        cleanGridComp->createPipeline();
+
         advVelocityComp = std::make_unique<ComputeShader>("shaders/PCISPH_computeVadv.spv");
         advVelocityComp->setBuffers(uBuffers, sBuffers);
         advVelocityComp->createPipeline();
@@ -253,10 +287,10 @@ namespace Vltava {
     //----------------------------------------------------
     void PCISPH::cpuTimeStep() {
         logCpuData = true;
-        float dt = 0.01;
 
-        pressureSolve(dt);
-        particleAdvection(dt);
+        place();
+        pressureSolve(props.dt);
+        particleAdvection(props.dt);
     }
 
     // PCISPH iterative pressure solver
@@ -286,34 +320,52 @@ namespace Vltava {
             // Forces
             glm::vec3 f(0);
 
-            // dii
-            //glm::vec3 dii(0);
-
             // Calculating viscosity
             glm::vec3 viscosity = glm::vec3(0);
 
-            for (int j = 0; j < particles.size(); j++) {
-                if (j == i)
-                    continue;
+            if (!props.neighbour) {
+                for (int j = 0; j < particles.size(); j++) {
+                    if (j == i)
+                        continue;
 
-                glm::vec3 xij = particles[i].x - particles[j].x;
+                    float pval = 0;
+                    if (particles[j].rho != 0)
+                        pval = (particles[j].m / particles[j].rho) * 1.0 / props.dt * 0.05 *
+                               kernel(particles.at(i).x, particles.at(j).x);
 
-                float pval = 0;
-                if (particles[j].rho != 0)
-                    pval = (particles[j].m / particles[j].rho) * (dot(xij, gradKernel(i, j)) / (dot(xij, xij) + 0.01 * props.kernelh));
+                    glm::vec3 vij = particles[i].v - particles[j].v;
+                    viscosity -= pval * vij;
+                }
+            } else {
+                glm::vec3 tuple = determineGridTuple(i);
+                Neighbourhood n = getNeighbouringCells(tuple);
+                for (int iter = 0; iter < 27; iter++) {
+                    glm::vec3 current = n.neighbour[iter];
 
-                glm::vec3 vij = particles[i].v - particles[j].v;
-                viscosity += pval * vij;
+                    if (!checkBounds(current)) continue;
+
+                    int idx = getStartIdxOfCell(current);
+                    int size = grid_data.at(idx);
+
+                    int iterIdx = 0;
+                    for (int j = 1; j < size+1; j++) {
+                        iterIdx = grid_data.at(idx + j);
+                        if (i == iterIdx) continue;
+
+                        float pval = 0;
+                        if (particles.at(iterIdx).rho != 0)
+                            pval = (particles.at(iterIdx).m / particles.at(iterIdx).rho) * 1.0/props.dt * 0.05 * kernel(particles.at(i).x, particles.at(iterIdx).x);
+
+                        glm::vec3 vij = particles[i].v - particles.at(iterIdx).v;
+                        viscosity -= pval * vij;
+                    }
+                }
             }
-
-            float nu = 0.01;
-            viscosity *= 2 * nu * particles[i].m;
 
             if (particles[i].staticP == 0)
                 f += viscosity;
 
             f += glm::vec3(0, 0, -9.81 * particles[i].m);
-            //f += prev_p_acc[i] * particles[i].m;
 
             // Calculating v_adv
             v_adv[i] = particles[i].v + dt * f / particles[i].m;
@@ -328,18 +380,41 @@ namespace Vltava {
             float density = 0;
             float real_density = 0;
 
-            for (int j = 0; j < particles.size(); j++) {
-                if (j == i) continue;
+            if (!props.neighbour) {
+                for (int j = 0; j < particles.size(); j++) {
+                    if (j == i) continue;
 
-                density += particles[j].m * kernel(pred_pos[i], pred_pos[j]);
-                real_density += particles[j].m * kernel(i, j);
+                    density += particles[j].m * kernel(pred_pos[i], pred_pos[j]);
+                    real_density += particles[j].m * kernel(i, j);
+                }
+            } else {
+                glm::vec3 tuple = determineGridTuple(i);
+                Neighbourhood n = getNeighbouringCells(tuple);
+                for (int nr = 0; nr < 27; nr++) {
+                    glm::vec3 current = n.neighbour[nr];
+                    if (!checkBounds(current)) continue;
+
+                    int idx = getStartIdxOfCell(current);
+                    if (idx >= 0) {
+                        int size = grid_data.at(idx);
+
+                        int iterIdx = 0;
+                        for (int j = 1; j < size + 1; j++) {
+                            iterIdx = grid_data.at(idx + j);
+                            if (i == iterIdx) continue;
+
+                            density += particles[j].m * kernel(pred_pos[i], pred_pos[iterIdx]);
+                            real_density += particles[iterIdx].m * kernel(i, iterIdx);
+                        }
+                    }
+                }
             }
 
             rho_pred[i] = density;
             particles[i].rho = real_density;
 
             // Pressure init
-            particles[i].p = kPCI * ((density - props.desired_density)/props.desired_density);
+            particles[i].p = kPCI * 1000.0f * ((density - props.desired_density)/props.desired_density);
         }
     }
 
@@ -349,40 +424,86 @@ namespace Vltava {
         for (int i = 0; i < particles.size(); i++) {
             glm::vec3 a_p(0);
             float dpi = 0;
-            if (particles[i].rho > 0.1)
-                dpi = particles[i].p / (particles[i].rho * particles[i].rho);
+            if (particles.at(i).rho != 0)
+                dpi = particles.at(i).p / (particles.at(i).rho * particles.at(i).rho);
 
-            for (int j = 0; j < particles.size(); j++) {
-                if (j == i) continue;
+            if (!props.neighbour) {
+                for (int j = 0; j < particles.size(); j++) {
+                    if (j == i) continue;
 
-                float dpj = 0;
-                if (particles[j].rho > 0.1)
-                    dpj = particles[j].p / (particles[j].rho * particles[j].rho);
+                    float dpj = 0;
+                    if (particles.at(j).rho != 0)
+                        dpj = particles.at(j).p / (particles.at(j).rho * particles.at(j).rho);
 
-                a_p += -particles[j].m * (dpi + dpj) * gradKernel(i, j);
+                    a_p -= particles[j].m * (dpi + dpj) * gradKernel(i, j);
+                }
+            } else {
+                glm::vec3 tuple = determineGridTuple(i);
+                Neighbourhood n = getNeighbouringCells(tuple);
+                for (int nr = 0; nr < 27; nr++) {
+                    glm::vec3 current = n.neighbour[nr];
+                    if (!checkBounds(current)) continue;
+
+                    int idx = getStartIdxOfCell(current);
+                    int size = grid_data.at(idx);
+
+                    int iterIdx = 0;
+                    for (int j = 1; j < size+1; j++) {
+                        iterIdx = grid_data.at(idx + j);
+                        if (i == iterIdx) continue;
+
+                        float dpj = 0;
+                        if (particles.at(iterIdx).rho != 0)
+                            dpj = particles.at(iterIdx).p / (particles.at(iterIdx).rho * particles.at(iterIdx).rho);
+
+                        a_p -= particles.at(iterIdx).m * (dpi + dpj) * gradKernel(i, iterIdx);
+                    }
+                }
             }
 
             prev_p_acc[i] = a_p;
         }
     }
 
+    // TODO: this one doesn't seem to work with neighbourhood search
     void PCISPH::updateDensityAndPressure(float dt) {
         auto& particles = first ? particles1 : particles2;
 
         for (int i = 0; i < particles.size(); i++) {
             float rho_change = 0;
 
-            for (int j = 0; j < particles.size(); j++) {
-                if (j == i) continue;
+            //if (!props.neighbour) {
+                for (int j = 0; j < particles.size(); j++) {
+                    if (j == i) continue;
 
-                rho_change += particles[j].m * dot((dt * prev_p_acc[i] - dt * prev_p_acc[j]), gradKernel(i, j));
-            }
+                    rho_change += particles[j].m * dot((dt * prev_p_acc[i] - dt * prev_p_acc[j]), gradKernel(i, j));
+                }
+            /*} else {
+                glm::vec3 tuple = determineGridTuple(i);
+                Neighbourhood n = getNeighbouringCellsFive(tuple);
+                for (int nr = 0; nr < n.size; nr++) {
+                    glm::vec3 current = n.neighbour[nr];
+                    if (!checkBounds(current)) continue;
+
+                    int idx = getStartIdxOfCell(current);
+                    if (idx >= 0) {
+                        int size = grid_data.at(idx);
+
+                        int iterIdx = 0;
+                        for (int j = 1; j < size + 1; j++) {
+                            iterIdx = grid_data.at(idx + j);
+                            if (i == iterIdx) continue;
+
+                            rho_change += particles[iterIdx].m * dot((dt * prev_p_acc[i] - dt * prev_p_acc[iterIdx]), gradKernel(i, iterIdx));
+                        }
+                    }
+                }
+            }*/
 
             rho_change *= dt;
             rho_pred[i] += rho_change;
-            particles[i].rho = rho_pred[i];
-            particles[i].p += kPCI * ((rho_pred[i] - props.desired_density)/props.desired_density);
-            particles[i].p = particles[i].p < -200 ? -200 : particles[i].p;
+            particles[i].rho = rho_pred[i] < props.desired_density ? props.desired_density : rho_pred[i];
+            particles[i].p += kPCI * 1000.0f * ((rho_pred[i] - props.desired_density)/props.desired_density);
         }
     }
 

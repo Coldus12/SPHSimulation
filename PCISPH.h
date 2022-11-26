@@ -41,6 +41,8 @@ namespace Vltava {
         float kPCI = 0.0;
 
         // variables for GPU sim
+        std::unique_ptr<ComputeShader> cleanGridComp;
+        std::unique_ptr<ComputeShader> gridPlacementComp;
         std::unique_ptr<ComputeShader> advVelocityComp;
         std::unique_ptr<ComputeShader> predictedRhoComp;
         std::unique_ptr<ComputeShader> pressureAccelerationComp;

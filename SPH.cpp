@@ -237,14 +237,16 @@ namespace Vltava {
     }
 
     void SPH::place() {
-        auto& particles = first ? particles1 : particles2;
+        if (props.neighbour) {
+            auto &particles = first ? particles1 : particles2;
 
-        grid_data.clear();
-        grid_data.resize(1, 0);
-        grid_data.resize(list_size*cellx*celly*cellz, 0);
+            grid_data.clear();
+            grid_data.resize(1, 0);
+            grid_data.resize(list_size * cellx * celly * cellz, 0);
 
-        for (int i = 0; i < particles.size(); i++) {
-            placeParticleIntoCell(i);
+            for (int i = 0; i < particles.size(); i++) {
+                placeParticleIntoCell(i);
+            }
         }
     }
 

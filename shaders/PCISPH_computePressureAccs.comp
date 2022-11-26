@@ -11,19 +11,49 @@ layout (local_size_x = 64) in; //256
 
 void computePressureAcc(uint gID) {
     vec3 a_p = vec3(0);
+
     float dpi = 0;
-    
-    if (storage_in.p[gID].rho > 0.1)
+    if (storage_in.p[gID].rho != 0)
         dpi = storage_in.p[gID].p / (storage_in.p[gID].rho * storage_in.p[gID].rho);
 
-    for (int j = 0; j < ubo.nr_of_particles; j++) {
-        if (j == gID) continue;
+    if (!ubo.neighbour) {
+        for (int j = 0; j < ubo.nr_of_particles; j++) {
+            if (j == gID) continue;
 
-        float dpj = 0;
-        if (storage_in.p[j].rho > 0.1)
-            dpj = storage_in.p[j].p / (storage_in.p[j].rho * storage_in.p[j].rho);
-    
-        a_p += -storage_in.p[j].m * (dpi + dpj) * cs_gradKernel(storage_in.p[gID].x, storage_in.p[j].x);
+            float dpj = 0;
+            if (storage_in.p[j].rho != 0)
+                dpj = storage_in.p[j].p / (storage_in.p[j].rho * storage_in.p[j].rho);
+
+            a_p -= storage_in.p[j].m * (dpi + dpj) * cs_gradKernel(storage_in.p[gID].x, storage_in.p[j].x);
+        }
+    } else {
+        vec3 tuple = determineGridTuple(int(gID), false);
+        Neighbourhood n = getNeighbouringCells(tuple);
+        for (int i = 0; i < 27; i++) {
+            vec3 current = n.neighbour[i];
+            if (!checkBounds(current)) continue;
+
+            int idx = getStartIdxOfCell(current);
+            if (idx >= 0) {
+                int size = grid_data.numbers[idx];
+
+                int iterIdx = 0;
+                for (int j = 1; j < size + 1; j++) {
+                    iterIdx = grid_data.numbers[idx + j];
+                    if (gID == iterIdx) continue;
+
+                    if (storage_in.p[gID].staticP == 0) {
+                        float dpj = 0;
+                        if (storage_in.p[iterIdx].rho != 0)
+                            dpj = storage_in.p[iterIdx].p / (storage_in.p[iterIdx].rho * storage_in.p[iterIdx].rho);
+
+                        a_p -= storage_in.p[iterIdx].m * (dpi + dpj) * cs_gradKernel(storage_in.p[gID].x, storage_in.p[iterIdx].x);
+                    } else {
+                        a_p -= storage_in.p[iterIdx].m * dpi * cs_gradKernel(storage_in.p[gID].x, storage_in.p[iterIdx].x);
+                    }
+                }
+            }
+        }
     }
     
     pcisph_add_data.p[gID].prev_p_acc = a_p;

@@ -12,28 +12,42 @@ layout (local_size_x = 64) in; //256
 void updateDensityAndPressure(uint gID) {
     float rho_change = 0;
 
-    for (int j = 0; j < ubo.nr_of_particles; j++) {
-        if (j == gID) continue;
+    if (!ubo.neighbour) {
+        for (int j = 0; j < ubo.nr_of_particles; j++) {
+            if (j == gID) continue;
 
-        rho_change += storage_in.p[j].m * dot((ubo.dt * pcisph_add_data.p[gID].prev_p_acc - ubo.dt * pcisph_add_data.p[j].prev_p_acc), cs_gradKernel(storage_in.p[gID].x, storage_in.p[j].x));
+            rho_change += storage_in.p[j].m * dot((ubo.dt * pcisph_add_data.p[gID].prev_p_acc - ubo.dt * pcisph_add_data.p[j].prev_p_acc), cs_gradKernel(storage_in.p[gID].x, storage_in.p[j].x));
+        }
+    } else {
+        vec3 tuple = determineGridTuple(int(gID), true);
+        Neighbourhood n = getNeighbouringCells(tuple);
+        for (int i = 0; i < 27; i++) {
+            vec3 current = n.neighbour[i];
+            if (!checkBounds(current)) continue;
+
+            int idx = getStartIdxOfCell(current);
+            if (idx >= 0) {
+                int size = grid_data.numbers[idx];
+
+                int iterIdx = 0;
+                for (int j = 1; j < size+1; j++) {
+                    iterIdx = grid_data.numbers[idx + j];
+                    if (gID == iterIdx) continue;
+
+                    rho_change += storage_in.p[iterIdx].m * dot((ubo.dt * pcisph_add_data.p[gID].prev_p_acc - ubo.dt * pcisph_add_data.p[iterIdx].prev_p_acc), cs_gradKernel(storage_in.p[gID].x, storage_in.p[iterIdx].x));
+                }
+            }
+        }
     }
+
+    pcisph_add_data.p[gID].padding1 = 0.0f;
+    pcisph_add_data.p[gID].padding2 = 0.0f;
 
     rho_change *= ubo.dt;
     pcisph_add_data.p[gID].rho_pred += rho_change;
-
-    pcisph_add_data.p[gID].padding1 = rho_change;
-    pcisph_add_data.p[gID].padding2 = length(pcisph_add_data.p[gID].prev_p_acc - pcisph_add_data.p[3].prev_p_acc);
-
-    float th = ubo.desired_density;
-    if (pcisph_add_data.p[gID].rho_pred > ubo.desired_density)
-        th = pcisph_add_data.p[gID].rho_pred;
-
-    /*storage_in.p[gID].rho = pcisph_add_data.p[gID].rho_pred;
-    storage_in.p[gID].p += ubo.kPCI * ((pcisph_add_data.p[gID].rho_pred - ubo.desired_density)/ubo.desired_density);
-    storage_in.p[gID].p = storage_in.p[gID].p < -200 ? -200 : storage_in.p[gID].p;*/
-
-    storage_in.p[gID].rho = th;
-    storage_in.p[gID].p += ubo.kPCI * ((th - ubo.desired_density)/ubo.desired_density);
+    float pred = pcisph_add_data.p[gID].rho_pred;
+    storage_in.p[gID].rho = pred < ubo.desired_density ? ubo.desired_density : pred;
+    storage_in.p[gID].p += ubo.kPCI * 1000.0f * ((storage_in.p[gID].rho - ubo.desired_density)/ubo.desired_density);
 }
 
 void main()
