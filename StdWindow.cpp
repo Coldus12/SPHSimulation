@@ -175,7 +175,7 @@ namespace Vltava {
         uBuffers.push_back(std::move(propsBuffer));
 
         props = SimProps();
-        props.dt = 0.002f;
+        props.dt = timeStep;
         props.neighbour = neigbourIGuess;
         props.nr_of_particles = (float) all_particle_nr;
         props.gridA = glm::vec4(gridA,0);
@@ -460,6 +460,13 @@ namespace Vltava {
             sph_type = static_cast<SPHType>(choice);
             ImGui::Checkbox("Neighbour?", &neigbourIGuess);
 
+            ImGui::InputFloat("Time step: ", &timeStep);
+            if (timeStep != lastTimeStep && timeStep != 0.0f) {
+                lastTimeStep = timeStep;
+                props.dt = timeStep;
+                uBuffers[0].writeToBuffer(&props, sizeof(props));
+            }
+
             ImGui::Text("Reset data??");
             if (ImGui::Button("Yes"))
                 resetData();
@@ -501,19 +508,6 @@ namespace Vltava {
             if (makeContainer) {
                 ImGui::Text("Container position: "); ImGui::SameLine(); ImGui::InputFloat3("##", (float*)&containerPos);
                 ImGui::Text("Container size: "); ImGui::SameLine(); ImGui::InputInt("s", &containerSize);
-
-                /*props = {
-                        1000.0f,
-                        50.0f,
-                        (float) all_particle_nr,
-                        0.2f,
-
-                        glm::vec4(gridA, 0),
-                        glm::vec4(gridB, 0)
-                };
-
-                //cpusim->setSimProps(props);
-                uBuffers[0].writeToBuffer(&props, sizeof(props));*/
             }
 
             if (show_log)

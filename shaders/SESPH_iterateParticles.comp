@@ -139,13 +139,13 @@ void iterate(uint gID) {
                     if (storage_in.p[gID].staticP == 0) {
                         float dpj = 0;
                         if (storage_in.p[iterIdx].rho != 0)
-                        dpj = storage_in.p[iterIdx].p / (storage_in.p[iterIdx].rho * storage_in.p[iterIdx].rho);
+                            dpj = storage_in.p[iterIdx].p / (storage_in.p[iterIdx].rho * storage_in.p[iterIdx].rho);
 
                         pressure -= storage_in.p[iterIdx].m * (dpi + dpj) * cs_gradKernel(storage_in.p[gID].x, storage_in.p[iterIdx].x);
 
                         float pval = 0;
                         if (storage_in.p[iterIdx].rho != 0)
-                        pval = (storage_in.p[iterIdx].m / storage_in.p[iterIdx].rho) * 1.0/SimProps.dt * 0.05 * cs_kernel(storage_in.p[gID].x, storage_in.p[iterIdx].x);
+                            pval = (storage_in.p[iterIdx].m / storage_in.p[iterIdx].rho) * 1.0/SimProps.dt * 0.05 * cs_kernel(storage_in.p[gID].x, storage_in.p[iterIdx].x);
 
                         vec3 vij = storage_in.p[gID].v - storage_in.p[iterIdx].v;
                         viscosity -= pval * vij;

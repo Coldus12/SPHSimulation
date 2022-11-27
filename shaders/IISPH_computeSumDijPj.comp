@@ -25,7 +25,7 @@ void computeSumDijPj(uint gID) {
                     if (gID == iterIdx) continue;
 
                     if (abs(in_data.p[iterIdx].rho) > 0.0001)
-                    dijpj += in_data.p[iterIdx].m * in_data.p[iterIdx].p / (in_data.p[iterIdx].rho * in_data.p[iterIdx].rho) * cs_gradKernel(in_data.p[gID].x, in_data.p[iterIdx].x);
+                        dijpj += in_data.p[iterIdx].m * in_data.p[iterIdx].p / (in_data.p[iterIdx].rho * in_data.p[iterIdx].rho) * cs_gradKernel(in_data.p[gID].x, in_data.p[iterIdx].x);
                 }
             }
         }
@@ -35,7 +35,7 @@ void computeSumDijPj(uint gID) {
             continue;
 
             if (abs(in_data.p[j].rho) > 0.0001)
-            dijpj += in_data.p[j].m * in_data.p[j].p / (in_data.p[j].rho * in_data.p[j].rho) * cs_gradKernel(in_data.p[gID].x, in_data.p[j].x);
+                dijpj += in_data.p[j].m * in_data.p[j].p / (in_data.p[j].rho * in_data.p[j].rho) * cs_gradKernel(in_data.p[gID].x, in_data.p[j].x);
         }
     }
 

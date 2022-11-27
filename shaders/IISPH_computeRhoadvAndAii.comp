@@ -43,7 +43,7 @@ void computeRhoadvAndAii(uint gID) {
 
                     vec3 dji = vec3(0);
                     if (abs(storage_in.p[gID].rho) > 0.0001)
-                    dji = -ubo.dt * ubo.dt * storage_in.p[gID].m / (storage_in.p[gID].rho * storage_in.p[gID].rho) * cs_gradKernel(storage_in.p[iterIdx].x, storage_in.p[gID].x);
+                        dji = -ubo.dt * ubo.dt * storage_in.p[gID].m / (storage_in.p[gID].rho * storage_in.p[gID].rho) * cs_gradKernel(storage_in.p[iterIdx].x, storage_in.p[gID].x);
 
                     aii += storage_in.p[iterIdx].m * dot((iisph_add_data.p[gID].dii - dji), cs_gradKernel(storage_in.p[gID].x, storage_in.p[iterIdx].x));
 
@@ -58,7 +58,7 @@ void computeRhoadvAndAii(uint gID) {
 
             vec3 dji = vec3(0);
             if (abs(storage_in.p[gID].rho) > 0.0001)
-            dji = -ubo.dt * ubo.dt * storage_in.p[gID].m / (storage_in.p[gID].rho * storage_in.p[gID].rho) * cs_gradKernel(storage_in.p[j].x, storage_in.p[gID].x);
+                dji = -ubo.dt * ubo.dt * storage_in.p[gID].m / (storage_in.p[gID].rho * storage_in.p[gID].rho) * cs_gradKernel(storage_in.p[j].x, storage_in.p[gID].x);
 
             aii += storage_in.p[j].m * dot((iisph_add_data.p[gID].dii - dji), cs_gradKernel(storage_in.p[gID].x, storage_in.p[j].x));
 

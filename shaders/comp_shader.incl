@@ -122,7 +122,7 @@ vec3 cs_gradKernel(vec3 i, vec3 j) {
         vec3 gradq = r / (rlength * ubo.kernelh);
 
         if (q <= 0.5) {
-            ret = m_l * q * (3.0 * q - 2) * gradq;
+            ret = (m_l * q * (3.0 * q - 2)) * gradq;
         } else {
             float factor = 1.0 - q;
             ret = m_l * (-factor * factor) * gradq;

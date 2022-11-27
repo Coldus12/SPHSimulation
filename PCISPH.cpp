@@ -2,6 +2,8 @@
 #include <chrono>
 #include "PCISPH.h"
 
+#define show_error false
+
 namespace Vltava {
     // GPU functions
     //------------------------------------------------------------------------------------------------------------------
@@ -27,8 +29,9 @@ namespace Vltava {
             error = std::abs(error);
 
             nr++;
-
+#if show_error
             std::cout << "[PCISPH GPU] error: " << error << " nr: " << nr << std::endl;
+#endif
         }
 
         gpuIntegrate();
@@ -308,7 +311,9 @@ namespace Vltava {
 
             nr++;
             error = std::abs(calculateError(dt));
+#if show_error
             std::cout << "nr :" << nr << " error: " << error << std::endl;
+#endif
         }
     }
 

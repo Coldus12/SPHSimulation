@@ -58,7 +58,9 @@ namespace Vltava {
         SimProps props;
         glm::vec3 gridA;
         glm::vec3 gridB;
-        bool neigbourIGuess = false;
+        bool neigbourIGuess = true;
+        float timeStep = 0.002f;
+        float lastTimeStep = timeStep;
 
         int width;
         int height;

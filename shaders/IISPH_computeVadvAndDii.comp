@@ -42,16 +42,14 @@ void computeVadvAndDii(uint gID) {
                     iterIdx = grid_data.numbers[idx + j];
                     if (gID == iterIdx) continue;
 
-                    vec3 xij = storage_in.p[gID].x - storage_in.p[iterIdx].x;
-
                     float pval = 0;
                     if (storage_in.p[iterIdx].rho != 0)
-                    pval = (storage_in.p[iterIdx].m / storage_in.p[iterIdx].rho) * (dot(xij, cs_gradKernel(storage_in.p[gID].x, storage_in.p[iterIdx].x)) /  (dot(xij, xij) + 0.01 * ubo.kernelh));
+                        pval = (storage_in.p[iterIdx].m / storage_in.p[iterIdx].rho) * 1.0/ubo.dt * 0.05 * cs_kernel(storage_in.p[gID].x, storage_in.p[iterIdx].x);
 
                     vec3 vij = storage_in.p[gID].v - storage_in.p[iterIdx].v;
-                    viscosity += pval * vij;
+                    viscosity -= pval * vij;
 
-                    dii += -storage_in.p[iterIdx].m * cs_gradKernel(storage_in.p[gID].x, storage_in.p[iterIdx].x);
+                    dii -= storage_in.p[iterIdx].m * cs_gradKernel(storage_in.p[gID].x, storage_in.p[iterIdx].x);
                 }
             }
         }
@@ -61,21 +59,17 @@ void computeVadvAndDii(uint gID) {
             continue;
 
             // Viscosity calculation
-            vec3 xij = storage_in.p[gID].x - storage_in.p[j].x;
             float pval = 0;
             if (storage_in.p[j].rho != 0)
-            pval = (storage_in.p[j].m / storage_in.p[j].rho) * (dot(xij, cs_gradKernel(storage_in.p[gID].x, storage_in.p[j].x)) /  (dot(xij, xij) + 0.01 * ubo.kernelh));
+                pval = (storage_in.p[j].m / storage_in.p[j].rho) * 1.0/ubo.dt * 0.05 * cs_kernel(storage_in.p[gID].x, storage_in.p[j].x);
 
             vec3 vij = storage_in.p[gID].v - storage_in.p[j].v;
-            viscosity += pval * vij;
+            viscosity -= pval * vij;
 
             // Dii calculation
-            dii += -storage_in.p[j].m * cs_gradKernel(storage_in.p[gID].x, storage_in.p[j].x);
+            dii -= storage_in.p[j].m * cs_gradKernel(storage_in.p[gID].x, storage_in.p[j].x);
         }
     }
-
-    float nu = 0.01;
-    viscosity *= 2 * nu * storage_in.p[gID].m;
 
     if (storage_in.p[gID].staticP == 0)
         f += viscosity;
@@ -88,7 +82,7 @@ void computeVadvAndDii(uint gID) {
     // Calculating dii
     if (abs(storage_in.p[gID].rho) > 0.0001)
         dii *= ubo.dt * ubo.dt / (storage_in.p[gID].rho * storage_in.p[gID].rho);
-    else dii *= 0;
+    else dii = vec3(0);
 
     iisph_add_data.p[gID].dii = dii;
 }
