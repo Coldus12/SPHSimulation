@@ -45,9 +45,13 @@ void updateDensityAndPressure(uint gID) {
 
     rho_change *= ubo.dt;
     pcisph_add_data.p[gID].rho_pred += rho_change;
+
     float pred = pcisph_add_data.p[gID].rho_pred;
-    storage_in.p[gID].rho = pred < ubo.desired_density ? ubo.desired_density : pred;
+    pcisph_add_data.p[gID].rho_pred = pred < ubo.desired_density ? ubo.desired_density : pred;
+
+    storage_in.p[gID].rho = pcisph_add_data.p[gID].rho_pred;
     storage_in.p[gID].p += ubo.kPCI * 1000.0f * ((storage_in.p[gID].rho - ubo.desired_density)/ubo.desired_density);
+    storage_in.p[gID].p = storage_in.p[gID].p < 0 ? 0 : storage_in.p[gID].p;
 }
 
 void main()

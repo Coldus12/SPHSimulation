@@ -86,7 +86,7 @@ void iterateParticle(uint gID) {
         vec3 xiNext = storage_in.p[gID].x;
         viNext += pcisph_add_data.p[gID].prev_p_acc * ubo.dt;
         xiNext += viNext * ubo.dt;
-        viNext = speedBound(viNext);
+        //viNext = speedBound(viNext);
 
         storage_out.p[gID].x = xiNext;
         storage_out.p[gID].v = viNext;

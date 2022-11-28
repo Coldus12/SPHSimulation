@@ -415,6 +415,7 @@ namespace Vltava {
                 }
             }
 
+            density = density > props.desired_density ? density : props.desired_density;
             rho_pred[i] = density;
             particles[i].rho = real_density;
 
@@ -507,8 +508,13 @@ namespace Vltava {
 
             rho_change *= dt;
             rho_pred[i] += rho_change;
-            particles[i].rho = rho_pred[i] < props.desired_density ? props.desired_density : rho_pred[i];
+
+            //particles[i].rho = rho_pred[i] < props.desired_density ? props.desired_density : rho_pred[i];
+            rho_pred[i] = rho_pred[i] < props.desired_density ? props.desired_density : rho_pred[i];
+            particles[i].rho = rho_pred[i];
+
             particles[i].p += kPCI * 1000.0f * ((rho_pred[i] - props.desired_density)/props.desired_density);
+            particles[i].p = particles[i].p < 0 ? 0 : particles[i].p;
         }
     }
 

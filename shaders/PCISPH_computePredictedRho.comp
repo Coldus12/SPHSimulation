@@ -52,6 +52,7 @@ void computePredictedRho(uint gID) {
         }
     }
 
+    density = density > ubo.desired_density ? density : ubo.desired_density;
     pcisph_add_data.p[gID].rho_pred = density;
     out_data.p[gID].rho = real_density;
 
