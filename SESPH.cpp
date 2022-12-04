@@ -42,14 +42,6 @@ namespace Vltava {
         cleanGridComp = std::make_unique<ComputeShader>("shaders/resetgrid.spv");
         cleanGridComp->setBuffers(uBuffers, sBuffers);
         cleanGridComp->createPipeline();
-
-        cleanNeighbourComp = std::make_unique<ComputeShader>("shaders/reset_neighbour.spv");
-        cleanNeighbourComp->setBuffers(uBuffers, sBuffers);
-        cleanNeighbourComp->createPipeline();
-
-        gatherNeighbourComp = std::make_unique<ComputeShader>("shaders/gather_neighbour.spv");
-        gatherNeighbourComp->setBuffers(uBuffers, sBuffers);
-        gatherNeighbourComp->createPipeline();
     }
 
     void SESPH::gpuTimeStep() {
@@ -97,28 +89,6 @@ namespace Vltava {
             );
 
             gridPlacementComp->bindPipelineAndDescriptors(computeCmdBuffer);
-            computeCmdBuffer.dispatch(particles1.size() / 64 + 1, 1, 1);
-            computeCmdBuffer.pipelineBarrier(
-                    vk::PipelineStageFlagBits::eComputeShader,
-                    vk::PipelineStageFlagBits::eComputeShader,
-                    {},
-                    {},
-                    membarriers,
-                    {}
-            );
-
-            cleanNeighbourComp->bindPipelineAndDescriptors(computeCmdBuffer);
-            computeCmdBuffer.dispatch(540 * particles1.size() / 64 + 1, 1, 1);
-            computeCmdBuffer.pipelineBarrier(
-                    vk::PipelineStageFlagBits::eComputeShader,
-                    vk::PipelineStageFlagBits::eComputeShader,
-                    {},
-                    {},
-                    membarriers,
-                    {}
-            );
-
-            gatherNeighbourComp->bindPipelineAndDescriptors(computeCmdBuffer);
             computeCmdBuffer.dispatch(particles1.size() / 64 + 1, 1, 1);
             computeCmdBuffer.pipelineBarrier(
                     vk::PipelineStageFlagBits::eComputeShader,

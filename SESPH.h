@@ -39,8 +39,6 @@ namespace Vltava {
         bool simProps_has_been_set = false;
 
         // variables for GPU sim
-        std::unique_ptr<ComputeShader> cleanNeighbourComp;
-        std::unique_ptr<ComputeShader> gatherNeighbourComp;
         std::unique_ptr<ComputeShader> densityComp;
         std::unique_ptr<ComputeShader> particleIterComp;
         std::unique_ptr<ComputeShader> gridPlacementComp;

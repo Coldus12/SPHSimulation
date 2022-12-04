@@ -155,30 +155,6 @@ void iterate(uint gID) {
                 }
             }
         }
-
-        /*int startIdx = nb_nr * int(gID);
-        int size = neighbour_data.numbers[startIdx];
-        for (int j = 0; j < size; j++) {
-            int iterIdx = neighbour_data.numbers[startIdx + j];
-            if (gID == iterIdx) continue;
-
-            if (storage_in.p[gID].staticP == 0) {
-                float dpj = 0;
-                if (storage_in.p[iterIdx].rho != 0)
-                dpj = storage_in.p[iterIdx].p / (storage_in.p[iterIdx].rho * storage_in.p[iterIdx].rho);
-
-                pressure -= storage_in.p[iterIdx].m * (dpi + dpj) * cs_gradKernel(storage_in.p[gID].x, storage_in.p[iterIdx].x);
-
-                float pval = 0;
-                if (storage_in.p[iterIdx].rho != 0)
-                pval = (storage_in.p[iterIdx].m / storage_in.p[iterIdx].rho) * 1.0/SimProps.dt * 0.05 * cs_kernel(storage_in.p[gID].x, storage_in.p[iterIdx].x);
-
-                vec3 vij = storage_in.p[gID].v - storage_in.p[iterIdx].v;
-                viscosity -= pval * vij;
-            } else {
-                pressure -= storage_in.p[iterIdx].m * dpi * cs_gradKernel(storage_in.p[gID].x, storage_in.p[iterIdx].x);
-            }
-        }*/
     }
 
     vec3 gravity = vec3(0, 0, -9.81) * storage_in.p[gID].m;

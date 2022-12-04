@@ -30,7 +30,6 @@ void calculateRhoAndP(uint gID) {
             density += in_data.p[j].m * cs_kernel(in_data.p[gID].x, in_data.p[j].x);
         }
     } else {
-
         vec3 tuple = determineGridTuple(int(gID), true);
         Neighbourhood n = getNeighbouringCells(tuple);
         for (int i = 0; i < 27; i++) {
@@ -50,15 +49,6 @@ void calculateRhoAndP(uint gID) {
                 }
             }
         }
-
-        /*int startIdx = nb_nr * int(gID);
-        int size = neighbour_data.numbers[startIdx];
-        for (int j = 0; j < size; j++) {
-            int iterIdx = neighbour_data.numbers[startIdx + j];
-            if (gID == iterIdx) continue;
-
-            density += in_data.p[j].m * cs_kernel(in_data.p[gID].x, in_data.p[iterIdx].x);
-        }*/
     }
 
     density = density < ubo.desired_density ? ubo.desired_density : density;

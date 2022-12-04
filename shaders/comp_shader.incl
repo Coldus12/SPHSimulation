@@ -52,10 +52,6 @@ layout(set = 0, binding = 3, std430) buffer gridBuffer {
     int numbers[];
 } grid_data;
 
-layout(set = 0, binding = 4, std430) buffer neighbourBuffer {
-        int numbers[];
-} neighbour_data;
-
 // IISPH additional data
 //----------------------------
 struct IISPH_Additional_data {
@@ -67,7 +63,7 @@ struct IISPH_Additional_data {
     float rho_pred;
 };
 
-layout(set = 0, binding = 5, std430) buffer additionalDataBuffer1 {
+layout(set = 0, binding = 4, std430) buffer additionalDataBuffer1 {
         IISPH_Additional_data p[];
 } iisph_add_data;
 
@@ -82,7 +78,7 @@ struct PCISPH_Additional_data {
     float padding2;
 };
 
-layout(set = 0, binding = 6, std430) buffer additionalDataBuffer2 {
+layout(set = 0, binding = 5, std430) buffer additionalDataBuffer2 {
         PCISPH_Additional_data p[];
 } pcisph_add_data;
 
