@@ -7,7 +7,8 @@ precision highp float;
 #define H2 19349663
 #define H3 83492791
 
-#define list_size 25
+#define list_size 40
+#define nb_nr 540
 
 struct Particle {
     vec3 x;                     // position
@@ -51,6 +52,10 @@ layout(set = 0, binding = 3, std430) buffer gridBuffer {
     int numbers[];
 } grid_data;
 
+layout(set = 0, binding = 4, std430) buffer neighbourBuffer {
+        int numbers[];
+} neighbour_data;
+
 // IISPH additional data
 //----------------------------
 struct IISPH_Additional_data {
@@ -62,7 +67,7 @@ struct IISPH_Additional_data {
     float rho_pred;
 };
 
-layout(set = 0, binding = 4, std430) buffer additionalDataBuffer1 {
+layout(set = 0, binding = 5, std430) buffer additionalDataBuffer1 {
         IISPH_Additional_data p[];
 } iisph_add_data;
 
@@ -77,7 +82,7 @@ struct PCISPH_Additional_data {
     float padding2;
 };
 
-layout(set = 0, binding = 5, std430) buffer additionalDataBuffer2 {
+layout(set = 0, binding = 6, std430) buffer additionalDataBuffer2 {
         PCISPH_Additional_data p[];
 } pcisph_add_data;
 
@@ -136,27 +141,29 @@ vec3 cs_gradKernel(vec3 i, vec3 j) {
 //----------------------------
 float qs_kernel(vec3 i, vec3 j) {
     float q = length(i - j) / ubo.kernelh;
-
     float ret = 0;
-    float alpha = 10.0 / (120.0 * PI * pow(ubo.kernelh,3.0));
-    if (0 < q && q <= 3) {
+
+    float k = 81.0/22.0;
+    float alpha = 1.0 / (120.0 * PI * pow(ubo.kernelh,3.0));
+    
+    if (0 < q && q <= 1.0) {
         float q2 = q*q;
         float q3 = q2*q;
 
-        float t1 = pow(1.0-q,5.0);
-        float t2 = pow(2.0-q,5.0);
-        float t3 = pow(3.0-q,5.0);
+        float t1 = pow(1.0/3.0 - q,5.0);
+        float t2 = pow(2.0/3.0 - q,5.0);
+        float t3 = pow(1.0 - q,5.0);
 
-        if (q <= 1.0) {
+        if (q <= 1.0/3.0) {
             ret = t3 - 6.0*t2 + 15.0*t1;
-        } else if (q <= 2.0) {
-            ret = t3-6.0*t2;
+        } else if (q <= 2.0/3.0) {
+            ret = t3 - 6.0*t2;
         } else {
             ret = t3;
         }
     }
 
-    ret *= alpha;
+    ret *= k * alpha;
 
     return ret;
 }
@@ -173,7 +180,9 @@ vec3 qs_gradKernel(vec3 i, vec3 j) {
     float t2 = 30.0 * pow(2.0-q,4.0);
     float t1 = -75.0 * pow(1.0-q,4.0);
 
-    float alpha = 10.0 / (120.0 * PI * pow(ubo.kernelh,3.0));
+    float k = 81.0/22.0;
+    float alpha = 1.0 / (120.0 * PI * pow(ubo.kernelh,3.0));
+
     if (q > 0.0001 && q <= 3) {
         vec3 gradq = r / (rlength * ubo.kernelh);
 

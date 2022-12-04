@@ -42,10 +42,26 @@ namespace Vltava {
         cleanGridComp = std::make_unique<ComputeShader>("shaders/resetgrid.spv");
         cleanGridComp->setBuffers(uBuffers, sBuffers);
         cleanGridComp->createPipeline();
+
+        cleanNeighbourComp = std::make_unique<ComputeShader>("shaders/reset_neighbour.spv");
+        cleanNeighbourComp->setBuffers(uBuffers, sBuffers);
+        cleanNeighbourComp->createPipeline();
+
+        gatherNeighbourComp = std::make_unique<ComputeShader>("shaders/gather_neighbour.spv");
+        gatherNeighbourComp->setBuffers(uBuffers, sBuffers);
+        gatherNeighbourComp->createPipeline();
     }
 
     void SESPH::gpuTimeStep() {
         logCpuData = false;
+
+        // Time query
+        /*vk::QueryPoolCreateInfo queryInfo;
+        queryInfo.queryType = vk::QueryType::eTimestamp;
+        queryInfo.queryCount = 2;
+        vk::QueryPool queryPool = VulkanResources::getInstance().logDev->getHandle().createQueryPool(queryInfo);*/
+
+        VulkanTimeQuery query(2);
 
         vk::CommandBufferBeginInfo beginInfo({}, nullptr);
         auto& computeCmdBuffer = VulkanWrapper::getInstance().getCompCmdBuffer();
@@ -64,6 +80,9 @@ namespace Vltava {
             );
         }
 
+        computeCmdBuffer.resetQueryPool(query.pool, 0, 2);
+        computeCmdBuffer.writeTimestamp(vk::PipelineStageFlagBits::eComputeShader, query.pool, 0);
+
         // TODO something with iter
         for (int i = 0; i < 1; i++) {
             cleanGridComp->bindPipelineAndDescriptors(computeCmdBuffer);
@@ -78,6 +97,28 @@ namespace Vltava {
             );
 
             gridPlacementComp->bindPipelineAndDescriptors(computeCmdBuffer);
+            computeCmdBuffer.dispatch(particles1.size() / 64 + 1, 1, 1);
+            computeCmdBuffer.pipelineBarrier(
+                    vk::PipelineStageFlagBits::eComputeShader,
+                    vk::PipelineStageFlagBits::eComputeShader,
+                    {},
+                    {},
+                    membarriers,
+                    {}
+            );
+
+            cleanNeighbourComp->bindPipelineAndDescriptors(computeCmdBuffer);
+            computeCmdBuffer.dispatch(540 * particles1.size() / 64 + 1, 1, 1);
+            computeCmdBuffer.pipelineBarrier(
+                    vk::PipelineStageFlagBits::eComputeShader,
+                    vk::PipelineStageFlagBits::eComputeShader,
+                    {},
+                    {},
+                    membarriers,
+                    {}
+            );
+
+            gatherNeighbourComp->bindPipelineAndDescriptors(computeCmdBuffer);
             computeCmdBuffer.dispatch(particles1.size() / 64 + 1, 1, 1);
             computeCmdBuffer.pipelineBarrier(
                     vk::PipelineStageFlagBits::eComputeShader,
@@ -111,6 +152,8 @@ namespace Vltava {
             );
         }
 
+        computeCmdBuffer.writeTimestamp(vk::PipelineStageFlagBits::eComputeShader, query.pool, 1);
+
         computeCmdBuffer.end();
 
         vk::SubmitInfo submitInfo(
@@ -123,6 +166,8 @@ namespace Vltava {
         //VulkanResources::getInstance().computeQueue->submit(submitInfo, compFence);
         VulkanResources::getInstance().computeQueue->submit(submitInfo);
         VulkanResources::getInstance().logDev->getHandle().waitIdle();
+
+        std::cout << query.getTime(0,1) << std::endl;
     }
 
     // CPU functions
@@ -130,9 +175,13 @@ namespace Vltava {
     void SESPH::cpuTimeStep() {
         logCpuData = true;
 
+        CPUTimeQuery query;
+        query.start();
+
         // TODO something with iter
         for (int i = 0; i < 1; i++) {
             place();
+            gatherNeighbours();
             if (props.neighbour) {
                 neighbourCalculateRhoAndP(props.dt);
                 neighbourIter(props.dt);
@@ -141,6 +190,9 @@ namespace Vltava {
                 originalIter(props.dt);
             }
         }
+
+        query.stop();
+        std::cout << query.getElapsedTimeInMillis() << std::endl;
     }
 
     void SESPH::neighbourCalculateRhoAndP(float dt) {
@@ -152,7 +204,7 @@ namespace Vltava {
             float ogd = 0.0f;
 
             // Neighbour
-            glm::vec3 tuple = determineGridTuple(i);
+            /*glm::vec3 tuple = determineGridTuple(i);
             Neighbourhood n = getNeighbouringCells(tuple);
             for (int nr = 0; nr < 27; nr++) {
                 glm::vec3 current = n.neighbour[nr];
@@ -171,6 +223,16 @@ namespace Vltava {
                         density += particles[i].m * kernel(i, iterIdx);
                     }
                 }
+            }*/
+
+            int startIdx = 540*i;
+            int size = neighbour_data[startIdx];
+            for (int j = 0; j < size; j++) {
+                int iterIdx = neighbour_data[startIdx + j];
+                if (i == iterIdx)
+                    continue;
+
+                density += particles[j].m * kernel(i, iterIdx);
             }
 
             density = density < props.desired_density ? props.desired_density : density;
@@ -228,7 +290,7 @@ namespace Vltava {
                 glm::vec3 viscosity = glm::vec3(0);
 
                 // Neighbour
-                glm::vec3 tuple = determineGridTuple(i);
+                /*glm::vec3 tuple = determineGridTuple(i);
                 Neighbourhood n = getNeighbouringCells(tuple);
                 for (auto current : n.neighbour) {
                     if (!checkBounds(current)) continue;
@@ -254,6 +316,27 @@ namespace Vltava {
                         glm::vec3 vij = p1[i].v - p1.at(iterIdx).v;
                         viscosity -= pval * vij;
                     }
+                }*/
+
+                int startIdx = 540*i;
+                int size = neighbour_data[startIdx];
+                for (int j = 0; j < size; j++) {
+                    int iterIdx = neighbour_data[startIdx + j];
+                    if (i == iterIdx)
+                        continue;
+
+                    float dpj = 0;
+                    if (p1.at(iterIdx).rho != 0)
+                        dpj = p1.at(iterIdx).p / (p1.at(iterIdx).rho * p1.at(iterIdx).rho);
+
+                    pressure -= p1.at(iterIdx).m * (dpi + dpj) * gradKernel(p1.at(i).x, p1.at(iterIdx).x);
+
+                    float pval = 0;
+                    if (p1.at(iterIdx).rho != 0)
+                        pval = (p1.at(iterIdx).m / p1.at(iterIdx).rho) * 1.0/props.dt * 0.05 * kernel(p1.at(i).x, p1.at(iterIdx).x);
+
+                    glm::vec3 vij = p1[i].v - p1.at(iterIdx).v;
+                    viscosity -= pval * vij;
                 }
 
                 glm::vec3 gravity(0, 0, -9.81 * p1[i].m);

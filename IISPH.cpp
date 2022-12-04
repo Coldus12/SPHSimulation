@@ -22,7 +22,7 @@ namespace Vltava {
             // Density error calculation
             error = 0;
 
-            auto data = sBuffers->at(3).getData<AdditionalIISPHData>();
+            auto data = sBuffers->at(4).getData<AdditionalIISPHData>();
             for (auto& add: data) {
                 error += add.rho_pred;
             }

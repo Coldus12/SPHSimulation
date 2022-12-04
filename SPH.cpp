@@ -244,6 +244,10 @@ namespace Vltava {
             grid_data.resize(1, 0);
             grid_data.resize(list_size * cellx * celly * cellz, 0);
 
+            neighbour_data.clear();
+            neighbour_data.resize(1, 0);
+            neighbour_data.resize(540 * particles1.size(), -1);
+
             for (int i = 0; i < particles.size(); i++) {
                 placeParticleIntoCell(i);
             }
@@ -266,5 +270,35 @@ namespace Vltava {
             grid_data.at(realIdx) = particleIdx;
         }
         //}
+    }
+
+    void SPH::gatherNeighbours() {
+        for (int i = 0; i < particles1.size(); i++) {
+            int startIdx = 540 * i;
+            int neighbour_nr = 1;
+
+            glm::vec3 tuple = determineGridTuple(i);
+            Neighbourhood n = getNeighbouringCells(tuple);
+            for (int nr = 0; nr < 27; nr++) {
+                glm::vec3 current = n.neighbour[nr];
+                if (!checkBounds(current)) continue;
+
+                int idx = getStartIdxOfCell(current);
+                if (idx >= 0) {
+                    int size = grid_data.at(idx);
+
+                    int iterIdx = 0;
+                    for (int j = 1; j < size + 1; j++) {
+                        iterIdx = grid_data.at(idx + j);
+                        if (i == iterIdx) continue;
+
+                        neighbour_data[startIdx + neighbour_nr] = iterIdx;
+                        neighbour_nr++;
+                    }
+                }
+            }
+
+            neighbour_data[startIdx] = neighbour_nr;
+        }
     }
 }

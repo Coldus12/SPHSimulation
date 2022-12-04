@@ -6,7 +6,7 @@
 #include "ImLog.hpp"
 
 #define IMGUI_ENABLED true
-#define list_size 25
+#define list_size 40
 
 static Vltava::ImLog my_log;
 
@@ -210,7 +210,17 @@ namespace Vltava {
         );
         gridBuffer.bind(0);
 
+        Buffer neighbourBuffer(
+                540 * all_particle_nr * sizeof(int),
+                vk::BufferUsageFlagBits::eStorageBuffer,
+                vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
+        );
+        neighbourBuffer.bind(0);
+
+        std::vector<int> neighbour = std::vector<int>(540 * all_particle_nr, 0);
+
         std::vector<int> val;
+        //val.resize(list_size * cellx * celly * cellz, 0);
         for (int i = 0; i < list_size * cellx * celly * cellz; i++)
             val.push_back(0);
 
@@ -222,6 +232,9 @@ namespace Vltava {
 
         sBuffers.push_back(std::move(gridBuffer));
         sBuffers[2].writeToBuffer(val.data(), val.size() * sizeof(int));
+
+        sBuffers.push_back(std::move(neighbourBuffer));
+        sBuffers[3].writeToBuffer(neighbour.data(), neighbour.size() * sizeof(int));
 
         sesph_sim->initGpuSim(&uBuffers, &sBuffers);
         sesph_sim->setCellSizes(cellx, celly, cellz, list_size);

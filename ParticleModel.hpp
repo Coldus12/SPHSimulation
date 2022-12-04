@@ -35,7 +35,15 @@ namespace Vltava {
         float dt = 0.01f;
         float kPCI = 0.0f;
         bool neighbour = true;
-        float padding2 = 0.0f;
+
+        // 0 -> cubic kernel
+        // 1 -> quintic kernel
+        // 2 -> spiky
+        // 3 -> gaussian
+        // 4 -> wendland quintic c2
+        // 5 -> wendland quintic c6
+        // Anything else -> cubic kernel
+        float kernel_type = 0.0f;
 
         glm::vec4 gridA = glm::vec4(1);
         glm::vec4 gridB = glm::vec4(-1);

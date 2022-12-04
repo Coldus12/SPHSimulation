@@ -10,7 +10,7 @@ void main()
     //grab global ID
     uint gID = gl_GlobalInvocationID.x;
 
-    if (gID < list_size * cellx * celly * cellz) {
-        grid_data.numbers[int(gID)] = 0;
+    if (gID < nb_nr * ubo.nr_of_particles) {
+        neighbour_data.numbers[int(gID)] = 0;
     }
 }

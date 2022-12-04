@@ -3,23 +3,11 @@
 
 #include <iostream>
 #include <fstream>
+#include <chrono>
 #include "vulkan/vulkan.hpp"
 #include "Managed/Managed.hpp"
 
 namespace Vltava {
-    /*
-     * VulkanResources::getInstance().renderPass = renderPass.get();
-        VulkanResources::getInstance().physDev = physicalDevice.get();
-        VulkanResources::getInstance().dev = logicalDevice.get();
-        VulkanResources::getInstance().instance = instance.get();
-        VulkanResources::getInstance().graphicalCmdPool = graphicalCmdPool.get();
-        VulkanResources::getInstance().graphicsQueue = graphicsQueue.get();
-        VulkanResources::getInstance().computeQueue = computeQueue.get();
-        VulkanResources::getInstance().extent = swapChainExtent;
-        VulkanResources::getInstance().FRAMES_IN_FLIGHT = MAX_FRAMES_IN_FLIGHT;
-     *
-     * */
-
     class VulkanResources {
     public:
         static VulkanResources& getInstance() {
@@ -47,6 +35,53 @@ namespace Vltava {
         int FRAMES_IN_FLIGHT = 0;
     private:
         VulkanResources() = default;
+    };
+
+    class CPUTimeQuery {
+    public:
+        void start() {
+            start_time = std::chrono::system_clock::now();
+        }
+
+        void stop() {
+            stop_time = std::chrono::system_clock::now();
+        }
+
+        int getElapsedTimeInMillis() {
+            std::chrono::duration<float> elapsed_millis = stop_time-start_time;
+            return std::chrono::duration_cast<std::chrono::milliseconds>(elapsed_millis).count();
+        }
+
+    private:
+        std::chrono::time_point<std::chrono::system_clock> start_time, stop_time;
+    };
+
+    class VulkanTimeQuery {
+    public:
+        explicit VulkanTimeQuery(int queryCount) {
+            vk::QueryPoolCreateInfo queryInfo;
+            queryInfo.queryType = vk::QueryType::eTimestamp;
+            queryInfo.queryCount = queryCount;
+
+            pool = VulkanResources::getInstance().logDev->getHandle().createQueryPool(queryInfo);
+        }
+
+        vk::QueryPool pool;
+
+        float getTime(int stampNr1, int stampNr2) {
+            std::array<uint64_t, 2> timestamps = {0,0};
+            vk::Result res = VulkanResources::getInstance().logDev->getHandle().getQueryPoolResults(pool, stampNr1, stampNr2+1, sizeof(timestamps), &timestamps[stampNr1], sizeof(uint64_t), vk::QueryResultFlagBits::e64);
+            return ((float) (timestamps[1] - timestamps[0]))/1000000.F;
+        }
+
+        ~VulkanTimeQuery() {
+            cleanup();
+        }
+    private:
+        VulkanTimeQuery();
+        void cleanup() {
+            VulkanResources::getInstance().logDev->getHandle().destroyQueryPool(pool);
+        }
     };
 
     uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags flags);
