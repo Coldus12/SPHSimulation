@@ -22,7 +22,7 @@ namespace Vltava {
             // Density error calculation
             error = 0;
 
-            auto data = sBuffers->at(4).getData<AdditionalIISPHData>();
+            auto data = sBuffers->at(3).getData<AdditionalIISPHData>();
             for (auto& add: data) {
                 error += add.rho_pred;
             }
@@ -37,9 +37,14 @@ namespace Vltava {
         }
 
         gpuIntegrate();
+
+        times.push_back(time);
+        time = 0.0f;
     }
 
     void IISPH::gpuPredictAdvection() {
+        VulkanTimeQuery query(2);
+
         vk::CommandBufferBeginInfo beginInfo({}, nullptr);
         auto& computeCmdBuffer = VulkanWrapper::getInstance().getCompCmdBuffer();
         computeCmdBuffer.begin(beginInfo);
@@ -56,6 +61,9 @@ namespace Vltava {
                     VK_WHOLE_SIZE
             );
         }
+
+        computeCmdBuffer.resetQueryPool(query.pool, 0, 2);
+        computeCmdBuffer.writeTimestamp(vk::PipelineStageFlagBits::eComputeShader, query.pool, 0);
 
         // Grid stuff
         //--------------------
@@ -116,6 +124,8 @@ namespace Vltava {
                 {}
         );
 
+        computeCmdBuffer.writeTimestamp(vk::PipelineStageFlagBits::eComputeShader, query.pool, 1);
+
         computeCmdBuffer.end();
 
         vk::SubmitInfo submitInfo(
@@ -128,9 +138,13 @@ namespace Vltava {
         //VulkanResources::getInstance().computeQueue->submit(submitInfo, compFence);
         VulkanResources::getInstance().computeQueue->submit(submitInfo);
         VulkanResources::getInstance().logDev->getHandle().waitIdle();
+
+        time += query.getTime(0,1);
     }
 
     void IISPH::gpuPressureSolveUpdate() {
+        VulkanTimeQuery query(2);
+
         vk::CommandBufferBeginInfo beginInfo({}, nullptr);
         auto& computeCmdBuffer = VulkanWrapper::getInstance().getCompCmdBuffer();
         computeCmdBuffer.begin(beginInfo);
@@ -147,6 +161,9 @@ namespace Vltava {
                     VK_WHOLE_SIZE
             );
         }
+
+        computeCmdBuffer.resetQueryPool(query.pool, 0, 2);
+        computeCmdBuffer.writeTimestamp(vk::PipelineStageFlagBits::eComputeShader, query.pool, 0);
 
         // Pressure solve
         //--------------------
@@ -172,6 +189,8 @@ namespace Vltava {
                 {}
         );
 
+        computeCmdBuffer.writeTimestamp(vk::PipelineStageFlagBits::eComputeShader, query.pool, 1);
+
         computeCmdBuffer.end();
 
         vk::SubmitInfo submitInfo(
@@ -184,9 +203,13 @@ namespace Vltava {
         //VulkanResources::getInstance().computeQueue->submit(submitInfo, compFence);
         VulkanResources::getInstance().computeQueue->submit(submitInfo);
         VulkanResources::getInstance().logDev->getHandle().waitIdle();
+
+        time += query.getTime(0,1);
     }
 
     void IISPH::gpuIntegrate() {
+        VulkanTimeQuery query(2);
+
         vk::CommandBufferBeginInfo beginInfo({}, nullptr);
         auto& computeCmdBuffer = VulkanWrapper::getInstance().getCompCmdBuffer();
         computeCmdBuffer.begin(beginInfo);
@@ -217,6 +240,9 @@ namespace Vltava {
                 {}
         );*/
 
+        computeCmdBuffer.resetQueryPool(query.pool, 0, 2);
+        computeCmdBuffer.writeTimestamp(vk::PipelineStageFlagBits::eComputeShader, query.pool, 0);
+
         // Integrate
         //--------------------
         particleIterComp->bindPipelineAndDescriptors(computeCmdBuffer);
@@ -230,6 +256,8 @@ namespace Vltava {
                 {}
         );
 
+        computeCmdBuffer.writeTimestamp(vk::PipelineStageFlagBits::eComputeShader, query.pool, 1);
+
         computeCmdBuffer.end();
 
         vk::SubmitInfo submitInfo(
@@ -242,6 +270,8 @@ namespace Vltava {
         //VulkanResources::getInstance().computeQueue->submit(submitInfo, compFence);
         VulkanResources::getInstance().computeQueue->submit(submitInfo);
         VulkanResources::getInstance().logDev->getHandle().waitIdle();
+
+        time += query.getTime(0,1);
     }
 
     void IISPH::initGpuSim(std::vector<Buffer> *uBuffers, std::vector<Buffer> *sBuffers) {
@@ -320,6 +350,8 @@ namespace Vltava {
     //----------------------------------------------------
     void IISPH::cpuTimeStep() {
         logCpuData = true;
+        CPUTimeQuery query;
+        query.start();
 
         // TODO iter
         for (int iter = 0; iter < 1; iter++) {
@@ -329,6 +361,10 @@ namespace Vltava {
             pressureSolve(props.dt);
             integrate(props.dt);
         }
+
+        query.stop();
+        //std::cout << query.getElapsedTimeInMillis() << std::endl;
+        times.push_back(query.getElapsedTimeInMillis());
     }
 
     // Predict advection

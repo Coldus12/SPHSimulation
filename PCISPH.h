@@ -1,6 +1,7 @@
 #ifndef SPHSIMULATION_PCISPH_H
 #define SPHSIMULATION_PCISPH_H
 
+#include <iterator>
 #include "SPH.h"
 #include "ComputeShader.hpp"
 #include "VulkanWrapper.h"
@@ -26,6 +27,10 @@ namespace Vltava {
         // other functions
         void setBuffers(std::vector<Buffer>* uBuffers, std::vector<Buffer>* sBuffers) override;
         ~PCISPH() {
+            std::remove("pcisph_data.txt");
+            std::ofstream pcisphData("pcisph_data.txt");
+            std::copy(times.begin(), times.end(), std::ostream_iterator<float>(pcisphData, "\n"));
+            pcisphData.close();
             cleanup();
         }
 
@@ -39,6 +44,8 @@ namespace Vltava {
     private:
         // other variables
         float kPCI = 0.0;
+        float time = 0.0F;
+        std::vector<float> times;
 
         // variables for GPU sim
         std::unique_ptr<ComputeShader> cleanGridComp;

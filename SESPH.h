@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <vector>
+#include <iterator>
 #include "vulkan/vulkan.hpp"
 #include "ComputeShader.hpp"
 #include "SPH.h"
@@ -20,6 +21,10 @@ namespace Vltava {
 
         // other functions
         ~SESPH() {
+            std::remove("sesph_data.txt");
+            std::ofstream sesphData("sesph_data.txt");
+            std::copy(times.begin(), times.end(), std::ostream_iterator<float>(sesphData, "\n"));
+            sesphData.close();
             cleanup();
         }
 
@@ -37,6 +42,7 @@ namespace Vltava {
         // other variables
         bool data_has_been_set = false;
         bool simProps_has_been_set = false;
+        std::vector<float> times;
 
         // variables for GPU sim
         std::unique_ptr<ComputeShader> densityComp;

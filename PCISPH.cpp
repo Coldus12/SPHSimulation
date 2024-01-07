@@ -35,9 +35,14 @@ namespace Vltava {
         }
 
         gpuIntegrate();
+
+        times.push_back(time);
+        time = 0.0f;
     }
 
     void PCISPH::gpuPredictAdvection() {
+        VulkanTimeQuery query(2);
+
         vk::CommandBufferBeginInfo beginInfo({}, nullptr);
         auto& computeCmdBuffer = VulkanWrapper::getInstance().getCompCmdBuffer();
         computeCmdBuffer.begin(beginInfo);
@@ -54,6 +59,9 @@ namespace Vltava {
                     VK_WHOLE_SIZE
             );
         }
+
+        computeCmdBuffer.resetQueryPool(query.pool, 0, 2);
+        computeCmdBuffer.writeTimestamp(vk::PipelineStageFlagBits::eComputeShader, query.pool, 0);
 
         // Neighbourhood search
         //--------------------
@@ -105,6 +113,8 @@ namespace Vltava {
                 {}
         );
 
+        computeCmdBuffer.writeTimestamp(vk::PipelineStageFlagBits::eComputeShader, query.pool, 1);
+
         computeCmdBuffer.end();
 
         vk::SubmitInfo submitInfo(
@@ -117,9 +127,13 @@ namespace Vltava {
         //VulkanResources::getInstance().computeQueue->submit(submitInfo, compFence);
         VulkanResources::getInstance().computeQueue->submit(submitInfo);
         VulkanResources::getInstance().logDev->getHandle().waitIdle();
+
+        time += query.getTime(0,1);
     }
 
     void PCISPH::gpuPressureSolve() {
+        VulkanTimeQuery query(2);
+
         vk::CommandBufferBeginInfo beginInfo({}, nullptr);
         auto& computeCmdBuffer = VulkanWrapper::getInstance().getCompCmdBuffer();
         computeCmdBuffer.begin(beginInfo);
@@ -136,6 +150,9 @@ namespace Vltava {
                     VK_WHOLE_SIZE
             );
         }
+
+        computeCmdBuffer.resetQueryPool(query.pool, 0, 2);
+        computeCmdBuffer.writeTimestamp(vk::PipelineStageFlagBits::eComputeShader, query.pool, 0);
 
         // Recalculating pressure accelerations
         //--------------------
@@ -163,6 +180,8 @@ namespace Vltava {
                 {}
         );
 
+        computeCmdBuffer.writeTimestamp(vk::PipelineStageFlagBits::eComputeShader, query.pool, 1);
+
         computeCmdBuffer.end();
 
         vk::SubmitInfo submitInfo(
@@ -175,9 +194,13 @@ namespace Vltava {
         //VulkanResources::getInstance().computeQueue->submit(submitInfo, compFence);
         VulkanResources::getInstance().computeQueue->submit(submitInfo);
         VulkanResources::getInstance().logDev->getHandle().waitIdle();
+
+        time += query.getTime(0,1);
     }
 
     void PCISPH::gpuIntegrate() {
+        VulkanTimeQuery query(2);
+
         vk::CommandBufferBeginInfo beginInfo({}, nullptr);
         auto& computeCmdBuffer = VulkanWrapper::getInstance().getCompCmdBuffer();
         computeCmdBuffer.begin(beginInfo);
@@ -195,6 +218,9 @@ namespace Vltava {
             );
         }
 
+        computeCmdBuffer.resetQueryPool(query.pool, 0, 2);
+        computeCmdBuffer.writeTimestamp(vk::PipelineStageFlagBits::eComputeShader, query.pool, 0);
+
         // Particle iter
         //--------------------
         particleIterComp->bindPipelineAndDescriptors(computeCmdBuffer);
@@ -208,6 +234,8 @@ namespace Vltava {
                 {}
         );
 
+        computeCmdBuffer.writeTimestamp(vk::PipelineStageFlagBits::eComputeShader, query.pool, 1);
+
         computeCmdBuffer.end();
 
         vk::SubmitInfo submitInfo(
@@ -220,6 +248,8 @@ namespace Vltava {
         //VulkanResources::getInstance().computeQueue->submit(submitInfo, compFence);
         VulkanResources::getInstance().computeQueue->submit(submitInfo);
         VulkanResources::getInstance().logDev->getHandle().waitIdle();
+
+        time += query.getTime(0,1);
     }
 
     void PCISPH::initGpuSim(std::vector<Buffer> *uBuffers, std::vector<Buffer> *sBuffers) {
@@ -290,10 +320,16 @@ namespace Vltava {
     //----------------------------------------------------
     void PCISPH::cpuTimeStep() {
         logCpuData = true;
+        CPUTimeQuery query;
+        query.start();
 
         place();
         pressureSolve(props.dt);
         particleAdvection(props.dt);
+
+        query.stop();
+        //std::cout << query.getElapsedTimeInMillis() << std::endl;
+        times.push_back(query.getElapsedTimeInMillis());
     }
 
     // PCISPH iterative pressure solver

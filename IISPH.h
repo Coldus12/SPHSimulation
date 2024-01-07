@@ -1,6 +1,7 @@
 #ifndef SPHSIMULATION_IISPH_H
 #define SPHSIMULATION_IISPH_H
 
+#include <iterator>
 #include "SPH.h"
 #include "ComputeShader.hpp"
 #include "VulkanWrapper.h"
@@ -25,6 +26,10 @@ namespace Vltava {
 
         // other functions
         ~IISPH() {
+            std::remove("iisph_data.txt");
+            std::ofstream iisphData("iisph_data.txt");
+            std::copy(times.begin(), times.end(), std::ostream_iterator<float>(iisphData, "\n"));
+            iisphData.close();
             cleanup();
         }
         void setBuffers(std::vector<Buffer>* uBuffers, std::vector<Buffer>* sBuffers) override;
@@ -41,6 +46,8 @@ namespace Vltava {
 
     private:
         // other variables
+        float time = 0.0F;
+        std::vector<float> times;
 
         // variables for GPU sim
         std::unique_ptr<ComputeShader> gridPlacementComp;

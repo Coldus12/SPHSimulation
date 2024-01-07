@@ -75,7 +75,6 @@ namespace Vltava {
         bool first = true;
         bool neighbour = true;
         std::vector<int> grid_data;
-        std::vector<int> neighbour_data;
 
         // false means log will show GPU data instead
         bool logCpuData = true;
@@ -98,7 +97,6 @@ namespace Vltava {
         Neighbourhood getNeighbouringCells(glm::vec3 cellTuple);
         bool checkBounds(glm::vec3 tuple);
         void placeParticleIntoCell(int particleIdx);
-        void gatherNeighbours();
     };
 
 } // Vltava

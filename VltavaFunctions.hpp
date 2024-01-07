@@ -47,9 +47,10 @@ namespace Vltava {
             stop_time = std::chrono::system_clock::now();
         }
 
-        int getElapsedTimeInMillis() {
+        double getElapsedTimeInMillis() {
             std::chrono::duration<float> elapsed_millis = stop_time-start_time;
-            return std::chrono::duration_cast<std::chrono::milliseconds>(elapsed_millis).count();
+            long long nanos = std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed_millis).count();
+            return ((double) nanos / 1000000.0);
         }
 
     private:

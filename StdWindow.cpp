@@ -15,6 +15,7 @@ namespace Vltava {
     bool StdWindow::rot = false;
     bool StdWindow::logB = false;
     bool StdWindow::parallelCpuSim = false;
+    bool StdWindow::realTime = false;
 
     // Constructor
     //------------------------------------------------------------------------------------------------------------------
@@ -402,24 +403,25 @@ namespace Vltava {
             }
 
             if (realTime) {
-                auto now = std::chrono::high_resolution_clock::now();
+                timeSoFar += timeStep;
+                //auto now = std::chrono::high_resolution_clock::now();
 
                 // "If timeout is zero, then vkWaitForFences does not wait, but simply returns the current state of the fences."
                 //if (VulkanResources::getInstance().logDev->getHandle().waitForFences(compFence, false, 0) != vk::Result::eTimeout) {
                     // Sadly the fence does not seem to work the way i hoped it would
-                    float time = std::chrono::duration<float, std::chrono::milliseconds::period>(now - start).count();
+                    //float time = std::chrono::duration<float, std::chrono::milliseconds::period>(now - start).count();
 
-                    time /= 10;
+                    //time /= 10;
                     //if (time < 1) time = 1;
-                    if (time > 1) {
+                    //if (time > 1) {
                         //VulkanResources::getInstance().logDev->getHandle().resetFences(compFence);
-                        std::cout << "time: " << time << std::endl;
-                        if (time > 1)
-                            time = 1;
+                        //std::cout << "time: " << time << std::endl;
+                        //if (time > 1)
+                            //time = 1;
 
                         //std::cout << "dispatch nr: " << time << std::endl;
 
-                        nrOfIter = time;
+                        //nrOfIter = time;
 
                         if (!cpuSim)
                             switch (sph_type) {
@@ -435,13 +437,15 @@ namespace Vltava {
                                     break;
                             }
                         else
-                            runCpuSim(nrOfIter);
+                            runCpuSim(1);
                         //sesph_sim->gpuTimeStep();
 
 
                         log();
-                        start = std::chrono::high_resolution_clock::now();
-                    }
+                        /*if (timeSoFar >= 5.0f)
+                            realTime = false;*/
+                        //start = std::chrono::high_resolution_clock::now();
+                    //}
                 //}
             }
 
@@ -468,6 +472,8 @@ namespace Vltava {
                 uBuffers[0].writeToBuffer(&props, sizeof(props));
             }
 
+            ImGui::Text(("Simulated time: "+std::to_string(timeSoFar)).c_str());
+
             ImGui::Text("Reset data??");
             if (ImGui::Button("Yes"))
                 resetData();
@@ -493,6 +499,7 @@ namespace Vltava {
             //ImGui::Checkbox("Real time?", &realTime);
 
             if (ImGui::Button("Real time flip")) {
+                timeSoFar = 0.0f;
                 realTime = !realTime;
                 start = std::chrono::high_resolution_clock::now();
             }
@@ -540,6 +547,10 @@ namespace Vltava {
 
         if (key == GLFW_KEY_C && action == GLFW_PRESS) {
             parallelCpuSim = !parallelCpuSim;
+        }
+
+        if (key == GLFW_KEY_R && action == GLFW_PRESS) {
+            realTime = !realTime;
         }
     }
 

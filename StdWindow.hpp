@@ -59,6 +59,7 @@ namespace Vltava {
         glm::vec3 gridA;
         glm::vec3 gridB;
         bool neigbourIGuess = true;
+        float timeSoFar = 0.0f;
         float timeStep = 0.002f;
         float lastTimeStep = timeStep;
 
@@ -81,7 +82,7 @@ namespace Vltava {
         bool show_log = false;
         bool write_log = false;
         bool console_log = false;
-        bool realTime = false;
+        static bool realTime; // = false;
         bool makeContainer = false;
         bool setBoundaries = false;
         int containerSize = 16;
